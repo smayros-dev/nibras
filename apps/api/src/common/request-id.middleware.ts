@@ -4,13 +4,12 @@ import type { NextFunction, Request, Response } from 'express';
 import { RequestContext } from './request-context';
 
 export const REQUEST_ID_HEADER = 'X-Request-Id';
-const MAX_REQUEST_ID_LENGTH = 128;
+/** Client ids end up in headers and logs: a strict charset rules out injection. */
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 
-/** Reuses a sane incoming `X-Request-Id`, otherwise generates a UUID. */
+/** Reuses a well-formed incoming `X-Request-Id`, otherwise generates a UUID. */
 export function resolveRequestId(incoming: unknown): string {
-  return typeof incoming === 'string' &&
-    incoming.length > 0 &&
-    incoming.length <= MAX_REQUEST_ID_LENGTH
+  return typeof incoming === 'string' && REQUEST_ID_PATTERN.test(incoming)
     ? incoming
     : randomUUID();
 }

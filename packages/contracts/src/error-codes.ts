@@ -7,6 +7,8 @@ export const ERROR_CODES = [
   'RATE_LIMITED',
   'INTERNAL_ERROR',
   'SERVICE_UNAVAILABLE',
+  'PAYLOAD_TOO_LARGE',
+  'UNSUPPORTED_MEDIA_TYPE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

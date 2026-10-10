@@ -10,9 +10,11 @@ export default mergeConfig(
     test: {
       include: ['src/**/*.spec.ts', 'test/**/*.e2e-spec.ts'],
       setupFiles: ['./test/setup.ts'],
-      // e2e specs share one test database and Redis index.
+      // Spec files run one at a time: they all use the same `DATABASE_URL_TEST` DB and
+      // `REDIS_URL_TEST` index (mapped in test/setup.ts).
       fileParallelism: false,
-      // Booting Nest + connecting Prisma (slow `localhost` fallback on Windows) exceeds the 5s default.
+      // The unreachable-DB health spec boots Nest while Prisma's connect to a closed port fails;
+      // on Windows a refused connection takes ~2s per address, beyond the 5s default.
       testTimeout: 15_000,
     },
   }),

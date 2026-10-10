@@ -25,7 +25,9 @@
     "RATE_LIMITED": "Too many requests. Please wait before trying again.",
     "UNAUTHENTICATED": "You must sign in to continue.",
     "PERMISSION_DENIED": "You do not have permission to perform this action.",
-    "SERVICE_UNAVAILABLE": "The service is temporarily unavailable. Please try again later."
+    "SERVICE_UNAVAILABLE": "The service is temporarily unavailable. Please try again later.",
+    "PAYLOAD_TOO_LARGE": "The request is too large.",
+    "UNSUPPORTED_MEDIA_TYPE": "The request format is not supported."
   },
   "health": {
     "ok": "Service is up"

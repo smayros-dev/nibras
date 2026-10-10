@@ -30,6 +30,7 @@
         "DATABASE_URL_TEST_SYSTEM",
         "DATABASE_URL_SHADOW",
         "REDIS_URL",
+        "REDIS_URL_TEST",
         "WEB_ORIGIN",
         "LOG_LEVEL"
       ]

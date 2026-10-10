@@ -12,6 +12,10 @@ describe('http setup (shared with main.ts)', () => {
     await app.close();
   });
 
+  it('runs against the test Redis index when REDIS_URL_TEST is set', () => {
+    if (process.env.REDIS_URL_TEST) expect(process.env.REDIS_URL).toBe(process.env.REDIS_URL_TEST);
+  });
+
   it('sends helmet headers forbidding framing', async () => {
     const res = await http.get('/health/live').expect(200);
     expect(res.headers['content-security-policy']).toContain("frame-ancestors 'none'");

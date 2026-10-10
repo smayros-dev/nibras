@@ -1,4 +1,17 @@
-import { Body, Controller, Get, HttpStatus, Logger, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  HttpException,
+  HttpStatus,
+  Logger,
+  MethodNotAllowedException,
+  Post,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiErrorBodySchema } from '@tt/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -25,6 +38,37 @@ class TestController {
   @Get('domain')
   domain(): never {
     throw new ApiError(HttpStatus.FORBIDDEN, 'PERMISSION_DENIED', 'Nope', { reason: 'role' });
+  }
+
+  @Get('unauthorized')
+  unauthorized(): never {
+    throw new UnauthorizedException('token abc expired');
+  }
+
+  @Get('forbidden')
+  forbidden(): never {
+    throw new ForbiddenException('user 42 lacks role');
+  }
+
+  @Get('throttled')
+  throttled(): never {
+    throw new HttpException('ThrottlerException: Too Many Requests', HttpStatus.TOO_MANY_REQUESTS);
+  }
+
+  @Get('not-allowed')
+  notAllowed(): never {
+    throw new MethodNotAllowedException('internal detail');
+  }
+
+  @Get('unavailable')
+  unavailable(): never {
+    throw new HttpException('upstream x down', HttpStatus.SERVICE_UNAVAILABLE);
+  }
+
+  @Get('partial')
+  partial(@Res() res: Response): never {
+    res.status(200).write('partial');
+    throw new Error('failed mid-stream');
   }
 
   @Get('context')
@@ -77,10 +121,80 @@ describe('error envelope', () => {
     const res = await http
       .post('/api/v1/__test/echo')
       .set('Content-Type', 'application/json')
-      .send('{"name":')
+      .send('{"name":"s3cret-fragment"')
       .expect(422);
     expect(ApiErrorBodySchema.safeParse(res.body).success).toBe(true);
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'Malformed request',
+    });
+    expect(JSON.stringify(res.body)).not.toContain('s3cret');
     expect(JSON.stringify(res.body)).not.toMatch(/\bat \S+:\d+/);
+  });
+
+  it.each([
+    ['unauthorized', 401, 'UNAUTHENTICATED'],
+    ['forbidden', 403, 'PERMISSION_DENIED'],
+    ['throttled', 429, 'RATE_LIMITED'],
+    ['not-allowed', 400, 'VALIDATION_FAILED'],
+    ['unavailable', 503, 'SERVICE_UNAVAILABLE'],
+  ] as const)(
+    'maps HTTP errors from /%s to %i %s with a fixed message',
+    async (route, status, code) => {
+      const logged = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      const res = await http.get(`/api/v1/__test/${route}`).expect(status);
+      expect(res.body.code).toBe(code);
+      expect(ApiErrorBodySchema.safeParse(res.body).success).toBe(true);
+      // The exception's own message never reaches the client.
+      expect(Object.keys(res.body).sort()).toEqual(['code', 'message', 'requestId']);
+      expect(res.body.message).not.toMatch(/abc|42|Throttler|internal detail|upstream/);
+      // Only 5xx are logged at error level (with the stack).
+      expect(logged).toHaveBeenCalledTimes(status >= 500 ? 1 : 0);
+      logged.mockRestore();
+    },
+  );
+
+  it('returns 413 PAYLOAD_TOO_LARGE for an oversized JSON body', async () => {
+    const logged = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const res = await http
+      .post('/api/v1/__test/echo')
+      .send({ name: 'x'.repeat(200 * 1024) })
+      .expect(413);
+    expect(res.body).toMatchObject({ code: 'PAYLOAD_TOO_LARGE', message: 'Payload too large' });
+    expect(ApiErrorBodySchema.safeParse(res.body).success).toBe(true);
+    expect(logged).not.toHaveBeenCalled();
+    logged.mockRestore();
+  });
+
+  it('returns 415 UNSUPPORTED_MEDIA_TYPE for an unsupported body charset', async () => {
+    const res = await http
+      .post('/api/v1/__test/echo')
+      .set('Content-Type', 'application/json; charset=klingon')
+      .send('{"name":"ab"}')
+      .expect(415);
+    expect(res.body.code).toBe('UNSUPPORTED_MEDIA_TYPE');
+    expect(ApiErrorBodySchema.safeParse(res.body).success).toBe(true);
+  });
+
+  it('ends an already-started response instead of throwing when an error follows', async () => {
+    const logged = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const res = await http
+      .get('/api/v1/__test/partial')
+      .buffer(true)
+      .parse((r, cb) => {
+        let data = '';
+        r.on('data', (chunk: Buffer) => (data += chunk.toString()));
+        r.on('end', () => cb(null, data));
+      });
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('partial');
+    expect(logged).toHaveBeenCalledWith(
+      expect.stringContaining('failed mid-stream'),
+      expect.any(String),
+    );
+    // The server keeps serving afterwards.
+    await http.get('/health/live').expect(200);
+    logged.mockRestore();
   });
 
   it('returns 404 NOT_FOUND envelope for unknown routes', async () => {
@@ -111,5 +225,19 @@ describe('error envelope', () => {
       .set('X-Request-Id', 'x'.repeat(129))
       .expect(200);
     expect(long.headers['x-request-id']).toMatch(uuid);
+  });
+
+  it('accepts only [A-Za-z0-9._:-] request ids and replaces anything else', async () => {
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    const ok = 'Trace-01.abc:def_9';
+    const accepted = await http.get('/api/v1/__test/context').set('X-Request-Id', ok).expect(200);
+    expect(accepted.headers['x-request-id']).toBe(ok);
+    expect(accepted.body.requestId).toBe(ok);
+
+    for (const bad of ['a b', 'id"<script>', 'a/b', 'x;y=1', 'é']) {
+      const res = await http.get('/api/v1/__test/context').set('X-Request-Id', bad).expect(200);
+      expect(res.headers['x-request-id']).toMatch(uuid);
+      expect(res.body.requestId).toBe(res.headers['x-request-id']);
+    }
   });
 });
