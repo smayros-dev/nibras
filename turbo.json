@@ -29,7 +29,8 @@
         "DATABASE_URL_TEST",
         "DATABASE_URL_TEST_SYSTEM",
         "DATABASE_URL_SHADOW",
-        "REDIS_URL"
+        "REDIS_URL",
+        "REDIS_URL_TEST"
       ]
     },
     "e2e": {

@@ -1,0 +1,22 @@
+import { describe, expect, it } from 'vitest';
+
+import { loadEnv } from './env';
+
+const base = { DATABASE_URL_SYSTEM: 'postgresql://app_system:app@localhost:5432/tt' };
+
+describe('loadEnv', () => {
+  it('accepts redis: and rediss: URLs and applies defaults', () => {
+    expect(loadEnv({ ...base, REDIS_URL: 'redis://localhost:6379/8' })).toMatchObject({
+      REDIS_URL: 'redis://localhost:6379/8',
+      WORKER_PORT: 3002,
+      LOG_LEVEL: 'info',
+    });
+    expect(loadEnv({ ...base, REDIS_URL: 'rediss://host:6380' }).REDIS_URL).toBe(
+      'rediss://host:6380',
+    );
+  });
+
+  it('rejects REDIS_URL with another scheme', () => {
+    expect(() => loadEnv({ ...base, REDIS_URL: 'http://localhost:6379' })).toThrow(/REDIS_URL/);
+  });
+});
