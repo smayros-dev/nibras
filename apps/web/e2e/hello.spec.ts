@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 
+/** A raw `namespace.key` message id rendered instead of its translation. */
+const RAW_KEY = /\b(common|nav|hello|errors|health)\.[A-Za-z_]+\b/;
+
 for (const [locale, title, dir] of [
   ['fr', 'Bonjour', 'ltr'],
   ['ar', 'مرحباً', 'rtl'],
@@ -12,7 +15,15 @@ for (const [locale, title, dir] of [
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
     expect(await page.evaluate(() => getComputedStyle(document.body).direction)).toBe(dir);
     const raw = await page.locator('body').innerText();
-    expect(raw).not.toMatch(/\b(hello|nav|common)\.[a-z]+\b/i); // no raw message keys
+    expect(raw).not.toMatch(RAW_KEY); // no raw message keys in text
+    // ...nor in accessible names / tooltips (client components included: Review Focus 2).
+    const attributes = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[aria-label], [title]')).flatMap((el) =>
+        ['aria-label', 'title'].map((name) => el.getAttribute(name) ?? ''),
+      ),
+    );
+    expect(attributes.length).toBeGreaterThan(0);
+    expect(attributes.filter((value) => RAW_KEY.test(value))).toEqual([]);
   });
 }
 
@@ -44,6 +55,14 @@ test('web health route', async ({ request }) => {
   expect(r.status()).toBe(200);
   expect(await r.json()).toEqual({ status: 'ok' });
 });
+
+for (const path of ['/health/live', '/health/ready']) {
+  test(`web ${path} is served outside locale routing`, async ({ request }) => {
+    const r = await request.get(path, { maxRedirects: 0 });
+    expect(r.status()).toBe(200);
+    expect(await r.json()).toEqual({ status: 'ok' });
+  });
+}
 
 test('locale switcher keeps the page and flips direction', async ({ page }) => {
   await page.goto('/fr');

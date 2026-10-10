@@ -1,11 +1,12 @@
 import { dirOf } from '@tt/contracts';
 import { getMessages } from '@tt/i18n';
 import type { Metadata } from 'next';
-import { hasLocale, NextIntlClientProvider } from 'next-intl';
-import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { hasLocale } from 'next-intl';
+import { getTimeZone, getTranslations, setRequestLocale } from 'next-intl/server';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { IntlProvider } from '../../components/intl-provider';
 import { routing } from '../../i18n/routing';
 import '../globals.css';
 
@@ -39,13 +40,16 @@ export default async function LocaleLayout({
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
+  // The client provider does not inherit request config; without a timeZone use-intl reports
+  // ENVIRONMENT_FALLBACK, which our dev onError turns into a render failure.
+  const timeZone = await getTimeZone();
 
   return (
     <html lang={locale} dir={dirOf(locale)}>
       <body className={plexArabic.className}>
-        <NextIntlClientProvider locale={locale} messages={getMessages(locale)}>
+        <IntlProvider locale={locale} messages={getMessages(locale)} timeZone={timeZone}>
           {children}
-        </NextIntlClientProvider>
+        </IntlProvider>
       </body>
     </html>
   );

@@ -24,6 +24,7 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except the API rewrite, the health route, Next internals and files with an extension.
-  matcher: ['/((?!api/|health$|_next|_vercel|.*\\..*).*)'],
+  // Everything except the API rewrite, the health routes (/health, /health/live, /health/ready),
+  // Next internals and files with an extension.
+  matcher: ['/((?!api/|health$|health/|_next|_vercel|.*\\..*).*)'],
 };
