@@ -1,0 +1,32 @@
+{
+  "common": {
+    "appName": "Course platform",
+    "loading": "Loading…",
+    "retry": "Retry"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "courses": "Courses",
+    "students": "Students",
+    "sessions": "Sessions",
+    "messages": "Messages",
+    "notifications": "Notifications",
+    "settings": "Settings"
+  },
+  "hello": {
+    "title": "Hello",
+    "subtitle": "Online course platform — development environment",
+    "switchLocale": "Change language"
+  },
+  "errors": {
+    "VALIDATION_FAILED": "The submitted data is invalid.",
+    "NOT_FOUND": "Resource not found.",
+    "INTERNAL_ERROR": "An internal error occurred. Please try again.",
+    "RATE_LIMITED": "Too many requests. Please wait before trying again.",
+    "UNAUTHENTICATED": "You must sign in to continue.",
+    "PERMISSION_DENIED": "You do not have permission to perform this action."
+  },
+  "health": {
+    "ok": "Service is up"
+  }
+}

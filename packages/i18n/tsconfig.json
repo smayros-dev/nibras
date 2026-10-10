@@ -1,0 +1,10 @@
+{
+  "extends": "@tt/config/tsconfig/package",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts", "messages/*.json", "vitest.config.ts"]
+}

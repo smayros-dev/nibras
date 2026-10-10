@@ -1,0 +1,32 @@
+{
+  "common": {
+    "appName": "Plateforme cours",
+    "loading": "Chargement…",
+    "retry": "Réessayer"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "courses": "Cours",
+    "students": "Étudiants",
+    "sessions": "Sessions",
+    "messages": "Messages",
+    "notifications": "Notifications",
+    "settings": "Paramètres"
+  },
+  "hello": {
+    "title": "Bonjour",
+    "subtitle": "Plateforme de cours en ligne — environnement de développement",
+    "switchLocale": "Changer de langue"
+  },
+  "errors": {
+    "VALIDATION_FAILED": "Les données envoyées sont invalides.",
+    "NOT_FOUND": "Ressource introuvable.",
+    "INTERNAL_ERROR": "Une erreur interne est survenue. Veuillez réessayer.",
+    "RATE_LIMITED": "Trop de requêtes. Veuillez patienter avant de réessayer.",
+    "UNAUTHENTICATED": "Vous devez vous connecter pour continuer.",
+    "PERMISSION_DENIED": "Vous n’avez pas l’autorisation d’effectuer cette action."
+  },
+  "health": {
+    "ok": "Service opérationnel"
+  }
+}
