@@ -1,11 +1,17 @@
-// `prisma migrate diff --exit-code` with the shadow DB taken from DATABASE_URL_SYSTEM.
+// `prisma migrate diff --exit-code` against a dedicated shadow DB (DATABASE_URL_SHADOW).
+// Prisma wipes the shadow DB on every run, so it must never be tt or tt_test.
 // A Node wrapper because `$VAR` in a package.json script does not expand under cmd.exe (pnpm's Windows shell).
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
-const shadowUrl = process.env.DATABASE_URL_SYSTEM;
+const shadowUrl = process.env.DATABASE_URL_SHADOW;
 if (!shadowUrl) {
-  console.error('migrate:check: DATABASE_URL_SYSTEM is not set');
+  console.error('migrate:check: DATABASE_URL_SHADOW is not set');
+  process.exit(1);
+}
+const shadowDb = new URL(shadowUrl).pathname.slice(1);
+if (!shadowDb.endsWith('_shadow')) {
+  console.error(`migrate:check: refusing shadow database "${shadowDb}" (name must end in _shadow)`);
   process.exit(1);
 }
 
