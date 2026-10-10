@@ -1,0 +1,25 @@
+{
+  "name": "tt",
+  "private": true,
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "docker compose up -d && turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "e2e": "turbo run e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:migrate": "pnpm --filter @tt/db migrate:dev",
+    "db:generate": "pnpm --filter @tt/db generate"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "prettier": "^3.9.0",
+    "turbo": "^2.11.7"
+  }
+}
