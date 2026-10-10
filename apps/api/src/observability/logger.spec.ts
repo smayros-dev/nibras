@@ -26,6 +26,7 @@ describe('buildPinoOptions', () => {
         'req.headers.cookie',
         '*.password',
         '*.email',
+        '*.token',
       ]),
     );
   });
@@ -42,15 +43,34 @@ describe('buildPinoOptions', () => {
     const logger = pino({ redact: opts.redact }, sink);
     logger.info({
       email: 'a@b.c',
-      user: { email: 'a@b.c', password: 'pw' },
+      user: { email: 'a@b.c', password: 'pw', token: 'tok-1' },
       body: { profile: { email: 'a@b.c', cookie: 'sid=1' } },
       req: { headers: { authorization: 'Bearer t', cookie: 'sid=1' } },
     });
     const line = lines.join('');
     expect(line).not.toContain('a@b.c');
     expect(line).not.toContain('pw');
+    expect(line).not.toContain('tok-1');
     expect(line).not.toContain('Bearer');
     expect(line).not.toContain('sid=');
+  });
+
+  it('logs the request path without its query string', () => {
+    const opts = httpOptions(buildPinoOptions(env));
+    const serialize = (opts.serializers as { req: (req: unknown) => Record<string, unknown> }).req;
+    const out = serialize({
+      id: 'r1',
+      method: 'GET',
+      url: '/api/v1/users?email=a@b.c&token=s3cret',
+      query: { email: 'a@b.c', token: 's3cret' },
+      params: {},
+      headers: { host: 'x' },
+      remoteAddress: '::1',
+      remotePort: 1,
+    });
+    expect(out.url).toBe('/api/v1/users');
+    expect(out).not.toHaveProperty('query');
+    expect(JSON.stringify(out)).not.toMatch(/a@b\.c|s3cret/);
   });
 
   it('reuses the request id and binds it as request_id', () => {

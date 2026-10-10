@@ -12,13 +12,34 @@ import { env, type Env } from '../config/env';
 export const LOG_DESTINATION = Symbol('LOG_DESTINATION');
 
 /** Never written in clear (Global Constraints): at the top level and nested up to two levels. */
-const SENSITIVE_KEYS = ['email', 'password', 'authorization', 'cookie'];
+const SENSITIVE_KEYS = ['email', 'password', 'token', 'authorization', 'cookie'];
 
 const REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
   ...SENSITIVE_KEYS.flatMap((key) => [key, `*.${key}`, `*.*.${key}`]),
 ];
+
+/** Fields of pino's standard request serializer that this API logs. */
+interface SerializedRequest {
+  id: unknown;
+  method: string;
+  url: string;
+  params?: unknown;
+  headers: unknown;
+  remoteAddress?: string;
+  remotePort?: number;
+}
+
+/**
+ * The standard request fields minus the query string: query values (emails, tokens, codes) are
+ * never logged, so `url` is the path only and `query` is dropped.
+ */
+function serializeRequest(req: SerializedRequest): SerializedRequest {
+  const { id, method, url, params, headers, remoteAddress, remotePort } = req;
+  const path = url.split('?', 1)[0] ?? '';
+  return { id, method, url: path, params, headers, remoteAddress, remotePort };
+}
 
 /** pino-http options: JSON lines tagged `service: tt-api` and `request_id`, secrets redacted. */
 export function buildPinoOptions(
@@ -29,8 +50,11 @@ export function buildPinoOptions(
     level: env.LOG_LEVEL,
     base: { service: 'tt-api' },
     redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
-    // Response headers (helmet, CORS, cookies) repeat on every line: keep only the status.
-    serializers: { res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }) },
+    serializers: {
+      req: serializeRequest,
+      // Response headers (helmet, CORS, cookies) repeat on every line: keep only the status.
+      res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
+    },
     // Same id as `X-Request-Id` and `RequestContext` (resolved once, cached on `req.id`).
     genReqId: (req) => requestIdOf(req),
     // Bound to the request logger: every line logged while handling the request carries it.

@@ -14,3 +14,5 @@ if (process.env.REDIS_URL_TEST) process.env.REDIS_URL = process.env.REDIS_URL_TE
 process.env.NODE_ENV = 'test';
 // Specs capture logs in memory (see helpers/app.ts) and assert on debug lines.
 process.env.LOG_LEVEL = 'debug';
+// A developer `.env` must not turn tracing on (and export spans) during tests.
+delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;

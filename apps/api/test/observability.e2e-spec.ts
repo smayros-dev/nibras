@@ -73,6 +73,20 @@ describe('observability', () => {
     expect(JSON.stringify(logs.lines())).not.toContain('s3cret');
   });
 
+  it('never logs query string values (emails, tokens)', async () => {
+    await http
+      .get('/health/live?email=a@b.c&token=s3cret')
+      .set('X-Request-Id', 'obs-q')
+      .expect(200);
+    const lines = logs.lines();
+    expect(lines.find((l) => l.request_id === 'obs-q')).toMatchObject({
+      req: { url: '/health/live' },
+    });
+    const text = JSON.stringify(lines);
+    expect(text).not.toContain('a@b.c');
+    expect(text).not.toContain('s3cret');
+  });
+
   it('logs 5xx with the stack and the request id through pino', async () => {
     await http.get('/api/v1/__obs/boom').set('X-Request-Id', 'obs-2').expect(500);
     const error = logs.lines().find((l) => l.context === 'HttpExceptionFilter');
