@@ -1,4 +1,4 @@
-import { LOCALES } from '@tt/contracts';
+import { ERROR_CODES, LOCALES } from '@tt/contracts';
 import { describe, expect, it } from 'vitest';
 import { flattenKeys, getMessages, messages, type AbstractIntlMessages } from './locales';
 
@@ -31,15 +31,7 @@ describe('messages', () => {
         keys.some((k) => k.startsWith(`${ns}.`)),
         ns,
       ).toBe(true);
-    for (const code of [
-      'VALIDATION_FAILED',
-      'NOT_FOUND',
-      'INTERNAL_ERROR',
-      'RATE_LIMITED',
-      'UNAUTHENTICATED',
-      'PERMISSION_DENIED',
-    ])
-      expect(keys).toContain(`errors.${code}`);
+    for (const code of ERROR_CODES) expect(keys).toContain(`errors.${code}`);
   });
 
   it('getMessages returns the catalogue of each locale', () => {

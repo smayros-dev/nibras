@@ -24,7 +24,8 @@
     "INTERNAL_ERROR": "An internal error occurred. Please try again.",
     "RATE_LIMITED": "Too many requests. Please wait before trying again.",
     "UNAUTHENTICATED": "You must sign in to continue.",
-    "PERMISSION_DENIED": "You do not have permission to perform this action."
+    "PERMISSION_DENIED": "You do not have permission to perform this action.",
+    "SERVICE_UNAVAILABLE": "The service is temporarily unavailable. Please try again later."
   },
   "health": {
     "ok": "Service is up"

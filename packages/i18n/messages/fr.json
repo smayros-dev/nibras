@@ -24,7 +24,8 @@
     "INTERNAL_ERROR": "Une erreur interne est survenue. Veuillez réessayer.",
     "RATE_LIMITED": "Trop de requêtes. Veuillez patienter avant de réessayer.",
     "UNAUTHENTICATED": "Vous devez vous connecter pour continuer.",
-    "PERMISSION_DENIED": "Vous n’avez pas l’autorisation d’effectuer cette action."
+    "PERMISSION_DENIED": "Vous n’avez pas l’autorisation d’effectuer cette action.",
+    "SERVICE_UNAVAILABLE": "Service momentanément indisponible. Veuillez réessayer plus tard."
   },
   "health": {
     "ok": "Service opérationnel"
