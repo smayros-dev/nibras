@@ -1,0 +1,212 @@
+{
+  "components": {
+    "schemas": {}
+  },
+  "info": {
+    "contact": {},
+    "description": "",
+    "title": "TT API",
+    "version": "1"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "HealthController_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      },
+      "servers": [
+        {
+          "url": "/"
+        }
+      ]
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "details": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "error": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {},
+                      "nullable": true,
+                      "type": "object"
+                    },
+                    "info": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "nullable": true,
+                      "type": "object"
+                    },
+                    "status": {
+                      "example": "ok",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The Health Check is successful"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "details": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        },
+                        "redis": {
+                          "message": "Could not connect",
+                          "status": "down"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "error": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {
+                        "redis": {
+                          "message": "Could not connect",
+                          "status": "down"
+                        }
+                      },
+                      "nullable": true,
+                      "type": "object"
+                    },
+                    "info": {
+                      "additionalProperties": {
+                        "additionalProperties": true,
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "nullable": true,
+                      "type": "object"
+                    },
+                    "status": {
+                      "example": "error",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The Health Check is not successful"
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      },
+      "servers": [
+        {
+          "url": "/"
+        }
+      ]
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "tags": []
+}

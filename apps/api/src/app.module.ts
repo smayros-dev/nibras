@@ -4,10 +4,11 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
 import { HealthModule } from './health/health.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { RedisModule } from './redis/redis.module';
 
 @Module({
-  imports: [RedisModule, HealthModule],
+  imports: [ObservabilityModule, RedisModule, HealthModule],
   providers: [
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_PIPE, useClass: ZodValidationPipe },

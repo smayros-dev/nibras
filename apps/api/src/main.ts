@@ -1,3 +1,5 @@
+// Must stay the first import: OpenTelemetry patches modules as they load.
+import { shutdownTracing } from './observability/tracing';
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -5,11 +7,26 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { env } from './config/env';
+import { createShutdownHandler } from './shutdown';
+
+/** Upper bound on a graceful shutdown before the process is forced out. */
+const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Boot logs are buffered until `configureApp` installs the pino logger.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   configureApp(app);
-  app.enableShutdownHooks();
+  // Instead of `enableShutdownHooks()`: close Nest (lifecycle hooks), then flush pending spans.
+  const shutdown = createShutdownHandler({
+    close: () => app.close(),
+    flush: shutdownTracing,
+    exit: (code) => process.exit(code),
+    logError: (message) => Logger.error(message, 'Shutdown'),
+    timeoutMs: SHUTDOWN_TIMEOUT_MS,
+  });
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.on(signal, (received) => void shutdown(received));
+  }
   await app.listen(env.PORT);
   Logger.log(`API listening on port ${env.PORT}`, 'Bootstrap');
 }

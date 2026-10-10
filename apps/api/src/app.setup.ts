@@ -1,11 +1,19 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { Logger } from 'nestjs-pino';
 import { env } from './config/env';
+
+export const API_PREFIX = 'api/v1';
+
+/** Infrastructure routes served outside `/api/v1` (probes and the Prometheus scrape). */
+export const UNPREFIXED_ROUTES = ['health/live', 'health/ready', 'metrics'];
 
 /** HTTP-level setup shared by `main.ts` and the e2e harness, so tests run the real stack. */
 export function configureApp(app: NestExpressApplication): void {
-  app.setGlobalPrefix('api/v1', { exclude: ['health/live', 'health/ready', 'metrics'] });
+  // Nest's own logs (and `Logger` calls such as the exception filter's) go through pino.
+  app.useLogger(app.get(Logger));
+  app.setGlobalPrefix(API_PREFIX, { exclude: UNPREFIXED_ROUTES });
   app.set('trust proxy', 1);
   app.use(
     helmet({
