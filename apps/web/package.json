@@ -18,7 +18,6 @@
     "@tt/ui": "workspace:*",
     "next": "^16.4.0",
     "next-intl": "^4.14.9",
-    "openapi-fetch": "^0.17.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
