@@ -3,7 +3,7 @@ import type { ApiErrorBody, ErrorCode } from '@tt/contracts';
 import type { Request, Response } from 'express';
 import { ApiError } from './api-error';
 import { RequestContext } from './request-context';
-import { REQUEST_ID_HEADER, resolveRequestId } from './request-id.middleware';
+import { REQUEST_ID_HEADER, requestIdOf } from './request-id.middleware';
 import { ZodValidationException } from './zod-validation.pipe';
 
 interface ValidationIssue {
@@ -50,8 +50,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     // Errors raised before `RequestIdMiddleware` ran (e.g. body parsing) have no context yet.
-    const requestId =
-      RequestContext.get()?.requestId ?? resolveRequestId(req.get(REQUEST_ID_HEADER));
+    const requestId = RequestContext.get()?.requestId ?? requestIdOf(req);
     res.setHeader(REQUEST_ID_HEADER, requestId);
     res.status(status).json({ ...body, requestId } satisfies ApiErrorBody);
   }

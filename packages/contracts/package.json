@@ -21,14 +21,18 @@
     "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "generate": "openapi-typescript ./openapi/openapi.json -o ./src/generated/api.d.ts"
   },
   "dependencies": {
+    "openapi-fetch": "^0.17.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tt/config": "workspace:*",
+    "@types/node": "^24.19.2",
     "eslint": "^9.39.5",
+    "openapi-typescript": "^7.13.0",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3",
     "vitest": "^3.2.7"

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { IncomingMessage } from 'node:http';
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import { RequestContext } from './request-context';
@@ -14,11 +15,22 @@ export function resolveRequestId(incoming: unknown): string {
     : randomUUID();
 }
 
+/**
+ * The request's id, resolved once and cached on `req.id`: pino-http (`genReqId`), this middleware
+ * and the exception filter all see the same value, whichever runs first.
+ */
+export function requestIdOf(req: IncomingMessage): string {
+  if (typeof req.id === 'string') return req.id;
+  const requestId = resolveRequestId(req.headers[REQUEST_ID_HEADER.toLowerCase()]);
+  req.id = requestId;
+  return requestId;
+}
+
 /** Assigns the request id, echoes it in the response and opens the `RequestContext`. */
 @Injectable()
 export class RequestIdMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
-    const requestId = resolveRequestId(req.get(REQUEST_ID_HEADER));
+    const requestId = requestIdOf(req);
     res.setHeader(REQUEST_ID_HEADER, requestId);
     const store = { requestId, ip: req.ip ?? '', userAgent: req.get('user-agent') ?? '' };
     RequestContext.run(store, () => next());

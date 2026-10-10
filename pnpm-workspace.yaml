@@ -10,6 +10,7 @@ onlyBuiltDependencies:
   - prisma
   - '@prisma/client'
   - '@prisma/engines'
+  - protobufjs
   - '@swc/core'
 
 # Install scripts we deliberately skip (swagger-ui-dist's telemetry ping).
