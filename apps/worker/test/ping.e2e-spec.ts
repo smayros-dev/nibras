@@ -1,8 +1,7 @@
-import { QUEUES } from '@tt/contracts';
+import { DEFAULT_JOB_OPTIONS, QUEUES } from '@tt/contracts';
 import { Queue, QueueEvents } from 'bullmq';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { DEFAULT_JOB_OPTIONS } from '../src/queues';
 import { createWorkerContext, type WorkerContext } from '../src/worker.module';
 import { obliterateAllQueues, redisOpts } from './redis';
 

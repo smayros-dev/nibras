@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Writable } from 'node:stream';
+import { redactPaths } from '@tt/contracts';
 import { pino } from 'pino';
 import type { Options } from 'pino-http';
 import { describe, expect, it } from 'vitest';
@@ -17,18 +18,46 @@ function fakeReq(headers: Record<string, string> = {}): IncomingMessage {
 }
 
 describe('buildPinoOptions', () => {
-  it('redacts credentials and personal data', () => {
+  it('redacts the shared REDACT_KEYS list', () => {
     const opts = httpOptions(buildPinoOptions(env));
     const redact = opts.redact as { paths: string[] };
+    expect(redact.paths).toEqual(redactPaths());
     expect(redact.paths).toEqual(
       expect.arrayContaining([
-        'req.headers.authorization',
-        'req.headers.cookie',
+        '*.*.authorization',
+        '*.*.cookie',
         '*.password',
         '*.email',
         '*.token',
       ]),
     );
+  });
+
+  it('compiles its redact paths in pino', () => {
+    const opts = httpOptions(buildPinoOptions(env));
+    expect(() => pino({ redact: opts.redact })).not.toThrow();
+  });
+
+  it('censors a secret nested three levels deep and hyphenated header names', () => {
+    const lines: string[] = [];
+    const sink = new Writable({
+      write(chunk: Buffer, _enc, cb) {
+        lines.push(chunk.toString());
+        cb();
+      },
+    });
+    const opts = httpOptions(buildPinoOptions(env));
+    const logger = pino({ redact: opts.redact }, sink);
+    logger.info({
+      job: { data: { user: { totpSecret: 'TOTP-SECRET', refreshToken: 'rt-1', otp: '123456' } } },
+      req: { headers: { 'x-api-key': 'key-1', 'proxy-authorization': 'Basic p' } },
+      res: { headers: { 'set-cookie': 'sid=2' } },
+    });
+    const line = lines.join('');
+    for (const secret of ['TOTP-SECRET', 'rt-1', '123456', 'key-1', 'Basic p', 'sid=2']) {
+      expect(line).not.toContain(secret);
+    }
+    expect(line).toContain('[REDACTED]');
   });
 
   it('censors those fields at the top level and nested two levels deep', () => {
