@@ -19,7 +19,13 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "DATABASE_URL_SYSTEM", "REDIS_URL"]
+      "env": [
+        "DATABASE_URL",
+        "DATABASE_URL_SYSTEM",
+        "DATABASE_URL_TEST",
+        "DATABASE_URL_TEST_SYSTEM",
+        "REDIS_URL"
+      ]
     },
     "e2e": {
       "cache": false
