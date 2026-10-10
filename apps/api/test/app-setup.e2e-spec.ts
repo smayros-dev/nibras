@@ -12,8 +12,14 @@ describe('http setup (shared with main.ts)', () => {
     await app.close();
   });
 
-  it('runs against the test Redis index when REDIS_URL_TEST is set', () => {
-    if (process.env.REDIS_URL_TEST) expect(process.env.REDIS_URL).toBe(process.env.REDIS_URL_TEST);
+  it('runs against its own test database and Redis index (tt_api_test, DB 14)', () => {
+    if (process.env.REDIS_URL_TEST) {
+      expect(process.env.REDIS_URL).toBe(process.env.REDIS_URL_TEST);
+      expect(new URL(process.env.REDIS_URL ?? '').pathname).toBe('/14');
+    }
+    if (process.env.DATABASE_URL_TEST) {
+      expect(new URL(process.env.DATABASE_URL ?? '').pathname).toBe('/tt_api_test');
+    }
   });
 
   it('sends helmet headers forbidding framing', async () => {

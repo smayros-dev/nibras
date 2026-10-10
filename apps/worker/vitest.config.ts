@@ -10,7 +10,7 @@ export default mergeConfig(
     test: {
       include: ['src/**/*.test.ts', 'test/**/*.test.ts', 'test/**/*.e2e-spec.ts'],
       setupFiles: ['./vitest.setup.ts'],
-      // Specs share the Redis DB index from REDIS_URL: run files one after another.
+      // Specs share `tt_worker_test` and Redis index 15 (vitest.setup.ts): run files one after another.
       fileParallelism: false,
       testTimeout: 20_000,
       hookTimeout: 20_000,
