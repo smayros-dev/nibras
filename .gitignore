@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# local tooling
+.superpowers/
+.turbo/
+
+# env (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# build output
+dist/
+.next/
+*.tsbuildinfo
+
+# test output
+coverage/
+playwright-report/
+test-results/
+apps/web/e2e/.auth/
+
+# logs & OS files
+*.log
+.DS_Store
+Thumbs.db
