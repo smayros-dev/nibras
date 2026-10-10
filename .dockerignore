@@ -1,0 +1,26 @@
+# Build context for infra/docker/*.Dockerfile (context = repo root).
+# Docker only reads .dockerignore at the context root (or <Dockerfile>.dockerignore), so it lives here.
+
+# Secrets: never sent to the builder, never baked into an image.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# VCS, tooling, host-built artefacts (rebuilt inside the image for linux-musl).
+.git
+.github
+.superpowers
+**/node_modules
+**/.turbo
+**/dist
+**/.next
+**/coverage
+**/playwright-report
+**/test-results
+**/*.tsbuildinfo
+**/*.log
+
+# Not needed to build the apps.
+docs
+PRD.md

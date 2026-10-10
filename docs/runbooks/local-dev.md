@@ -60,3 +60,52 @@ Run a task for a single package with a filter, e.g. `pnpm --filter @tt/api test`
 
 Integration tests need the containers running (`docker compose up -d`) and read `DATABASE_URL`,
 `DATABASE_URL_SYSTEM` and `REDIS_URL` from the environment / `.env`.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
+
+| Job             | Runner         | What it runs                                                                                     |
+| --------------- | -------------- | ------------------------------------------------------------------------------------------------ |
+| `check`         | ubuntu-latest  | lint, typecheck, `migrate:deploy` (tt + tt_test), `pnpm test`, `pnpm build`, OpenAPI drift check |
+| `windows-check` | windows-latest | lint, typecheck, tests of the DB-free packages (`@tt/contracts`, `@tt/i18n`, `@tt/ui`)           |
+| `migrate-check` | ubuntu-latest  | `pnpm --filter @tt/db migrate:check` (schema vs migrations drift)                                |
+| `e2e`           | ubuntu-latest  | builds, starts api + worker, Playwright (`chromium` + `mobile`)                                  |
+| `images`        | ubuntu-latest  | `main` pushes only: builds and pushes `ghcr.io/<owner>/tt-{web,api,worker}:{sha,latest}`         |
+
+The Linux jobs use Postgres 17, Redis 7 and Mailpit service containers; `init.sql` is applied with
+`psql` after checkout. The Windows runner has no Docker services, so only packages that need neither
+Postgres nor Redis run their tests there (a turbo `--filter`, not a skip flag); this keeps every
+`package.json` script honest on Windows. When you add a DB-free package, add it to that filter.
+
+## Container images
+
+Dockerfiles live in `infra/docker/` (`web`, `api`, `worker`); the build context is the repo root
+(the root `.dockerignore` keeps `.env*`, `node_modules` and build output out of it). Each is
+multi-stage: `turbo prune --docker`, `pnpm install --frozen-lockfile`, `turbo run build`, then a
+non-root runtime on `node:22-alpine` with a `HEALTHCHECK` on `/health/live`. The web image uses
+Next.js `output: 'standalone'`.
+
+```bash
+docker build -f infra/docker/api.Dockerfile -t tt-api .
+docker build -f infra/docker/worker.Dockerfile -t tt-worker .
+docker build -f infra/docker/web.Dockerfile -t tt-web .
+```
+
+Each build adds roughly 1 GB (api, worker) or 300 MB (web) plus build cache to Docker's disk;
+`docker builder prune` reclaims the cache.
+
+Running them against the local compose stack: `--network host` does not reach the Windows/macOS
+host on Docker Desktop, so publish the port and point the env at `host.docker.internal`:
+
+```bash
+sed 's/localhost/host.docker.internal/g' .env | grep -v '^NODE_ENV' > .env.docker   # gitignored (.env.*)
+docker run --rm --env-file .env.docker tt-api migrate                # one-shot: prisma migrate deploy
+docker run --rm -d --name tt-api -p 3001:3001 --env-file .env.docker tt-api
+curl -fsS http://localhost:3001/health/live
+docker run --rm -d --name tt-worker -p 3002:3002 --env-file .env.docker tt-worker
+docker run --rm -d --name tt-web -p 3000:3000 tt-web
+```
+
+The api image never migrates on boot: `migrate` is an explicit argument. Staging deployment is
+described in [staging.md](staging.md).

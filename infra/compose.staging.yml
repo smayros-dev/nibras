@@ -1,0 +1,95 @@
+# Staging stack. Lives on the host as <STAGING_DIR>/infra/compose.staging.yml next to `.env.staging`
+# (real secrets, never committed; see docs/runbooks/staging.md). Run from that directory:
+#   docker compose --env-file .env.staging -f compose.staging.yml pull
+#   docker compose --env-file .env.staging -f compose.staging.yml up -d
+# TT_IMAGE_OWNER (GHCR owner, lowercase) and TT_IMAGE_TAG (commit SHA, default `latest`) pick the images.
+name: tt-staging
+
+x-app: &app
+  env_file: .env.staging
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    # Only what the init script needs; the apps' URLs stay out of this container.
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.staging}
+      APP_SYSTEM_DB_PASSWORD: ${APP_SYSTEM_DB_PASSWORD:?set APP_SYSTEM_DB_PASSWORD in .env.staging}
+      APP_USER_DB_PASSWORD: ${APP_USER_DB_PASSWORD:?set APP_USER_DB_PASSWORD in .env.staging}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-staging.sh:/docker-entrypoint-initdb.d/init-staging.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env.staging}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env.staging}
+    volumes:
+      - minio-data:/data
+
+  # One-shot: `prisma migrate deploy` as app_system. The api starts only once it exits 0.
+  migrate:
+    <<: *app
+    image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-api:${TT_IMAGE_TAG:-latest}
+    command: ['migrate']
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-api:${TT_IMAGE_TAG:-latest}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+  worker:
+    <<: *app
+    image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-worker:${TT_IMAGE_TAG:-latest}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  web:
+    <<: *app
+    image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-web:${TT_IMAGE_TAG:-latest}
+    # Only the web app is published; the browser reaches the API through its `/api/*` rewrite.
+    # Bound to loopback: a TLS reverse proxy on the host fronts it (WEB_BIND=0.0.0.0 to expose directly).
+    ports:
+      - '${WEB_BIND:-127.0.0.1}:3000:3000'
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
