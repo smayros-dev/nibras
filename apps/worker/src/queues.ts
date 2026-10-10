@@ -25,11 +25,16 @@ export const DEFAULT_JOB_OPTIONS = {
 export function redisConnection(url: string | undefined): RedisOptions {
   if (!url) throw new Error('redisConnection: REDIS_URL is not set');
   const u = new URL(url);
-  const db = Number(u.pathname.replace(/^\//, '') || 0);
+  if (u.protocol !== 'redis:' && u.protocol !== 'rediss:') {
+    throw new Error(`redisConnection: REDIS_URL must use redis: or rediss: (got ${u.protocol})`);
+  }
+  // A malformed index must never silently fall back to DB 0 (env/test isolation).
+  const match = /^\/?(\d*)$/.exec(u.pathname);
+  if (!match) throw new Error(`redisConnection: invalid Redis DB index in path "${u.pathname}"`);
   return {
     host: u.hostname,
     port: Number(u.port || 6379),
-    db: Number.isInteger(db) ? db : 0,
+    db: Number(match[1] || 0),
     ...(u.username ? { username: decodeURIComponent(u.username) } : {}),
     ...(u.password ? { password: decodeURIComponent(u.password) } : {}),
     ...(u.protocol === 'rediss:' ? { tls: {} } : {}),

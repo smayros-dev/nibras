@@ -8,7 +8,7 @@ export default mergeConfig(
     // SWC keeps decorator metadata, which esbuild drops (Nest DI needs it).
     plugins: [swc.vite({ module: { type: 'es6' } })],
     test: {
-      include: ['src/**/*.test.ts', 'test/**/*.e2e-spec.ts'],
+      include: ['src/**/*.test.ts', 'test/**/*.test.ts', 'test/**/*.e2e-spec.ts'],
       setupFiles: ['./vitest.setup.ts'],
       // Specs share the Redis DB index from REDIS_URL: run files one after another.
       fileParallelism: false,

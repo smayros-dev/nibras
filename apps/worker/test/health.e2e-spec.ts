@@ -31,7 +31,7 @@ describe('health server', () => {
     await Promise.all(contexts.splice(0).map((c) => c.close()));
   });
 
-  afterAll(obliterateAllQueues);
+  afterAll(() => obliterateAllQueues());
 
   it('answers live 200 and ready 200 when redis is reachable', async () => {
     const ctx = await createWorkerContext();

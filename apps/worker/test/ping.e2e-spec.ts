@@ -2,6 +2,7 @@ import { QUEUES } from '@tt/contracts';
 import { Queue, QueueEvents } from 'bullmq';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { DEFAULT_JOB_OPTIONS } from '../src/queues';
 import { createWorkerContext, type WorkerContext } from '../src/worker.module';
 import { obliterateAllQueues, redisOpts } from './redis';
 
@@ -31,7 +32,8 @@ describe('compliance queue round-trip', () => {
   });
 
   it('fails unknown job names without retrying', async () => {
-    const job = await queue.add('nope.job', {});
+    // Retryable options: only an unrecoverable error stops after the first attempt.
+    const job = await queue.add('nope.job', {}, DEFAULT_JOB_OPTIONS);
     await expect(job.waitUntilFinished(events, 10_000)).rejects.toThrow(/UnknownJob/);
     const failed = await queue.getJob(job.id!);
     expect(failed?.attemptsMade).toBe(1);

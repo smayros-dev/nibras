@@ -5,7 +5,7 @@ const EnvSchema = z.object({
   /** `app_system` role (BYPASSRLS, PRD §13.3): the worker spans workspaces. */
   DATABASE_URL_SYSTEM: z.url(),
   /** The DB index in the path (`redis://host:6379/8`) is honoured. */
-  REDIS_URL: z.url(),
+  REDIS_URL: z.url({ protocol: /^rediss?$/ }),
   /** Health server port; `0` picks a free port (tests). */
   WORKER_PORT: z.coerce.number().int().min(0).max(65_535).default(3002),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
