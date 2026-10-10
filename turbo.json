@@ -4,22 +4,33 @@
   "globalEnv": ["NODE_ENV"],
   "globalDependencies": [".env.example"],
   "tasks": {
+    "generate": {
+      "dependsOn": ["^generate"],
+      "cache": false
+    },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "^generate"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "^generate", "generate"],
       "cache": false,
       "persistent": true
     },
     "lint": {},
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "^generate", "generate"]
     },
     "test": {
-      "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "DATABASE_URL_SYSTEM", "REDIS_URL"]
+      "dependsOn": ["^build", "^generate", "generate"],
+      "env": [
+        "DATABASE_URL",
+        "DATABASE_URL_SYSTEM",
+        "DATABASE_URL_TEST",
+        "DATABASE_URL_TEST_SYSTEM",
+        "DATABASE_URL_SHADOW",
+        "REDIS_URL"
+      ]
     },
     "e2e": {
       "cache": false
