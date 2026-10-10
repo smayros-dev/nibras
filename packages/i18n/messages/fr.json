@@ -25,7 +25,9 @@
     "RATE_LIMITED": "Trop de requêtes. Veuillez patienter avant de réessayer.",
     "UNAUTHENTICATED": "Vous devez vous connecter pour continuer.",
     "PERMISSION_DENIED": "Vous n’avez pas l’autorisation d’effectuer cette action.",
-    "SERVICE_UNAVAILABLE": "Service momentanément indisponible. Veuillez réessayer plus tard."
+    "SERVICE_UNAVAILABLE": "Service momentanément indisponible. Veuillez réessayer plus tard.",
+    "PAYLOAD_TOO_LARGE": "La requête est trop volumineuse.",
+    "UNSUPPORTED_MEDIA_TYPE": "Le format de la requête n’est pas pris en charge."
   },
   "health": {
     "ok": "Service opérationnel"

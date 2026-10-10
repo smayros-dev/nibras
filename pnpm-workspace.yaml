@@ -10,3 +10,8 @@ onlyBuiltDependencies:
   - prisma
   - '@prisma/client'
   - '@prisma/engines'
+  - '@swc/core'
+
+# Install scripts we deliberately skip (swagger-ui-dist's telemetry ping).
+ignoredBuiltDependencies:
+  - '@scarf/scarf'
