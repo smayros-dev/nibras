@@ -119,9 +119,10 @@ export class AuthService implements OnModuleInit {
       const passwordOk = await verifyPassword(hash, input.password);
 
       if (!user || !user.passwordHash || !passwordOk || GONE_STATUSES.has(user.status)) {
-        await this.auditFailure(user, input.email, 'invalid_credentials');
+        // Counted before the audit write: an audit error must never un-count the attempt.
         settled = true;
         await this.throttle.recordFailure(input.email, ip, user);
+        await this.auditFailure(user, input.email, 'invalid_credentials');
         throw invalidCredentials();
       }
       if (user.status === 'SUSPENDED') {

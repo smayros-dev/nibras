@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type Redis from 'ioredis';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuditService } from '../../src/audit/audit.service';
 import { REDIS } from '../../src/redis/redis.module';
 import { createTestApp, type TestContext } from '../helpers/app';
 import { as, loginAs } from '../helpers/auth';
@@ -102,9 +103,16 @@ describe('login throttling, lockout and global rate limits (AC-AUTH-03)', () => 
     const statuses = res.map((r) => r.status);
     expect(statuses.filter((s) => s === 401).length).toBeLessThanOrEqual(5);
     expect(statuses.filter((s) => s !== 401).every((s) => s === 429)).toBe(true);
-    expect(Number(await redis.get(`login:fail:${sha(u.email)}:9.9.9.6`))).toBeLessThanOrEqual(5);
-    // The backoff holds: the next attempt is still refused.
-    await login('9.9.9.6', bad).expect(429);
+    // Every 401 was counted, every reservation settled.
+    expect(Number(await redis.get(`login:fail:${sha(u.email)}:9.9.9.6`))).toBe(
+      statuses.filter((s) => s === 401).length,
+    );
+    expect(await redis.get(`login:inflight:${sha(u.email)}:9.9.9.6`)).toBe('0');
+    // The backoff holds under concurrency: whether or not the 1 s backoff already ran out (argon2
+    // timing), a second burst gets at most the single post-backoff attempt through.
+    const again = await Promise.all(Array.from({ length: 10 }, () => login('9.9.9.6', bad)));
+    expect(again.filter((r) => r.status === 401).length).toBeLessThanOrEqual(1);
+    expect(again.filter((r) => r.status !== 401).every((r) => r.status === 429)).toBe(true);
   });
 
   it('concurrent bad logins for one email from many ips: at most 10 reach the password check, then locked', async () => {
@@ -136,6 +144,19 @@ describe('login throttling, lockout and global rate limits (AC-AUTH-03)', () => 
     expect(await redis.get('throttle:anon:6.6.6.5')).toBe('61');
     // The user budget counted them too.
     expect(Number(await redis.get(`throttle:user:${u.id}`))).toBe(61);
+  });
+
+  it('a failed audit write never un-counts a wrong password', async () => {
+    const u = await createUser();
+    const audit = ctx.app.get(AuditService);
+    const original = audit.log.bind(audit);
+    vi.spyOn(audit, 'log').mockImplementation((entry) =>
+      entry.action === 'auth.login_failed' ? Promise.reject(new Error('db down')) : original(entry),
+    );
+    await login('9.9.9.4', { email: u.email, password: 'wrong wrong wrong' }).expect(500);
+    expect(await redis.get(`login:fail:${sha(u.email)}:9.9.9.4`)).toBe('1');
+    expect(await redis.get(`login:fail:${sha(u.email)}`)).toBe('1');
+    expect(await redis.get(`login:inflight:${sha(u.email)}:9.9.9.4`)).toBe('0');
   });
 
   it('login throttle fails closed: Redis down → 503 SERVICE_UNAVAILABLE before any password check', async () => {
