@@ -1,0 +1,46 @@
+{
+  "name": "@tt/providers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tt/contracts": "workspace:*",
+    "@tt/i18n": "workspace:*",
+    "intl-messageformat": "^10.7.18",
+    "nodemailer": "^7.0.13"
+  },
+  "devDependencies": {
+    "@tt/config": "workspace:*",
+    "@types/node": "^24.19.2",
+    "@types/nodemailer": "^7.0.12",
+    "eslint": "^9.39.5",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
