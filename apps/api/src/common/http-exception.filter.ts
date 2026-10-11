@@ -52,6 +52,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
     // Errors raised before `RequestIdMiddleware` ran (e.g. body parsing) have no context yet.
     const requestId = RequestContext.get()?.requestId ?? requestIdOf(req);
     res.setHeader(REQUEST_ID_HEADER, requestId);
+    const retryAfterS = retryAfterOf(status, body.details);
+    if (retryAfterS !== undefined) res.setHeader('Retry-After', String(retryAfterS));
     res.status(status).json({ ...body, requestId } satisfies ApiErrorBody);
   }
 
@@ -85,6 +87,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
     return { status: 500, body: { code: 'INTERNAL_ERROR', message: 'Internal error' } };
   }
+}
+
+/** `details.retryAfterS` of a 429 (login throttle, rate limits): sent as `Retry-After` too. */
+function retryAfterOf(status: number, details: unknown): number | undefined {
+  if (status !== 429 || typeof details !== 'object' || details === null) return undefined;
+  const value = (details as { retryAfterS?: unknown }).retryAfterS;
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.ceil(value)
+    : undefined;
 }
 
 /** The 4xx status of an `HttpException` or of an exposed http-error (body-parser), if any. */

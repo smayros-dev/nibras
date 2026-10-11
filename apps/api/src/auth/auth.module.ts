@@ -9,6 +9,7 @@ import { PasswordPolicy } from './crypto/password-policy';
 import { EmailChangeService } from './email-change.service';
 import { EmailVerificationService } from './email-verification.service';
 import { JwtService } from './jwt.service';
+import { LoginThrottleService } from './login-throttle.service';
 import { MeController } from './me.controller';
 import { PasswordController } from './password.controller';
 import { PasswordResetService } from './password-reset.service';
@@ -30,6 +31,7 @@ import { SessionService } from './session.service';
     EmailVerificationService,
     RegisterService,
     SessionService,
+    LoginThrottleService,
     AuthService,
     ReauthLimiter,
     PasswordResetService,

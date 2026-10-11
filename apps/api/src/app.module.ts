@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { AccountGatesGuard } from './auth/guards/account-gates.guard';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/http-exception.filter';
+import { RateLimitGuard, RateLimitModule } from './common/rate-limit.module';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
 import { DbModule } from './db/db.module';
@@ -26,13 +27,16 @@ import { RedisModule } from './redis/redis.module';
     AuditModule,
     EventEmitterModule.forRoot(),
     AuthModule,
+    RateLimitModule,
     HealthModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_PIPE, useClass: ZodValidationPipe },
-    // Global guards run in this order: session first, then the account gates. Later tasks append
-    // the workspace context, permission and teacher-verified guards after these two.
+    // Global guards run in this order: rate limit (so failed authentications count too), session,
+    // then the account gates. Later tasks append the workspace context, permission and
+    // teacher-verified guards after these.
+    { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: AccountGatesGuard },
   ],
