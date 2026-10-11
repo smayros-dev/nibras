@@ -1,3 +1,5 @@
+import { DEFAULT_JOB_OPTIONS } from '@tt/contracts';
+import type { JobsOptions } from 'bullmq';
 import { describe, expect, it } from 'vitest';
 
 import { redisConnection } from './queues';
@@ -36,5 +38,12 @@ describe('redisConnection', () => {
 
   it('rejects non-Redis schemes', () => {
     expect(() => redisConnection('http://localhost:6379/8')).toThrow(/redis: or rediss:/);
+  });
+});
+
+describe('DEFAULT_JOB_OPTIONS (from @tt/contracts)', () => {
+  it('is a valid BullMQ JobsOptions', () => {
+    const options: JobsOptions = DEFAULT_JOB_OPTIONS;
+    expect(options).toMatchObject({ attempts: 3, backoff: { type: 'exponential', delay: 1000 } });
   });
 });

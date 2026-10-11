@@ -23,16 +23,17 @@
     "prisma"
   ],
   "scripts": {
-    "build": "prisma generate && tsup src/index.ts --format esm,cjs --dts",
+    "build": "tsup src/index.ts --format esm,cjs --dts",
     "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "generate": "prisma generate",
-    "migrate:dev": "dotenv -e ../../.env -- prisma migrate dev",
+    "migrate:dev": "dotenv -e ../../.env -- node scripts/migrate-dev.mjs",
     "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "migrate:check": "dotenv -e ../../.env -- node scripts/migrate-check.mjs",
-    "studio": "dotenv -e ../../.env -- prisma studio"
+    "studio": "dotenv -e ../../.env -- prisma studio",
+    "migrate:test": "dotenv -e ../../.env -- node scripts/migrate-test.mjs"
   },
   "dependencies": {
     "@prisma/client": "~6.19.3"

@@ -45,6 +45,8 @@ COPY --from=builder /repo/apps/web/.next/static ./apps/web/.next/static
 RUN mkdir -p apps/web/.next/cache && chown tt:tt apps/web/.next/cache
 USER tt
 EXPOSE 3000
+# Probes ${PORT}, the port the server listens on. compose.staging.yml pins PORT per service because
+# the shared .env.staging would otherwise override it (healthy, yet listening on the wrong port).
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/health/live" || exit 1
 CMD ["node", "apps/web/server.js"]

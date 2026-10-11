@@ -14,7 +14,8 @@ export function configureApp(app: NestExpressApplication): void {
   // Nest's own logs (and `Logger` calls such as the exception filter's) go through pino.
   app.useLogger(app.get(Logger));
   app.setGlobalPrefix(API_PREFIX, { exclude: UNPREFIXED_ROUTES });
-  app.set('trust proxy', 1);
+  // Hop count, never `true`: only the known proxies' X-Forwarded-For entries are believed.
+  app.set('trust proxy', env.TRUST_PROXY_HOPS);
   app.use(
     helmet({
       contentSecurityPolicy: { directives: { frameAncestors: ["'none'"] } },

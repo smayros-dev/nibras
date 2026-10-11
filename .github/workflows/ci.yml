@@ -17,7 +17,10 @@ env:
   TURBO_TELEMETRY_DISABLED: '1'
   NEXT_TELEMETRY_DISABLED: '1'
   # Same layout as .env.example, against the job's service containers. Test-only credentials
-  # (created by infra/docker/postgres/init.sql), not secrets.
+  # (created by infra/docker/postgres/init.sql), not secrets. Every variable a test or build reads
+  # must be listed here AND in turbo.json (strict env mode), or the task does not see it.
+  # DATABASE_URL_TEST*/REDIS_URL_TEST are bases: each package derives tt_<pkg>_test and its own
+  # Redis index (packages/config/vitest/test-env.ts).
   DATABASE_URL: postgresql://app_user:app@localhost:5432/tt
   DATABASE_URL_SYSTEM: postgresql://app_system:app@localhost:5432/tt
   DATABASE_URL_TEST: postgresql://app_user:app@localhost:5432/tt_test
@@ -30,7 +33,15 @@ env:
   PORT: '3001'
   WORKER_PORT: '3002'
   LOG_LEVEL: warn
+  TRUST_PROXY_HOPS: '1'
   SMTP_URL: smtp://localhost:1025
+  # SP1 auth settings: CI-only dummy values, not secrets.
+  EMAIL_FROM: TT CI <no-reply@tt.localhost>
+  JWT_SECRET: ci-only-jwt-secret-not-a-real-secret-0123456789
+  TOTP_ENCRYPTION_KEY: Y2ktb25seS10b3RwLWtleS0zMi1ieXRlcy1sb25nISE=
+  SMS_PROVIDER: console
+  HIBP_ENABLED: 'false'
+  COOKIE_SECURE: 'false'
   # Superuser of the Postgres service, only used to apply init.sql.
   PG_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
 
@@ -63,17 +74,16 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Service containers start before checkout, so init.sql (roles + tt/tt_test/tt_shadow) is applied here.
+      # Service containers start before checkout, so init.sql (roles + tt, the per-package test DBs
+      # tt_db_test/tt_api_test/tt_worker_test and tt_shadow) is applied here.
       - name: Initialise Postgres (roles and databases)
         run: psql "$PG_ADMIN_URL" -v ON_ERROR_STOP=1 -f infra/docker/postgres/init.sql
       - run: pnpm lint
       - run: pnpm typecheck
       - name: Migrate tt
         run: pnpm --filter @tt/db migrate:deploy
-      - name: Migrate tt_test
-        run: pnpm --filter @tt/db migrate:deploy
-        env:
-          DATABASE_URL_SYSTEM: ${{ env.DATABASE_URL_TEST_SYSTEM }}
+      - name: Migrate the test DBs (tt_db_test, tt_api_test, tt_worker_test)
+        run: pnpm db:migrate:test
       - run: pnpm test
       - run: pnpm build
       - name: OpenAPI contracts are up to date
@@ -95,7 +105,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test --filter=@tt/contracts --filter=@tt/i18n --filter=@tt/ui
+      - run: pnpm test --filter=@tt/config --filter=@tt/contracts --filter=@tt/i18n --filter=@tt/ui
 
   migrate-check:
     # Fails when schema.prisma and prisma/migrations drift apart (a model change without a migration).

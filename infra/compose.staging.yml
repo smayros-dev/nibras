@@ -5,6 +5,8 @@
 # TT_IMAGE_OWNER (GHCR owner, lowercase) and TT_IMAGE_TAG (commit SHA, default `latest`) pick the images.
 name: tt-staging
 
+# Every app shares .env.staging, so each service pins its own listen port in `environment` (which
+# wins over env_file): a PORT=3001 copied from .env.example must not move web off 3000.
 x-app: &app
   env_file: .env.staging
   restart: unless-stopped
@@ -62,6 +64,12 @@ services:
   api:
     <<: *app
     image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-api:${TT_IMAGE_TAG:-latest}
+    environment:
+      PORT: '3001'
+      # Browser -> host TLS proxy (appends the client IP to X-Forwarded-For) -> web (Next.js, forwards
+      # X-Forwarded-For unchanged) -> api. The api trusts its peer (web) and reads the client from the
+      # entry the TLS proxy appended: 1 hop. See docs/runbooks/staging.md before changing it.
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -73,6 +81,8 @@ services:
   worker:
     <<: *app
     image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-worker:${TT_IMAGE_TAG:-latest}
+    environment:
+      WORKER_PORT: '3002'
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -82,6 +92,8 @@ services:
   web:
     <<: *app
     image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-web:${TT_IMAGE_TAG:-latest}
+    environment:
+      PORT: '3000'
     # Only the web app is published; the browser reaches the API through its `/api/*` rewrite.
     # Bound to loopback: a TLS reverse proxy on the host fronts it (WEB_BIND=0.0.0.0 to expose directly).
     ports:

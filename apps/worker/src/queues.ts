@@ -4,7 +4,7 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { QUEUES, type QueueName } from '@tt/contracts';
+import { DEFAULT_JOB_OPTIONS, QUEUES, type QueueName } from '@tt/contracts';
 import { type Job, Queue, type RedisOptions, UnrecoverableError, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import type { Logger } from 'pino';
@@ -13,13 +13,6 @@ import { WORKER_ENV, type WorkerEnv } from './env';
 import { WORKER_LOGGER } from './logger';
 
 export const WORKER_CONCURRENCY = 5;
-
-export const DEFAULT_JOB_OPTIONS = {
-  attempts: 3,
-  backoff: { type: 'exponential', delay: 1000 },
-  removeOnComplete: 1000,
-  removeOnFail: 5000,
-};
 
 /** Parses `REDIS_URL` into BullMQ connection options, keeping the DB index (`/8`). */
 export function redisConnection(url: string | undefined): RedisOptions {

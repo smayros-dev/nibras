@@ -1,18 +1,20 @@
 import type { LoggerService } from '@nestjs/common';
-import { pino, type Level, type LevelWithSilent, type Logger } from 'pino';
+import { redactPaths } from '@tt/contracts';
+import { pino, type DestinationStream, type Level, type LevelWithSilent, type Logger } from 'pino';
 
 export const WORKER_LOGGER = Symbol('WORKER_LOGGER');
 
-/** Structured JSON logger; secrets and emails are never written in clear. */
-export function createLogger(level: LevelWithSilent): Logger {
-  return pino({
+/**
+ * Structured JSON logger; secrets and emails (the shared `REDACT_KEYS`, nested up to three levels)
+ * are never written in clear. `destination` defaults to stdout (tests pass a memory stream).
+ */
+export function createLogger(level: LevelWithSilent, destination?: DestinationStream): Logger {
+  const options = {
     level,
     base: { service: 'tt-worker' },
-    redact: {
-      paths: ['email', 'password', 'authorization', 'cookie'].flatMap((k) => [k, `*.${k}`]),
-      censor: '[REDACTED]',
-    },
-  });
+    redact: { paths: redactPaths(), censor: '[REDACTED]' },
+  };
+  return destination ? pino(options, destination) : pino(options);
 }
 
 /** Routes Nest's internal logs through pino. */

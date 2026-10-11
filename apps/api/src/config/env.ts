@@ -15,6 +15,12 @@ export const EnvSchema = z.object({
   WEB_ORIGIN: z.url(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   OTEL_EXPORTER_OTLP_ENDPOINT: optionalUrl,
+  /**
+   * Reverse-proxy hops in front of the API whose `X-Forwarded-For` entries are trusted (Express
+   * `trust proxy`), so `req.ip` is the client: 1 locally (the Next.js server), 2 on staging
+   * (TLS proxy + Next.js server). 0 trusts none.
+   */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

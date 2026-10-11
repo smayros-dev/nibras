@@ -23,6 +23,22 @@ describe('EnvSchema', () => {
     expect(env.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
   });
 
+  it('defaults TRUST_PROXY_HOPS to 1 and coerces it', () => {
+    expect(EnvSchema.parse(valid).TRUST_PROXY_HOPS).toBe(1);
+    expect(EnvSchema.parse({ ...valid, TRUST_PROXY_HOPS: '2' }).TRUST_PROXY_HOPS).toBe(2);
+    expect(EnvSchema.parse({ ...valid, TRUST_PROXY_HOPS: '0' }).TRUST_PROXY_HOPS).toBe(0);
+  });
+
+  it('rejects a negative or fractional TRUST_PROXY_HOPS', () => {
+    expect(() => EnvSchema.parse({ ...valid, TRUST_PROXY_HOPS: '-1' })).toThrow(/TRUST_PROXY_HOPS/);
+    expect(() => EnvSchema.parse({ ...valid, TRUST_PROXY_HOPS: '1.5' })).toThrow(
+      /TRUST_PROXY_HOPS/,
+    );
+    expect(() => EnvSchema.parse({ ...valid, TRUST_PROXY_HOPS: 'all' })).toThrow(
+      /TRUST_PROXY_HOPS/,
+    );
+  });
+
   it('throws on a missing or invalid variable', () => {
     const { DATABASE_URL: _omit, ...missing } = valid;
     expect(() => EnvSchema.parse(missing)).toThrow(/DATABASE_URL/);

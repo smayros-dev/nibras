@@ -7,11 +7,13 @@
     "./tsconfig/*": "./tsconfig/*.json",
     "./eslint/*": "./eslint/*.mjs",
     "./vitest/base": "./vitest/base.ts",
-    "./tailwind/preset": "./tailwind/preset.ts"
+    "./tailwind/preset": "./tailwind/preset.ts",
+    "./vitest/test-env": "./vitest/test-env.ts"
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

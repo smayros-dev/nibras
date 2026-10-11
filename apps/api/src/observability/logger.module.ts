@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { redactPaths } from '@tt/contracts';
 import { LoggerModule, type Params } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
 import type { Options } from 'pino-http';
@@ -11,14 +12,11 @@ import { env, type Env } from '../config/env';
  */
 export const LOG_DESTINATION = Symbol('LOG_DESTINATION');
 
-/** Never written in clear (Global Constraints): at the top level and nested up to two levels. */
-const SENSITIVE_KEYS = ['email', 'password', 'token', 'authorization', 'cookie'];
-
-const REDACT_PATHS = [
-  'req.headers.authorization',
-  'req.headers.cookie',
-  ...SENSITIVE_KEYS.flatMap((key) => [key, `*.${key}`, `*.*.${key}`]),
-];
+/**
+ * Never written in clear (Global Constraints): the shared `REDACT_KEYS` (also used by the worker),
+ * at the top level and nested up to three levels (`req.headers.cookie` included).
+ */
+const REDACT_PATHS = redactPaths();
 
 /** Fields of pino's standard request serializer that this API logs. */
 interface SerializedRequest {

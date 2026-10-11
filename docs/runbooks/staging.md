@@ -62,10 +62,10 @@ DATABASE_URL_SYSTEM=postgresql://app_system:<APP_SYSTEM_DB_PASSWORD>@postgres:54
 
 REDIS_URL=redis://redis:6379
 
-PORT=3001
-WORKER_PORT=3002
 WEB_ORIGIN=https://staging.example.com
 API_URL=http://api:3001
+# See "Client IP behind the proxies" below; compose.staging.yml defaults it to 1.
+TRUST_PROXY_HOPS=1
 OTEL_EXPORTER_OTLP_ENDPOINT=
 
 SMTP_URL=smtp://<user>:<password>@<smtp relay>:587
@@ -76,8 +76,33 @@ S3_SECRET_KEY=<random>
 S3_BUCKET=tt-staging
 ```
 
+`PORT` and `WORKER_PORT` are left out on purpose: every app service reads this one file, so
+`compose.staging.yml` pins them per service (api `3001`, web `3000`, worker `3002`) and any value
+set here is ignored.
+
 `API_URL` is also baked into the web image's `/api/*` rewrite at build time (default
 `http://api:3001`, matching the compose service name).
+
+## Client IP behind the proxies
+
+The API derives the client address (`req.ip`: request context, SP1 rate limits and audit) from
+`X-Forwarded-For`, trusting `TRUST_PROXY_HOPS` hops (Express `trust proxy`; an integer >= 0,
+default 1). Express trusts its socket peer plus `TRUST_PROXY_HOPS - 1` entries from the right of
+`X-Forwarded-For` and takes the next one as the client.
+
+On staging the path is browser -> host TLS proxy -> `web` (Next.js) -> `api`:
+
+- the TLS proxy appends the client address to `X-Forwarded-For` (nginx
+  `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for`; Caddy and Traefik by default);
+- `web` forwards the header **unchanged**: the Next.js `/api/*` rewrite proxy does not append its
+  peer (checked in Next 16: `httpxy` runs without `xfwd`), and `serverApi()`
+  (`apps/web/src/lib/api.ts`) forwards the incoming value as received.
+
+So the API's peer is `web` (hop 1) and the rightmost header entry is the one the TLS proxy wrote:
+**staging uses `TRUST_PROXY_HOPS=1`** (default in `compose.staging.yml`; `.env.staging` may
+override it). Do not set 2 for this topology: the API would take the entry to the _left_ of the
+TLS proxy's, which the client controls (a spoofable address). Use 2 only when a second proxy that
+appends to the header (e.g. a cloud load balancer in front of the TLS proxy) is added.
 
 ## First run
 

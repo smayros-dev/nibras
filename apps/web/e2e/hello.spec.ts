@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { messages } from '@tt/i18n';
 
-/** A raw `namespace.key` message id rendered instead of its translation. */
-const RAW_KEY = /\b(common|nav|hello|errors|health)\.[A-Za-z_]+\b/;
+/**
+ * A raw `namespace.key` message id rendered instead of its translation. The namespaces are the
+ * reference catalogue's (`fr`) top-level keys, so new ones are covered without editing this test.
+ */
+const RAW_KEY = new RegExp(`\\b(${Object.keys(messages.fr).join('|')})\\.[A-Za-z_]+\\b`);
 
 for (const [locale, title, dir] of [
   ['fr', 'Bonjour', 'ltr'],
