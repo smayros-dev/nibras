@@ -31,8 +31,8 @@ export interface SessionTokens {
 }
 
 /**
- * Benign-race window: how long the outcome of a rotation stays available to requests that
- * presented the same refresh token *before* that rotation happened (see {@link SessionService}).
+ * Benign-race window: how long the outcome of a rotation stays available to requests that read
+ * the same refresh token as current *before* that rotation committed (see {@link SessionService}).
  */
 export const ROTATION_GRACE_S = 30;
 
@@ -42,9 +42,6 @@ const USER_AGENT_MAX = 512;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** `generateToken()` output: 32 bytes as base64url. */
 const RAW = /^[A-Za-z0-9_-]{43}$/;
-
-/** Wall-clock milliseconds with sub-millisecond resolution (comparable across instances). */
-const wallClockMs = (): number => performance.timeOrigin + performance.now();
 
 const unauthenticated = () =>
   new ApiError(HttpStatus.UNAUTHORIZED, 'UNAUTHENTICATED', 'Authentication required');
@@ -64,15 +61,13 @@ export function parseRefreshToken(token: string): { sid: string; raw: string } |
 interface GraceEntry {
   /** The new raw token, sealed (AES-256-GCM, key derived from `JWT_SECRET`). */
   sealed: string;
-  /** Wall-clock ms at which the winning request took the row lock. */
-  rotatedAt: number;
   /** sha256 of the winning request's user-agent. */
   ua: string;
 }
 
 type RotateOutcome =
   | { kind: 'unknown' }
-  | { kind: 'dead'; session: UserSession; current: boolean }
+  | { kind: 'dead'; session: UserSession; previous: boolean }
   | { kind: 'rotated'; session: UserSession; raw: string }
   | {
       kind: 'reuse';
@@ -85,25 +80,32 @@ type RotateOutcome =
  * Sessions and their rotating refresh tokens (PRD §8.1.2, AC-AUTH-04, AC-AUTH-07).
  *
  * One `UserSession` row per sign-in is one refresh-token family (`familyId = id`): every rotation
- * replaces `refreshTokenHash` in place, so only the latest token of a family is ever valid. The
- * session expires 30 days after sign-in whatever the activity (absolute lifetime; the refresh
- * cookie is persistent only with "remember me").
+ * replaces `refreshTokenHash` in place and records the spent hash in `RefreshTokenHistory`, so
+ * only the latest token of a session is valid and every earlier one is recognisable. The session
+ * expires 30 days after sign-in whatever the activity (absolute lifetime; the refresh cookie is
+ * persistent only with "remember me").
  *
- * Rotation is serialised per session by a row lock (`SELECT … FOR UPDATE` in a transaction).
- * Presenting a token that is not the current one of a live session is reuse: the family is
- * revoked, the owner gets `security.token_reuse`, and `auth.refresh_reuse_detected` is audited.
+ * Rotation is serialised per session by a row lock (`SELECT … FOR UPDATE` in a transaction). The
+ * presented token is classified against that session:
+ * - neither its current nor one of its previous tokens → `401 UNAUTHENTICATED`, nothing revoked
+ *   (session ids are not secret: a forged token must not be able to log anyone out);
+ * - session revoked or expired, or its user no longer ACTIVE → `401 SESSION_REVOKED`, the session
+ *   is revoked, no email (after a logout or "Déconnecter partout" the other devices still hold a
+ *   current cookie; a family already revoked has nothing left to protect). A previous token
+ *   presented here is still audited as reuse;
+ * - current → rotated;
+ * - previous (a spent token replayed) → reuse, AC-AUTH-04: EVERY session of the user is revoked
+ *   ("déconnecté de tous ses appareils"), the owner gets `security.token_reuse`, and
+ *   `auth.refresh_reuse_detected` is audited.
  *
  * Benign race policy: a browser can send the same refresh cookie twice in parallel (two tabs, a
- * retried request). The request that takes the lock first rotates and leaves the new raw token
- * (sealed) in Redis for {@link ROTATION_GRACE_S}; a request that presented the same token and had
- * already *started before that rotation* (wall clock at entry < `rotatedAt`), with the same
- * user-agent, receives the winner's token instead of triggering reuse detection. A request that
- * starts after the rotation (a replay, however soon) is reuse. Clock skew between API instances
- * can only make that comparison stricter or looser by the skew itself.
- *
- * A token presented for a revoked or expired session is a plain `401 SESSION_REVOKED` without
- * email: after a logout or "Déconnecter partout" the other devices still hold their (current)
- * cookie, and a family already revoked for reuse has nothing left to protect.
+ * retried request). Before locking, each request reads the session's current hash (a DB-state
+ * check, no clocks involved). The request that takes the lock first rotates and leaves the new
+ * raw token (sealed) in Redis for {@link ROTATION_GRACE_S}, written before its commit. A request
+ * whose pre-lock read still saw the presented token as current (it was in flight before the
+ * rotation committed) and that has the same user-agent receives the winner's token instead of
+ * triggering reuse detection. A request that starts after the rotation committed (a replay,
+ * however soon) reads the new hash and is reuse.
  */
 @Injectable()
 export class SessionService {
@@ -155,15 +157,22 @@ export class SessionService {
   }
 
   /**
-   * Exchanges a refresh token for a new pair (see the class comment for the race policy).
-   * Malformed or unknown → `401 UNAUTHENTICATED`; revoked or expired session →
-   * `401 SESSION_REVOKED`; reuse → the family is revoked and `'REUSE'` is returned.
+   * Exchanges a refresh token for a new pair (see the class comment for the classification and
+   * the race policy). Malformed, unknown or never issued for that session →
+   * `401 UNAUTHENTICATED`; dead session → `401 SESSION_REVOKED`; reuse → all of the user's
+   * sessions are revoked and `'REUSE'` is returned.
    */
   async rotate(refreshToken: string, meta: SessionMeta): Promise<SessionTokens | 'REUSE'> {
-    const startedAt = wallClockMs();
     const parsed = parseRefreshToken(refreshToken);
     if (!parsed) throw unauthenticated();
     const presented = hashToken(parsed.raw);
+    // DB-state check for the benign race: was the presented token current when this request
+    // started, i.e. before any concurrent rotation committed?
+    const before = await this.db.userSession.findUnique({
+      where: { id: parsed.sid },
+      select: { refreshTokenHash: true },
+    });
+    const wasCurrent = before !== null && safeEqual(before.refreshTokenHash, presented);
 
     const outcome = await this.db.$transaction(async (tx): Promise<RotateOutcome> => {
       const locked = await tx.$queryRaw<{ id: string }[]>`
@@ -171,32 +180,57 @@ export class SessionService {
       if (locked.length === 0) return { kind: 'unknown' };
       const row = await tx.userSession.findUniqueOrThrow({
         where: { id: parsed.sid },
-        include: { user: { select: { email: true, firstName: true, locale: true } } },
+        include: {
+          user: { select: { email: true, firstName: true, locale: true, status: true } },
+        },
       });
       const { user, ...session } = row;
       const current = safeEqual(session.refreshTokenHash, presented);
-      if (session.revokedAt !== null || session.expiresAt.getTime() <= Date.now()) {
-        return { kind: 'dead', session, current };
+      const spent = current
+        ? null
+        : await tx.refreshTokenHistory.findUnique({
+            where: { tokenHash: presented },
+            select: { sessionId: true },
+          });
+      const previous = spent?.sessionId === session.id;
+      if (!current && !previous) return { kind: 'unknown' };
+
+      if (
+        session.revokedAt !== null ||
+        session.expiresAt.getTime() <= Date.now() ||
+        user.status !== 'ACTIVE'
+      ) {
+        if (session.revokedAt === null) {
+          await tx.userSession.update({
+            where: { id: session.id },
+            data: { revokedAt: new Date() },
+          });
+        }
+        return { kind: 'dead', session, previous };
       }
       if (current) {
         const next = generateToken();
         const entry: GraceEntry = {
           sealed: this.graceBox.seal(next.raw),
-          rotatedAt: wallClockMs(),
           ua: hashToken(meta.userAgent),
         };
         // Written before the commit, so a request queued on the row lock finds it.
         await this.redis.set(graceKey(presented), JSON.stringify(entry), 'EX', ROTATION_GRACE_S);
+        await tx.refreshTokenHistory.create({
+          data: { tokenHash: presented, sessionId: session.id },
+        });
         const updated = await tx.userSession.update({
           where: { id: session.id },
           data: { refreshTokenHash: next.hash, lastSeenAt: new Date(), ip: meta.ip || UNKNOWN_IP },
         });
         return { kind: 'rotated', session: updated, raw: next.raw };
       }
-      const replay = await this.concurrentReplay(presented, startedAt, meta, session);
-      if (replay !== null) return { kind: 'rotated', session, raw: replay };
+      if (wasCurrent) {
+        const replay = await this.concurrentReplay(presented, meta, session);
+        if (replay !== null) return { kind: 'rotated', session, raw: replay };
+      }
       const { count } = await tx.userSession.updateMany({
-        where: { familyId: session.familyId, revokedAt: null },
+        where: { userId: session.userId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
       return { kind: 'reuse', session, user, revoked: count };
@@ -206,7 +240,7 @@ export class SessionService {
       case 'unknown':
         throw unauthenticated();
       case 'dead':
-        if (!outcome.current) await this.auditReuse(outcome.session, 0);
+        if (outcome.previous) await this.auditReuse(outcome.session, 0);
         throw sessionRevoked();
       case 'reuse':
         await this.auditReuse(outcome.session, outcome.revoked);
@@ -222,6 +256,30 @@ export class SessionService {
           refreshToken: `${outcome.session.id}.${outcome.raw}`,
         };
     }
+  }
+
+  /**
+   * The active session whose CURRENT refresh token this is (logout without a valid access token).
+   * Spent, forged or dead tokens yield `null`; this never triggers reuse detection.
+   */
+  async sessionOfRefreshToken(
+    refreshToken: string,
+  ): Promise<{ id: string; userId: string } | null> {
+    const parsed = parseRefreshToken(refreshToken);
+    if (!parsed) return null;
+    const session = await this.db.userSession.findUnique({
+      where: { id: parsed.sid },
+      select: { id: true, userId: true, refreshTokenHash: true, revokedAt: true, expiresAt: true },
+    });
+    if (
+      !session ||
+      session.revokedAt !== null ||
+      session.expiresAt.getTime() <= Date.now() ||
+      !safeEqual(session.refreshTokenHash, hashToken(parsed.raw))
+    ) {
+      return null;
+    }
+    return { id: session.id, userId: session.userId };
   }
 
   /** Revokes one session (its whole family); `false` when it was not active. */
@@ -278,12 +336,12 @@ export class SessionService {
   }
 
   /**
-   * The raw token a concurrent winner rotated `presented` into, if this request qualifies for
-   * the benign-race policy and that token is still the session's current one.
+   * The raw token a concurrent winner rotated `presented` into, if the user-agent matches and
+   * that token is still the session's current one (the caller checked that `presented` was
+   * current when this request started).
    */
   private async concurrentReplay(
     presented: string,
-    startedAt: number,
     meta: SessionMeta,
     session: UserSession,
   ): Promise<string | null> {
@@ -297,7 +355,6 @@ export class SessionService {
     } catch {
       return null;
     }
-    if (!(startedAt < entry.rotatedAt)) return null;
     if (!safeEqual(entry.ua, hashToken(meta.userAgent))) return null;
     return safeEqual(hashToken(raw), session.refreshTokenHash) ? raw : null;
   }

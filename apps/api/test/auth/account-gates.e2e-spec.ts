@@ -94,16 +94,25 @@ describe('JwtAuthGuard + AccountGatesGuard', () => {
     await client.get('/api/v1/me').expect(401);
   });
 
-  it('suspended user: 403 ACCOUNT_SUSPENDED on gated routes (checked before email verification)', async () => {
+  it('suspended user: 403 ACCOUNT_SUSPENDED everywhere, @AllowUnverified routes included; logout still works', async () => {
     const u = await createUser({ status: 'SUSPENDED', emailVerified: false });
     const s = await loginAs(ctx, u);
-    await as(ctx.http, s.cookie)
-      .get('/api/v1/__gates/plain')
-      .expect(403)
-      .expect(({ body }) => expect(body.code).toBe('ACCOUNT_SUSPENDED'));
-    await as(ctx.http, s.cookie).get('/api/v1/auth/sessions').expect(403);
-    // Logout always works.
-    await as(ctx.http, s.cookie).post('/api/v1/auth/logout').expect(204);
+    const client = as(ctx.http, s.cookie);
+    const suspended = ({ body }: { body: { code: string } }) =>
+      expect(body.code).toBe('ACCOUNT_SUSPENDED');
+    await client.get('/api/v1/__gates/plain').expect(403).expect(suspended);
+    await client.get('/api/v1/auth/sessions').expect(403).expect(suspended);
+    // PRD §8.1.6 / AC-SAFE-04: the exemption of unverified users does not cover suspension.
+    await client.get('/api/v1/me').expect(403).expect(suspended);
+    await client.post('/api/v1/auth/resend-verification').expect(403).expect(suspended);
+    await client.get('/api/v1/__gates/exempt').expect(403).expect(suspended);
+    await client.get('/api/v1/__gates-exempt-class').expect(403).expect(suspended);
+    expect(ctx.email.sent).toEqual([]);
+    // Logout is public and always works.
+    await client.post('/api/v1/auth/logout').expect(204);
+    expect(
+      (await ctx.db.userSession.findUniqueOrThrow({ where: { id: s.sessionId } })).revokedAt,
+    ).toBeInstanceOf(Date);
   });
 
   it('a user suspended mid-session is blocked at the next request (user row read per request)', async () => {

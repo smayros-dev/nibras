@@ -1,5 +1,6 @@
 import { SignJWT } from 'jose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { generateToken, hashToken } from '../../src/auth/crypto/tokens';
 import { JwtService } from '../../src/auth/jwt.service';
 import { SessionService } from '../../src/auth/session.service';
 import { RequestContext } from '../../src/common/request-context';
@@ -28,7 +29,7 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     ctx.http.post('/api/v1/auth/refresh').set('Cookie', `tt_refresh=${token}`);
   const me = (access: string) => ctx.http.get('/api/v1/me').set('Cookie', `tt_access=${access}`);
 
-  it('AC-AUTH-04: refresh rotates; replaying the old refresh token revokes the family and emails the user', async () => {
+  it('AC-AUTH-04: refresh rotates; replaying the old refresh token revokes the sessions and emails the user', async () => {
     const { db, email } = ctx;
     const u = await createUser();
     const login = await loginHttp(u);
@@ -59,17 +60,83 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     expect(JSON.stringify(audit)).not.toContain(refresh1.split('.')[1]);
   });
 
-  it('reuse of a token from an earlier rotation revokes every session of the family only', async () => {
+  it('AC-AUTH-04: reuse of a token from an earlier rotation logs the user out of ALL devices', async () => {
     const u = await createUser();
-    const other = await loginAs(ctx, u); // a different family (another device)
+    const bystander = await createUser();
+    const other = await loginAs(ctx, u); // another device (another family)
+    const theirs = await loginAs(ctx, bystander);
     const login = await loginHttp(u);
     const t1 = cookieValue(login, 'tt_refresh');
     const t2 = cookieValue(await refresh(t1).expect(200), 'tt_refresh');
     const t3 = cookieValue(await refresh(t2).expect(200), 'tt_refresh');
-    await refresh(t1).expect(401);
+    expect(await ctx.db.refreshTokenHistory.count()).toBe(2);
+    await refresh(t1)
+      .expect(401)
+      .expect(({ body }) => expect(body.code).toBe('SESSION_REVOKED'));
     await refresh(t3).expect(401);
-    await as(ctx.http, other.cookie).get('/api/v1/me').expect(200);
+    await as(ctx.http, other.cookie)
+      .get('/api/v1/me')
+      .expect(401)
+      .expect(({ body }) => expect(body.code).toBe('SESSION_REVOKED'));
+    await refresh(other.refreshToken).expect(401);
+    expect(await ctx.db.userSession.count({ where: { userId: u.id, revokedAt: null } })).toBe(0);
+    expect(ctx.email.findByTemplate('security.token_reuse', u.email)).toHaveLength(1);
+    const audit = await ctx.db.auditLog.findFirstOrThrow({
+      where: { action: 'auth.refresh_reuse_detected' },
+    });
+    expect(audit.after).toMatchObject({ userId: u.id, revokedSessions: 2 });
+    // Other users are untouched.
+    await as(ctx.http, theirs.cookie).get('/api/v1/me').expect(200);
   });
+
+  it('a token never issued for that session (forged raw part, known sid) is a plain 401 UNAUTHENTICATED: no revocation, no email', async () => {
+    const u = await createUser();
+    const s = await loginAs(ctx, u);
+    const other = await loginAs(ctx, u);
+    const victim = await loginAs(ctx, u);
+    // A spent token of ANOTHER session presented with this sid is not reuse of this one.
+    await refresh(other.refreshToken).expect(200);
+    const otherSpentRaw = other.refreshToken.split('.')[1]!;
+    for (const forged of [
+      `${s.sessionId}.${generateToken().raw}`,
+      `${victim.sessionId}.${otherSpentRaw}`,
+    ]) {
+      const res = await refresh(forged)
+        .expect(401)
+        .expect(({ body }) => expect(body.code).toBe('UNAUTHENTICATED'));
+      expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(setCookieLine(res, 'tt_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
+    }
+    expect(await ctx.db.userSession.count({ where: { userId: u.id, revokedAt: null } })).toBe(3);
+    await as(ctx.http, s.cookie).get('/api/v1/me').expect(200);
+    await refresh(victim.refreshToken).expect(200);
+    expect(ctx.email.findByTemplate('security.token_reuse', u.email)).toHaveLength(0);
+    expect(await ctx.db.auditLog.count({ where: { action: 'auth.refresh_reuse_detected' } })).toBe(
+      0,
+    );
+    expect(
+      await ctx.db.refreshTokenHistory.findUnique({
+        where: { tokenHash: hashToken(otherSpentRaw) },
+      }),
+    ).toMatchObject({ sessionId: other.sessionId });
+  });
+
+  it.each(['SUSPENDED', 'DELETING', 'DELETED'] as const)(
+    'refresh for a %s user is 401 SESSION_REVOKED, clears the cookies and revokes the session',
+    async (status) => {
+      const u = await createUser();
+      const s = await loginAs(ctx, u);
+      await ctx.db.user.update({ where: { id: u.id }, data: { status } });
+      const res = await refresh(s.refreshToken)
+        .expect(401)
+        .expect(({ body }) => expect(body.code).toBe('SESSION_REVOKED'));
+      expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(
+        (await ctx.db.userSession.findUniqueOrThrow({ where: { id: s.sessionId } })).revokedAt,
+      ).toBeInstanceOf(Date);
+      expect(ctx.email.sent).toEqual([]);
+    },
+  );
 
   it("two concurrent refreshes with the same token: one rotation, both get the winner's token, no reuse alarm", async () => {
     const u = await createUser();
@@ -116,15 +183,22 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     expect(setCookieLine(rotatedPlain, 'tt_access')).toMatch(/Max-Age=900;/);
   });
 
-  it('refresh without a cookie or with a malformed/unknown token is 401 UNAUTHENTICATED', async () => {
+  it('refresh without a cookie or with a malformed/unknown token is 401 UNAUTHENTICATED and clears the cookies', async () => {
     await ctx.http
       .post('/api/v1/auth/refresh')
       .expect(401)
       .expect(({ body }) => expect(body.code).toBe('UNAUTHENTICATED'));
-    for (const t of ['garbage', 'not-a-uuid.abc', '0192f0c0-0000-7000-8000-000000000000.abc']) {
-      await refresh(t)
+    for (const t of [
+      'garbage',
+      'not-a-uuid.abc',
+      '0192f0c0-0000-7000-8000-000000000000.abc',
+      `0192f0c0-0000-7000-8000-000000000000.${generateToken().raw}`,
+    ]) {
+      const res = await refresh(t)
         .expect(401)
         .expect(({ body }) => expect(body.code).toBe('UNAUTHENTICATED'));
+      expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(setCookieLine(res, 'tt_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
     }
     expect(ctx.email.sent).toEqual([]);
   });
@@ -159,6 +233,40 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
       .expect(({ body }) => expect(body.code).toBe('SESSION_REVOKED'));
     // A deliberate logout is not a token theft.
     expect(ctx.email.findByTemplate('security.token_reuse', u.email)).toHaveLength(0);
+  });
+
+  it('logout with an expired access token falls back to the refresh cookie and revokes the server session', async () => {
+    const u = await createUser();
+    const s = await loginAs(ctx, u);
+    const expired = await new JwtService(env.JWT_SECRET, () => Date.now() - 20 * 60_000).signAccess(
+      { sub: u.id, sid: s.sessionId },
+    );
+    const res = await ctx.http
+      .post('/api/v1/auth/logout')
+      .set('Cookie', `tt_access=${expired}; tt_refresh=${s.refreshToken}`)
+      .expect(204);
+    expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+    expect(
+      (await ctx.db.userSession.findUniqueOrThrow({ where: { id: s.sessionId } })).revokedAt,
+    ).toBeInstanceOf(Date);
+    await refresh(s.refreshToken).expect(401);
+    expect(ctx.email.sent).toEqual([]);
+  });
+
+  it('logout without credentials (or with junk) is still 204 and clears both cookies, revoking nothing', async () => {
+    const u = await createUser();
+    const s = await loginAs(ctx, u);
+    for (const cookie of [
+      undefined,
+      `tt_access=junk; tt_refresh=${s.sessionId}.${generateToken().raw}`,
+    ]) {
+      const req = ctx.http.post('/api/v1/auth/logout');
+      if (cookie) req.set('Cookie', cookie);
+      const res = await req.expect(204);
+      expect(setCookieLine(res, 'tt_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+    }
+    await as(ctx.http, s.cookie).get('/api/v1/me').expect(200);
   });
 
   it('AC-AUTH-07: "Déconnecter partout" revokes 3 sessions immediately and lists them as revoked', async () => {
@@ -246,6 +354,10 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
       where: { action: 'auth.sessions_revoked' },
     });
     expect(audit.after).toMatchObject({ scope: 'one', sessionId: b.sessionId });
+
+    // Revoking an already revoked session: 204, nothing audited.
+    await as(ctx.http, a.cookie).delete(`/api/v1/auth/sessions/${b.sessionId}`).expect(204);
+    expect(await ctx.db.auditLog.count({ where: { action: 'auth.sessions_revoked' } })).toBe(1);
 
     // Revoking the current session also clears its cookies.
     const self = await as(ctx.http, a.cookie)

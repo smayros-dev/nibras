@@ -17,12 +17,19 @@ import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
 import { RequestContext, type AuthUser } from '../common/request-context';
 import { AuthService } from './auth.service';
-import { clearAuthCookies, cookieOf, REFRESH_COOKIE, setAuthCookies } from './cookies';
+import {
+  accessTokenOf,
+  clearAuthCookies,
+  cookieOf,
+  REFRESH_COOKIE,
+  setAuthCookies,
+} from './cookies';
 import { AllowUnverified } from './decorators/allow-unverified';
 import { CurrentUser } from './decorators/current-user';
 import { Public } from './decorators/public';
 import { LoginDto, RegisterTeacherDto, VerifyEmailDto } from './dto';
 import { EmailVerificationService } from './email-verification.service';
+import { JwtService } from './jwt.service';
 import { toMeUser } from './me-user';
 import { RegisterService } from './register.service';
 import {
@@ -61,6 +68,7 @@ export class AuthController {
     private readonly verification: EmailVerificationService,
     private readonly auth: AuthService,
     private readonly sessions: SessionService,
+    private readonly jwt: JwtService,
     private readonly audit: AuditService,
   ) {}
 
@@ -113,8 +121,9 @@ export class AuthController {
   }
 
   /**
-   * Rotates the `tt_refresh` cookie: `200 { ok }` with new cookies. Reuse of a spent token →
-   * the family is revoked, cookies cleared, `401 SESSION_REVOKED`.
+   * Rotates the `tt_refresh` cookie: `200 { ok }` with new cookies. Every 401 clears the cookies:
+   * missing, malformed or unknown token (`UNAUTHENTICATED`), dead session (`SESSION_REVOKED`),
+   * reuse of a spent token (all of the user's sessions revoked, `SESSION_REVOKED`).
    */
   @Public()
   @Post('refresh')
@@ -125,13 +134,14 @@ export class AuthController {
   ): Promise<{ ok: true }> {
     const token = cookieOf(req, REFRESH_COOKIE);
     if (!token) {
+      clearAuthCookies(res);
       throw new ApiError(HttpStatus.UNAUTHORIZED, 'UNAUTHENTICATED', 'Authentication required');
     }
     let result: SessionTokens | 'REUSE';
     try {
       result = await this.sessions.rotate(token, requestMeta());
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'SESSION_REVOKED') clearAuthCookies(res);
+      if (err instanceof ApiError && err.getStatus() === 401) clearAuthCookies(res);
       throw err;
     }
     if (result === 'REUSE') {
@@ -142,12 +152,17 @@ export class AuthController {
     return { ok: true };
   }
 
-  /** Revokes the current session and clears the cookies. */
-  @AllowUnverified()
+  /**
+   * Public, so it works with an expired access token or for a suspended account: revokes the
+   * session of a valid access token if any, else the session whose CURRENT refresh token is in
+   * `tt_refresh` (the cookie path covers this route). Always clears both cookies and answers
+   * `204`, even when nothing matched.
+   */
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Res({ passthrough: true }) res: Response): Promise<void> {
-    const sessionId = currentSessionId();
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
+    const sessionId = await this.logoutTarget(req);
     if (sessionId) await this.sessions.revoke(sessionId);
     clearAuthCookies(res);
   }
@@ -184,13 +199,30 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
     if (!(await this.sessions.isOwnedBy(id, user.id))) throw notFound();
-    await this.sessions.revoke(id);
-    await this.audit.log({
-      action: 'auth.sessions_revoked',
-      entityType: 'User',
-      entityId: user.id,
-      after: { scope: 'one', sessionId: id },
-    });
+    // Already revoked: nothing happened, nothing to audit (still 204, idempotent).
+    if (await this.sessions.revoke(id)) {
+      await this.audit.log({
+        action: 'auth.sessions_revoked',
+        entityType: 'User',
+        entityId: user.id,
+        after: { scope: 'one', sessionId: id },
+      });
+    }
     if (id === currentSessionId()) clearAuthCookies(res);
+  }
+
+  /** The session a logout targets: from a valid access token, else from the refresh cookie. */
+  private async logoutTarget(req: Request): Promise<string | null> {
+    const access = accessTokenOf(req);
+    if (access) {
+      try {
+        const { sub, sid } = await this.jwt.verify(access, 'access');
+        if (await this.sessions.isOwnedBy(sid, sub)) return sid;
+      } catch {
+        // Expired or invalid: fall back to the refresh cookie.
+      }
+    }
+    const refresh = cookieOf(req, REFRESH_COOKIE);
+    return refresh ? ((await this.sessions.sessionOfRefreshToken(refresh))?.id ?? null) : null;
   }
 }

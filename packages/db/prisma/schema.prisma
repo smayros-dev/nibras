@@ -162,11 +162,26 @@ model UserSession {
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Hashes this session has rotated away from: presenting one of them is refresh-token reuse.
+  rotatedTokens RefreshTokenHistory[]
 
   @@index([userId])
   @@index([familyId])
   @@map("user_session")
+}
+
+/// A refresh-token hash a session has already rotated away from (reuse detection, AC-AUTH-04).
+/// Bounded by the session's lifetime (one row per rotation); deleted with the session.
+model RefreshTokenHistory {
+  tokenHash String   @id @map("token_hash")
+  sessionId String   @map("session_id") @db.Uuid
+  rotatedAt DateTime @default(now()) @map("rotated_at") @db.Timestamptz
+
+  session UserSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("refresh_token_history")
 }
 
 /// Single-use emailed link (verification, password reset, email change). Stores only the token hash.
