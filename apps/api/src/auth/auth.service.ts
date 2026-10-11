@@ -11,6 +11,7 @@ import { EMAIL_PROVIDER } from '../providers/providers.module';
 import { hashPassword, verifyPassword } from './crypto/password';
 import { hashToken } from './crypto/tokens';
 import { deviceLabel } from './device-label';
+import { LoginThrottleService } from './login-throttle.service';
 import { SessionService, type SessionMeta, type SessionTokens } from './session.service';
 
 export type LoginResult =
@@ -33,7 +34,7 @@ function getDummyHash(): Promise<string> {
   return dummyHash;
 }
 
-/** Email + password sign-in (PRD §8.1.2). Rate limiting and lockout arrive with Task 8. */
+/** Email + password sign-in (PRD §8.1.2), throttled and locked by `LoginThrottleService`. */
 @Injectable()
 export class AuthService implements OnModuleInit {
   constructor(
@@ -42,6 +43,7 @@ export class AuthService implements OnModuleInit {
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
     private readonly logger: PinoLogger,
+    private readonly throttle: LoginThrottleService,
   ) {
     logger.setContext(AuthService.name);
   }
@@ -58,14 +60,30 @@ export class AuthService implements OnModuleInit {
    * `403 ACCOUNT_SUSPENDED`. Every failure is audited as `auth.login_failed` by an anonymous
    * actor. On success: a new session, `lastLoginAt`, `auth.login`, and `security.new_device` when
    * the user has no active session on a device with the same label.
+   *
+   * Before any lookup, `LoginThrottleService.check` on (email, client ip) may answer
+   * `429 RATE_LIMITED` (ip+email backoff) or `429 ACCOUNT_LOCKED` (15-minute lock) with
+   * `details.retryAfterS` (the filter adds `Retry-After`), identically for unknown emails. Each
+   * `INVALID_CREDENTIALS` counts as a failure; a successful sign-in resets the counters.
    */
   async login(input: LoginInput, meta: SessionMeta): Promise<LoginResult> {
+    const gate = await this.throttle.check(input.email, meta.ip);
+    if (!gate.allowed) {
+      throw new ApiError(
+        HttpStatus.TOO_MANY_REQUESTS,
+        gate.code,
+        gate.code === 'ACCOUNT_LOCKED' ? 'Account temporarily locked' : 'Too many login attempts',
+        { retryAfterS: gate.retryAfterS },
+      );
+    }
+
     const user = await this.db.user.findUnique({ where: { email: input.email } });
     const hash = user?.passwordHash ?? (await getDummyHash());
     const passwordOk = await verifyPassword(hash, input.password);
 
     if (!user || !user.passwordHash || !passwordOk || GONE_STATUSES.has(user.status)) {
       await this.auditFailure(user, input.email, 'invalid_credentials');
+      await this.throttle.recordFailure(input.email, meta.ip, user);
       throw invalidCredentials();
     }
     if (user.status === 'SUSPENDED') {
@@ -73,6 +91,7 @@ export class AuthService implements OnModuleInit {
       throw new ApiError(HttpStatus.FORBIDDEN, 'ACCOUNT_SUSPENDED', 'Account suspended');
     }
 
+    await this.throttle.reset(input.email, meta.ip);
     // Task 10: `totpEnabledAt` set → `{ status: 'TWO_FACTOR_REQUIRED', challengeToken }`.
     const label = deviceLabel(meta.userAgent);
     const knownDevice = await this.sessions.hasActiveDevice(user.id, label);

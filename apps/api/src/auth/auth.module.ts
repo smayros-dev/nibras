@@ -8,6 +8,7 @@ import type { PwnedPasswordClient } from './crypto/hibp';
 import { PasswordPolicy } from './crypto/password-policy';
 import { EmailVerificationService } from './email-verification.service';
 import { JwtService } from './jwt.service';
+import { LoginThrottleService } from './login-throttle.service';
 import { MeController } from './me.controller';
 import { RegisterService } from './register.service';
 import { SessionService } from './session.service';
@@ -26,6 +27,7 @@ import { SessionService } from './session.service';
     EmailVerificationService,
     RegisterService,
     SessionService,
+    LoginThrottleService,
     AuthService,
   ],
   exports: [PasswordPolicy, EmailVerificationService, RegisterService, JwtService, SessionService],

@@ -4,11 +4,13 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { resetDatabase, systemPrisma, type PrismaClient } from '@tt/db';
 import { InMemoryEmailProvider, InMemorySmsProvider } from '@tt/providers';
+import type Redis from 'ioredis';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { FakePwnedClient } from '../../src/auth/crypto/hibp';
 import { LOG_DESTINATION } from '../../src/observability/logger.module';
+import { REDIS } from '../../src/redis/redis.module';
 import { EMAIL_PROVIDER, PWNED_CLIENT, SMS_PROVIDER } from '../../src/providers/providers.module';
 import { FakeQueueService, QueueService } from '../../src/queue/queue.service';
 
@@ -94,9 +96,13 @@ export async function createTestApp(opts: CreateTestAppOptions = {}) {
     sms,
     queue,
     pwned,
-    /** Empties the database (refuses a non-`_test` one) and every fake. */
+    /**
+     * Empties the database (refuses a non-`_test` one), this package's test Redis index (login
+     * throttle and rate-limit counters; refuses DB 0) and every fake.
+     */
     async reset(): Promise<void> {
       await resetDatabase(db);
+      await flushTestRedis(app.get<Redis>(REDIS));
       email.clear();
       sms.clear();
       queue.clear();
@@ -104,6 +110,13 @@ export async function createTestApp(opts: CreateTestAppOptions = {}) {
       logs.clear();
     },
   };
+}
+
+/** FLUSHDB on the API's Redis connection, only when it points at a test index (never DB 0). */
+async function flushTestRedis(redis: Redis): Promise<void> {
+  const index = Number(new URL(process.env.REDIS_URL ?? '').pathname.slice(1) || 0);
+  if (!(index > 0)) throw new Error(`refusing to flush Redis DB ${index} (not a test index)`);
+  await redis.flushdb();
 }
 
 export type TestContext = Awaited<ReturnType<typeof createTestApp>>;
