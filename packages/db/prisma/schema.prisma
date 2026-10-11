@@ -102,34 +102,36 @@ enum VerificationPurpose {
 // ─── Identity & tenancy (PRD §11.2) ─────────────────────────────────────────────
 
 model User {
-  id                String       @id @default(uuid(7)) @db.Uuid
-  email             String       @unique @db.Citext
-  emailVerifiedAt   DateTime?    @map("email_verified_at") @db.Timestamptz
+  id                 String       @id @default(uuid(7)) @db.Uuid
+  email              String       @unique @db.Citext
+  emailVerifiedAt    DateTime?    @map("email_verified_at") @db.Timestamptz
   /// Null when the account only signs in through a social provider (P1).
-  passwordHash      String?      @map("password_hash")
-  firstName         String       @map("first_name")
-  lastName          String       @map("last_name")
+  passwordHash       String?      @map("password_hash")
+  firstName          String       @map("first_name")
+  lastName           String       @map("last_name")
   /// → MediaAsset (SP3); no FK until that table exists.
-  avatarMediaId     String?      @map("avatar_media_id") @db.Uuid
-  locale            Locale       @default(fr)
+  avatarMediaId      String?      @map("avatar_media_id") @db.Uuid
+  locale             Locale       @default(fr)
   /// IANA zone.
-  timezone          String       @default("Africa/Tunis")
-  phoneE164         String?      @map("phone_e164")
-  phoneVerifiedAt   DateTime?    @map("phone_verified_at") @db.Timestamptz
-  birthDate         DateTime?    @map("birth_date") @db.Date
-  platformRole      PlatformRole @default(NONE) @map("platform_role")
-  totpSecretEnc     String?      @map("totp_secret_enc")
-  totpEnabledAt     DateTime?    @map("totp_enabled_at") @db.Timestamptz
-  recoveryCodesHash String[]     @default([]) @map("recovery_codes_hash")
-  status            UserStatus   @default(ACTIVE)
-  suspendedReason   String?      @map("suspended_reason")
-  suspendedAt       DateTime?    @map("suspended_at") @db.Timestamptz
-  deletedAt         DateTime?    @map("deleted_at") @db.Timestamptz
-  lastLoginAt       DateTime?    @map("last_login_at") @db.Timestamptz
-  /// Last password reset or change: sessions whose credentials were proven before it are dead.
-  passwordChangedAt DateTime?    @map("password_changed_at") @db.Timestamptz
-  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  timezone           String       @default("Africa/Tunis")
+  phoneE164          String?      @map("phone_e164")
+  phoneVerifiedAt    DateTime?    @map("phone_verified_at") @db.Timestamptz
+  birthDate          DateTime?    @map("birth_date") @db.Date
+  platformRole       PlatformRole @default(NONE) @map("platform_role")
+  totpSecretEnc      String?      @map("totp_secret_enc")
+  totpEnabledAt      DateTime?    @map("totp_enabled_at") @db.Timestamptz
+  recoveryCodesHash  String[]     @default([]) @map("recovery_codes_hash")
+  status             UserStatus   @default(ACTIVE)
+  suspendedReason    String?      @map("suspended_reason")
+  suspendedAt        DateTime?    @map("suspended_at") @db.Timestamptz
+  deletedAt          DateTime?    @map("deleted_at") @db.Timestamptz
+  lastLoginAt        DateTime?    @map("last_login_at") @db.Timestamptz
+  /// Last password reset or change (display and audit only: no security decision uses it).
+  passwordChangedAt  DateTime?    @map("password_changed_at") @db.Timestamptz
+  /// Incremented by every password reset or change; a session issued under another value is dead.
+  credentialsVersion Int          @default(0) @map("credentials_version")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   sessions           UserSession[]
   verificationTokens VerificationToken[]
@@ -149,23 +151,23 @@ model User {
 
 /// Authentication session (one member of a refresh-token family).
 model UserSession {
-  id               String    @id @default(uuid(7)) @db.Uuid
-  userId           String    @map("user_id") @db.Uuid
-  refreshTokenHash String    @unique @map("refresh_token_hash")
-  familyId         String    @map("family_id") @db.Uuid
-  deviceLabel      String    @map("device_label")
-  ip               String    @db.Inet
-  userAgent        String    @map("user_agent")
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  refreshTokenHash   String    @unique @map("refresh_token_hash")
+  familyId           String    @map("family_id") @db.Uuid
+  deviceLabel        String    @map("device_label")
+  ip                 String    @db.Inet
+  userAgent          String    @map("user_agent")
   /// "Se souvenir de cet appareil": the refresh cookie is persistent (30 d) instead of a session cookie.
-  remember         Boolean   @default(false)
-  lastSeenAt       DateTime  @map("last_seen_at") @db.Timestamptz
-  expiresAt        DateTime  @map("expires_at") @db.Timestamptz
-  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
-  /// When the user last proved the password for this session (before its verification started);
-  /// a later `User.passwordChangedAt` kills the session.
-  authenticatedAt  DateTime  @default(now()) @map("authenticated_at") @db.Timestamptz
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  remember           Boolean   @default(false)
+  lastSeenAt         DateTime  @map("last_seen_at") @db.Timestamptz
+  expiresAt          DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt          DateTime? @map("revoked_at") @db.Timestamptz
+  /// `User.credentialsVersion` read together with the password hash this session was issued on;
+  /// any other value than the user's current one means the password changed since: dead session.
+  credentialsVersion Int       @default(0) @map("credentials_version")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Hashes this session has rotated away from: presenting one of them is refresh-token reuse.

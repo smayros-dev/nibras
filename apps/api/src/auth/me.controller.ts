@@ -1,17 +1,6 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Inject,
-  Patch,
-  Post,
-  Res,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Patch, Post } from '@nestjs/common';
 import type { MeUser } from '@tt/contracts';
 import type { GuardedClient } from '@tt/db';
-import type { Response } from 'express';
 import { RequestContext, type AuthUser } from '../common/request-context';
 import { DB } from '../db/db.module';
 import { AllowUnverified } from './decorators/allow-unverified';
@@ -20,7 +9,6 @@ import { ChangePasswordDto, EmailChangeRequestDto } from './dto';
 import { EmailChangeService } from './email-change.service';
 import { toMeUser } from './me-user';
 import { PasswordResetService } from './password-reset.service';
-import { withRetryAfter } from './rate-window';
 
 /**
  * Placeholder `GET /me` (Task 7): `{ user }`, reachable before email verification. Task 11
@@ -43,23 +31,20 @@ export class MeController {
   }
 
   /**
-   * Wrong current password → `401 INVALID_CREDENTIALS`, too many → `429 RATE_LIMITED` with
-   * `Retry-After`; every OTHER session is revoked.
+   * Wrong current password → `401 INVALID_CREDENTIALS`, too many → `429 RATE_LIMITED`
+   * (`details.retryAfterS`, `Retry-After`); every OTHER session is revoked.
    */
   @Patch('password')
   @HttpCode(HttpStatus.OK)
   async changePassword(
     @CurrentUser() user: AuthUser,
     @Body() body: ChangePasswordDto,
-    @Res({ passthrough: true }) res: Response,
   ): Promise<{ ok: true }> {
-    await withRetryAfter(res, () =>
-      this.passwords.change(
-        user,
-        RequestContext.get()?.session?.id,
-        body.currentPassword,
-        body.newPassword,
-      ),
+    await this.passwords.change(
+      user,
+      RequestContext.get()?.session?.id,
+      body.currentPassword,
+      body.newPassword,
     );
     return { ok: true };
   }
@@ -73,9 +58,8 @@ export class MeController {
   async requestEmailChange(
     @CurrentUser() user: AuthUser,
     @Body() body: EmailChangeRequestDto,
-    @Res({ passthrough: true }) res: Response,
   ): Promise<Record<string, never>> {
-    await withRetryAfter(res, () => this.emailChange.request(user, body));
+    await this.emailChange.request(user, body);
     return {};
   }
 }

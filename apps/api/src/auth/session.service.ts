@@ -49,12 +49,13 @@ export const sessionRevoked = () =>
   new ApiError(HttpStatus.UNAUTHORIZED, 'SESSION_REVOKED', 'Session revoked or expired');
 
 /**
- * Whether a session's password proof predates the user's last password reset or change: such a
- * session is dead (it may come from a login that verified the old password while the change was
- * committing).
+ * Whether a session was issued under another credentials version than the user's current one,
+ * i.e. the password was reset or changed since the hash it was issued on was read. A plain
+ * integer comparison: no clock is involved, so a login that read the old hash while a reset was
+ * committing always ends up with a dead session.
  */
-export function credentialsStale(passwordChangedAt: Date | null, authenticatedAt: Date): boolean {
-  return passwordChangedAt !== null && passwordChangedAt.getTime() > authenticatedAt.getTime();
+export function credentialsOutdated(sessionVersion: number, userVersion: number): boolean {
+  return sessionVersion !== userVersion;
 }
 
 /** Splits `${sid}.${raw}`; `null` when malformed. */
@@ -137,13 +138,23 @@ export class SessionService {
 
   /**
    * A new session (and family) for `user`, with its first access and refresh tokens.
-   * `authenticatedAt` is when the password check began (default: now); a password reset or change
-   * committed after it kills the session (see {@link credentialsStale}).
+   * `credentialsVersion` is the `User.credentialsVersion` read in the SAME row read as the
+   * password hash that was verified (login); a reset or change committed since makes the session
+   * dead on first use (see {@link credentialsOutdated}). Callers that verified no password (a
+   * just-created account) omit it and the current value is used.
    */
   async createSession(
     user: Pick<User, 'id'>,
-    meta: SessionMeta & { remember: boolean; authenticatedAt?: Date },
+    meta: SessionMeta & { remember: boolean; credentialsVersion?: number },
   ): Promise<SessionTokens> {
+    const credentialsVersion =
+      meta.credentialsVersion ??
+      (
+        await this.db.user.findUniqueOrThrow({
+          where: { id: user.id },
+          select: { credentialsVersion: true },
+        })
+      ).credentialsVersion;
     const id = uuidv7();
     const { raw, hash } = generateToken();
     const now = new Date();
@@ -158,7 +169,7 @@ export class SessionService {
         ip: meta.ip || UNKNOWN_IP,
         userAgent,
         remember: meta.remember,
-        authenticatedAt: meta.authenticatedAt ?? now,
+        credentialsVersion,
         lastSeenAt: now,
         expiresAt: new Date(now.getTime() + REFRESH_TTL_MS),
       },
@@ -201,7 +212,7 @@ export class SessionService {
               firstName: true,
               locale: true,
               status: true,
-              passwordChangedAt: true,
+              credentialsVersion: true,
             },
           },
         },
@@ -221,7 +232,7 @@ export class SessionService {
         session.revokedAt !== null ||
         session.expiresAt.getTime() <= Date.now() ||
         user.status !== 'ACTIVE' ||
-        credentialsStale(user.passwordChangedAt, session.authenticatedAt)
+        credentialsOutdated(session.credentialsVersion, user.credentialsVersion)
       ) {
         if (session.revokedAt === null) {
           await tx.userSession.update({

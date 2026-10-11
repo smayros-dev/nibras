@@ -14,7 +14,7 @@ import { DB } from '../../db/db.module';
 import { accessTokenOf } from '../cookies';
 import { IS_PUBLIC_KEY } from '../decorators/public';
 import { JwtService, type AccessPayload } from '../jwt.service';
-import { credentialsStale, sessionRevoked } from '../session.service';
+import { credentialsOutdated, sessionRevoked } from '../session.service';
 
 /** The `AuthUser` columns (never hashes or secrets). */
 export const AUTH_USER_SELECT = {
@@ -74,8 +74,8 @@ export class JwtAuthGuard implements CanActivate {
         userId: true,
         revokedAt: true,
         expiresAt: true,
-        authenticatedAt: true,
-        user: { select: { ...AUTH_USER_SELECT, passwordChangedAt: true } },
+        credentialsVersion: true,
+        user: { select: { ...AUTH_USER_SELECT, credentialsVersion: true } },
       },
     });
     if (
@@ -85,11 +85,11 @@ export class JwtAuthGuard implements CanActivate {
       session.expiresAt.getTime() <= Date.now() ||
       session.user.status === 'DELETING' ||
       session.user.status === 'DELETED' ||
-      credentialsStale(session.user.passwordChangedAt, session.authenticatedAt)
+      credentialsOutdated(session.credentialsVersion, session.user.credentialsVersion)
     ) {
       throw sessionRevoked();
     }
-    const { passwordChangedAt: _changedAt, ...user } = session.user;
+    const { credentialsVersion: _version, ...user } = session.user;
 
     const store = RequestContext.get();
     // Fails closed: without the request context nothing downstream could see the user.

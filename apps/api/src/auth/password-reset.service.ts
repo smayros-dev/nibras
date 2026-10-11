@@ -21,6 +21,8 @@ import { PasswordPolicy } from './crypto/password-policy';
 import { generateToken, hashToken } from './crypto/tokens';
 import { hitWindow, type RateRedis } from './rate-window';
 import { ReauthLimiter } from './reauth-limiter';
+import { LoginThrottleService } from './login-throttle.service';
+import { sessionRevoked } from './session.service';
 import { lockAccountTokens } from './token-locks';
 
 /** PRD §8.1.2: the reset link is valid 1 h, single use. */
@@ -51,11 +53,13 @@ export function resetPasswordLink(locale: Locale, raw: string): string {
  *
  * Reset tokens (`VerificationToken` purpose `PASSWORD_RESET`) are stored as SHA-256 only, valid
  * 1 h, single use; issuing one retires the user's earlier ones. Setting a password (reset or
- * change) stamps `User.passwordChangedAt`, revokes the sessions in the same statement or
- * transaction (all of them for a reset, all but the current one for a change), retires pending
- * reset links and deletes a pending email change. Sessions whose password proof predates
- * `passwordChangedAt` are refused by `JwtAuthGuard` and `SessionService.rotate`, which covers a
- * login that verified the old password while the change was committing.
+ * change) increments `User.credentialsVersion` (in SQL), revokes the sessions in the same
+ * statement or transaction (all of them for a reset, all but the current one for a change),
+ * retires pending reset links and deletes a pending email change. A session carries the version
+ * its login read together with the verified hash; `JwtAuthGuard` and `SessionService.rotate`
+ * refuse any session whose version differs from the user's, so a login that read the old hash
+ * while the change was committing ends up with a dead session (no clock involved).
+ * `passwordChangedAt` is stamped for display and audit only.
  */
 @Injectable()
 export class PasswordResetService implements OnModuleDestroy, BeforeApplicationShutdown {
@@ -70,6 +74,7 @@ export class PasswordResetService implements OnModuleDestroy, BeforeApplicationS
     @Inject(REDIS) private readonly redis: RateRedis,
     private readonly policy: PasswordPolicy,
     private readonly limiter: ReauthLimiter,
+    private readonly loginThrottle: LoginThrottleService,
     private readonly audit: AuditService,
     private readonly logger: PinoLogger,
   ) {
@@ -127,9 +132,10 @@ export class PasswordResetService implements OnModuleDestroy, BeforeApplicationS
    *
    * Everything else is ONE statement: the account tokens are locked in `id` order
    * ({@link lockAccountTokens}' predicate), the user's unused reset tokens are all retired, and
-   * only if the presented one was still among them once its lock was granted are the password and
-   * `passwordChangedAt` set, every live session revoked and the pending email change deleted.
-   * Concurrent uses of one link therefore succeed exactly once.
+   * only if the presented one was still among them once its lock was granted is the password set,
+   * `credentialsVersion` incremented, every live session revoked and the pending email change
+   * deleted. Concurrent uses of one link therefore succeed exactly once. Then the login throttle
+   * of the address is cleared, so a locked-out owner gets back in.
    */
   async reset(raw: string, newPassword: string): Promise<void> {
     const tokenHash = hashToken(raw);
@@ -173,8 +179,8 @@ export class PasswordResetService implements OnModuleDestroy, BeforeApplicationS
         SELECT user_id FROM retired WHERE token_hash = ${tokenHash}
       ), updated AS (
         UPDATE "user"
-        SET password_hash = ${passwordHash}, password_changed_at = ${now}::timestamptz,
-          updated_at = ${now}::timestamptz
+        SET password_hash = ${passwordHash}, credentials_version = credentials_version + 1,
+          password_changed_at = ${now}::timestamptz, updated_at = ${now}::timestamptz
         WHERE id IN (SELECT user_id FROM claimed) AND status NOT IN ('DELETING', 'DELETED')
         RETURNING id, email, first_name, locale, platform_role
       ), revoked AS (
@@ -191,7 +197,15 @@ export class PasswordResetService implements OnModuleDestroy, BeforeApplicationS
       FROM updated u`;
     const user = updated[0];
     if (!user) return this.failReset();
-    // Task 8 merge: clear the login throttle for this email here (LoginThrottleService.clearForEmail).
+    // Lockout-DoS escape hatch (Task 8): the owner proved control of the address.
+    try {
+      await this.loginThrottle.clearForEmail(user.email);
+    } catch (err) {
+      this.logger.warn(
+        { userId: user.id, err: { type: err instanceof Error ? err.name : typeof err } },
+        'login throttle not cleared after password reset',
+      );
+    }
 
     await this.audit.log({
       action: 'auth.password_reset',
@@ -214,9 +228,11 @@ export class PasswordResetService implements OnModuleDestroy, BeforeApplicationS
   /**
    * `PATCH /me/password`: more than 5 wrong current passwords in 15 min → `429 RATE_LIMITED`
    * (`ReauthLimiter`); wrong current password → `401 INVALID_CREDENTIALS` (audited); policy →
-   * `422 PASSWORD_*`. One transaction sets the hash and `passwordChangedAt`, retires pending
-   * reset links, deletes a pending email change, revokes every other session and re-stamps the
-   * current session's `authenticatedAt` (it just proved the password, so it stays valid).
+   * `422 PASSWORD_*`. One transaction sets the hash and increments `credentialsVersion` (only if
+   * it is still the version read with the verified hash: a reset committed meanwhile wins and this
+   * answers `401 SESSION_REVOKED`), retires pending reset links, deletes a pending email change,
+   * revokes every other session and moves the current session to the new version (it just proved
+   * the password, so it stays valid).
    */
   async change(
     user: AuthUser,
@@ -225,9 +241,9 @@ export class PasswordResetService implements OnModuleDestroy, BeforeApplicationS
     newPassword: string,
   ): Promise<void> {
     await this.limiter.attempt(user.id);
-    const { passwordHash } = await this.db.user.findUniqueOrThrow({
+    const { passwordHash, credentialsVersion } = await this.db.user.findUniqueOrThrow({
       where: { id: user.id },
-      select: { passwordHash: true },
+      select: { passwordHash: true, credentialsVersion: true },
     });
     if (!passwordHash || !(await verifyPassword(passwordHash, currentPassword))) {
       await this.audit.log({
@@ -247,10 +263,15 @@ export class PasswordResetService implements OnModuleDestroy, BeforeApplicationS
     const now = new Date();
     const revoked = await this.db.$transaction(async (tx) => {
       await lockAccountTokens(tx, user.id);
-      await tx.user.update({
-        where: { id: user.id },
-        data: { passwordHash: hash, passwordChangedAt: now },
+      const bumped = await tx.user.updateMany({
+        where: { id: user.id, credentialsVersion },
+        data: {
+          passwordHash: hash,
+          passwordChangedAt: now,
+          credentialsVersion: { increment: 1 },
+        },
       });
+      if (bumped.count !== 1) throw sessionRevoked();
       await tx.verificationToken.updateMany({
         where: { userId: user.id, purpose: 'PASSWORD_RESET', usedAt: null },
         data: { usedAt: now },
@@ -269,7 +290,7 @@ export class PasswordResetService implements OnModuleDestroy, BeforeApplicationS
       if (currentSessionId !== undefined) {
         await tx.userSession.updateMany({
           where: { id: currentSessionId, userId: user.id },
-          data: { authenticatedAt: now },
+          data: { credentialsVersion: credentialsVersion + 1 },
         });
       }
       return count;

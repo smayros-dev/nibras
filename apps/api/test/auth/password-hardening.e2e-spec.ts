@@ -7,11 +7,13 @@ import {
 } from '@tt/providers';
 import type Redis from 'ioredis';
 import type { PinoLogger } from 'nestjs-pino';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { verifyPassword } from '../../src/auth/crypto/password';
+import { PasswordPolicy } from '../../src/auth/crypto/password-policy';
 import { hashToken } from '../../src/auth/crypto/tokens';
 import { PasswordResetService } from '../../src/auth/password-reset.service';
 import { SessionService } from '../../src/auth/session.service';
-import { ACCESS_COOKIE, REFRESH_COOKIE } from '../../src/auth/cookies';
+import { REFRESH_COOKIE } from '../../src/auth/cookies';
 import { EMAIL_PROVIDER } from '../../src/providers/providers.module';
 import { REDIS } from '../../src/redis/redis.module';
 import { createTestApp, type TestContext } from '../helpers/app';
@@ -74,12 +76,19 @@ describe('password and email change hardening', () => {
 
     it('a burst, including across the expiry of the window, never leaves a key without a TTL', async () => {
       const key = forgotKey('burst@example.com');
-      const burst = () =>
-        Promise.all(
+      let ip = 0;
+      // A fresh client ip per burst: the anonymous limit is 60 requests/min per ip.
+      const burst = () => {
+        ip += 1;
+        return Promise.all(
           Array.from({ length: 10 }, () =>
-            ctx.http.post(FORGOT).send({ email: 'burst@example.com' }),
+            ctx.http
+              .post(FORGOT)
+              .set('X-Forwarded-For', `10.8.0.${ip}`)
+              .send({ email: 'burst@example.com' }),
           ),
         );
+      };
       expect((await burst()).every((r) => r.status === 202)).toBe(true);
       expect(await redis.ttl(key)).toBeGreaterThan(0);
       // Window about to expire: requests straddle the expiry. The key may be gone (-2) between
@@ -97,41 +106,93 @@ describe('password and email change hardening', () => {
     });
   });
 
-  describe('sessions die with the password', () => {
-    it('reset: password_changed_at is set and a session whose login began before the reset is refused', async () => {
+  describe('sessions die with the password (credentials version)', () => {
+    const LOGIN = '/api/v1/auth/login';
+    const cookieOf = (res: { headers: Record<string, unknown> }) =>
+      (res.headers['set-cookie'] as string[]).map((c) => c.split(';')[0]).join('; ');
+    const refreshOf = (res: { headers: Record<string, unknown> }) =>
+      (res.headers['set-cookie'] as string[])
+        .find((c) => c.startsWith(`${REFRESH_COOKIE}=`))!
+        .split(';')[0]!
+        .slice(REFRESH_COOKIE.length + 1);
+
+    /**
+     * Test seam between "login read the user (hash + version)" and "login created the session":
+     * the next `createSession` call first runs `between`.
+     */
+    function onNextSessionCreation(between: () => Promise<void>): void {
+      const sessions = ctx.app.get(SessionService);
+      const original = sessions.createSession.bind(sessions);
+      vi.spyOn(sessions, 'createSession').mockImplementationOnce(async (user, meta) => {
+        await between();
+        return original(user, meta);
+      });
+    }
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it('the race: a login that read the old hash before a reset committed gets a session that is refused on first use', async () => {
       const u = await createUser();
-      const s = await loginAs(ctx, u);
-      // A login that read the old password before the reset committed…
-      const loginStartedAt = new Date();
       await ctx.http.post(FORGOT).send({ email: u.email }).expect(202);
       const token = await resetToken(ctx, u.email);
-      await ctx.http.post(RESET).send({ token, newPassword: NEW_PASSWORD }).expect(200);
-      // …and created its session only after it.
-      const late = await ctx.app.get(SessionService).createSession(u, {
-        ip: '127.0.0.1',
-        userAgent: 'vitest',
-        remember: false,
-        authenticatedAt: loginStartedAt,
+      onNextSessionCreation(async () => {
+        await ctx.http.post(RESET).send({ token, newPassword: NEW_PASSWORD }).expect(200);
       });
-      const lateCookie = `${ACCESS_COOKIE}=${late.accessToken}; ${REFRESH_COOKIE}=${late.refreshToken}`;
+      // The old password is verified, then the reset commits, then the session is created.
+      const login = await ctx.http
+        .post(LOGIN)
+        .send({ email: u.email, password: u.password })
+        .expect(200);
 
       const user = await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } });
-      expect(user.passwordChangedAt).toBeInstanceOf(Date);
-      expect(user.passwordChangedAt!.getTime()).toBeGreaterThanOrEqual(loginStartedAt.getTime());
-      await as(ctx.http, s.cookie).get('/api/v1/me').expect(401);
-      const me = await as(ctx.http, lateCookie).get('/api/v1/me').expect(401);
+      expect(user.credentialsVersion).toBe(1);
+      const session = await ctx.db.userSession.findFirstOrThrow({
+        where: { userId: u.id, revokedAt: null },
+      });
+      expect(session.credentialsVersion).toBe(0);
+      const me = await as(ctx.http, cookieOf(login)).get('/api/v1/me').expect(401);
       expect(me.body.code).toBe('SESSION_REVOKED');
       const refreshed = await ctx.http
         .post('/api/v1/auth/refresh')
-        .set('Cookie', `${REFRESH_COOKIE}=${late.refreshToken}`)
+        .set('Cookie', `${REFRESH_COOKIE}=${refreshOf(login)}`)
         .expect(401);
       expect(refreshed.body.code).toBe('SESSION_REVOKED');
-      // A login that starts after the reset works.
-      const fresh = await loginAs(ctx, u);
-      await as(ctx.http, fresh.cookie).get('/api/v1/me').expect(200);
+      // A login with the new password works.
+      const fresh = await ctx.http
+        .post(LOGIN)
+        .send({ email: u.email, password: NEW_PASSWORD })
+        .expect(200);
+      await as(ctx.http, cookieOf(fresh)).get('/api/v1/me').expect(200);
     });
 
-    it('reset revokes the sessions in the same statement as the password write', async () => {
+    it('the same race against a password change from another session', async () => {
+      const u = await createUser();
+      const changer = await loginAs(ctx, u, { userAgent: 'changer' });
+      onNextSessionCreation(async () => {
+        await as(ctx.http, changer.cookie)
+          .patch(CHANGE)
+          .send({ currentPassword: u.password, newPassword: NEW_PASSWORD })
+          .expect(200);
+      });
+      const login = await ctx.http
+        .post(LOGIN)
+        .send({ email: u.email, password: u.password })
+        .expect(200);
+      await as(ctx.http, cookieOf(login)).get('/api/v1/me').expect(401);
+      await as(ctx.http, changer.cookie).get('/api/v1/me').expect(200);
+    });
+
+    it('control: without a password change in between, the login session works', async () => {
+      const u = await createUser();
+      onNextSessionCreation(async () => undefined);
+      const login = await ctx.http
+        .post(LOGIN)
+        .send({ email: u.email, password: u.password })
+        .expect(200);
+      await as(ctx.http, cookieOf(login)).get('/api/v1/me').expect(200);
+    });
+
+    it('reset increments the version and revokes the sessions in the same statement', async () => {
       const u = await createUser();
       await loginAs(ctx, u);
       await loginAs(ctx, u, { userAgent: 'other' });
@@ -139,30 +200,24 @@ describe('password and email change hardening', () => {
       const token = await resetToken(ctx, u.email);
       await ctx.http.post(RESET).send({ token, newPassword: NEW_PASSWORD }).expect(200);
       const user = await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } });
+      expect(user.credentialsVersion).toBe(1);
+      expect(user.passwordChangedAt).toBeInstanceOf(Date);
       const sessions = await ctx.db.userSession.findMany({ where: { userId: u.id } });
       expect(sessions).toHaveLength(2);
-      // One statement: one `now` for the password stamp and every revocation.
+      // One statement: one timestamp for the password stamp and every revocation.
       for (const s of sessions) expect(s.revokedAt).toEqual(user.passwordChangedAt);
     });
 
-    it('change: other sessions revoked in the same transaction, the current one survives, a stale login is refused', async () => {
+    it('change: the current session moves to the new version and survives, the others are revoked', async () => {
       const u = await createUser();
       const current = await loginAs(ctx, u);
       const other = await loginAs(ctx, u, { userAgent: 'other' });
-      const loginStartedAt = new Date();
       await as(ctx.http, current.cookie)
         .patch(CHANGE)
         .send({ currentPassword: u.password, newPassword: NEW_PASSWORD })
         .expect(200);
-      const late = await ctx.app.get(SessionService).createSession(u, {
-        ip: '127.0.0.1',
-        userAgent: 'vitest',
-        remember: false,
-        authenticatedAt: loginStartedAt,
-      });
-
       const user = await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } });
-      expect(user.passwordChangedAt).toBeInstanceOf(Date);
+      expect(user.credentialsVersion).toBe(1);
       const otherRow = await ctx.db.userSession.findUniqueOrThrow({
         where: { id: other.sessionId },
       });
@@ -170,34 +225,62 @@ describe('password and email change hardening', () => {
       const currentRow = await ctx.db.userSession.findUniqueOrThrow({
         where: { id: current.sessionId },
       });
-      expect(currentRow.revokedAt).toBeNull();
-      expect(currentRow.authenticatedAt).toEqual(user.passwordChangedAt);
-
+      expect(currentRow).toMatchObject({ revokedAt: null, credentialsVersion: 1 });
       await as(ctx.http, current.cookie).get('/api/v1/me').expect(200);
       await ctx.http
         .post('/api/v1/auth/refresh')
         .set('Cookie', `${REFRESH_COOKIE}=${current.refreshToken}`)
         .expect(200);
       await as(ctx.http, other.cookie).get('/api/v1/me').expect(401);
-      await ctx.http
-        .get('/api/v1/me')
-        .set('Cookie', `${ACCESS_COOKIE}=${late.accessToken}`)
-        .expect(401);
     });
 
-    it('a real login after a reset works (its proof starts after the change)', async () => {
+    it('a change whose verified hash was replaced meanwhile (reset committed) is refused and changes nothing', async () => {
       const u = await createUser();
+      const s = await loginAs(ctx, u);
+      // Runs after the current password was verified, before the change transaction.
+      vi.spyOn(ctx.app.get(PasswordPolicy), 'validate').mockImplementationOnce(async () => {
+        await ctx.db.user.update({
+          where: { id: u.id },
+          data: { credentialsVersion: { increment: 1 } },
+        });
+        return { ok: true };
+      });
+      const res = await as(ctx.http, s.cookie)
+        .patch(CHANGE)
+        .send({ currentPassword: u.password, newPassword: NEW_PASSWORD })
+        .expect(401);
+      expect(res.body.code).toBe('SESSION_REVOKED');
+      const user = await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } });
+      expect(user.credentialsVersion).toBe(1);
+      expect(await verifyPassword(user.passwordHash!, u.password)).toBe(true);
+    });
+
+    it('a sign-in that is locked out (Task 8) works again after a completed reset', async () => {
+      const u = await createUser();
+      const bad = { email: u.email, password: 'wrong wrong wrong' };
+      // 10 failures for the email from two ips (5 per ip+email are free) lock the account.
+      for (let i = 0; i < 10; i += 1) {
+        await ctx.http
+          .post(LOGIN)
+          .set('X-Forwarded-For', `10.9.${i % 2}.1`)
+          .send(bad)
+          .expect(401);
+      }
+      const locked = await ctx.http
+        .post(LOGIN)
+        .set('X-Forwarded-For', '10.9.9.9')
+        .send({ email: u.email, password: u.password })
+        .expect(429);
+      expect(locked.body.code).toBe('ACCOUNT_LOCKED');
+
       await ctx.http.post(FORGOT).send({ email: u.email }).expect(202);
       const token = await resetToken(ctx, u.email);
       await ctx.http.post(RESET).send({ token, newPassword: NEW_PASSWORD }).expect(200);
-      const login = await ctx.http
-        .post('/api/v1/auth/login')
+      await ctx.http
+        .post(LOGIN)
+        .set('X-Forwarded-For', '10.9.9.9')
         .send({ email: u.email, password: NEW_PASSWORD })
         .expect(200);
-      const cookie = (login.headers['set-cookie'] as unknown as string[])
-        .map((c) => c.split(';')[0])
-        .join('; ');
-      await as(ctx.http, cookie).get('/api/v1/me').expect(200);
     });
   });
 
@@ -216,9 +299,10 @@ describe('password and email change hardening', () => {
         .send({ currentPassword: u.password, newPassword: NEW_PASSWORD })
         .expect(429);
       expect(limited.body.code).toBe('RATE_LIMITED');
-      const retryAfter = Number(limited.headers['retry-after']);
+      const retryAfter = limited.body.details.retryAfterS as number;
       expect(retryAfter).toBeGreaterThan(0);
       expect(retryAfter).toBeLessThanOrEqual(15 * 60);
+      expect(limited.headers['retry-after']).toBe(String(retryAfter));
       // Shared with the email-change route.
       const viaEmail = await as(ctx.http, s.cookie)
         .post(EMAIL_CHANGE)
@@ -276,7 +360,8 @@ describe('password and email change hardening', () => {
         .send({ newEmail: 'new4@example.com', password: u.password })
         .expect(429);
       expect(limited.body.code).toBe('RATE_LIMITED');
-      expect(Number(limited.headers['retry-after'])).toBeGreaterThan(3500);
+      expect(limited.body.details.retryAfterS).toBeGreaterThan(3500);
+      expect(limited.headers['retry-after']).toBe(String(limited.body.details.retryAfterS));
       expect(ctx.email.sent).toHaveLength(sent);
       expect(await redis.ttl(`auth:email-change:${u.id}`)).toBeGreaterThan(0);
     });
