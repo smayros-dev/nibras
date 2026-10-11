@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AppLoggerModule } from './logger.module';
 import { MetricsController } from './metrics.controller';
-import { MetricsInterceptor } from './metrics.interceptor';
+import { MetricsMiddleware } from './metrics.middleware';
 
-/** Structured logging (pino) and Prometheus metrics. Tracing starts in `tracing.ts`, before Nest. */
+/**
+ * Structured logging (pino) and Prometheus metrics. `MetricsMiddleware` is applied by `AppModule`
+ * right after `RequestIdMiddleware`. Tracing starts in `tracing.ts`, before Nest.
+ */
 @Module({
   imports: [AppLoggerModule],
   controllers: [MetricsController],
-  providers: [{ provide: APP_INTERCEPTOR, useClass: MetricsInterceptor }],
+  providers: [MetricsMiddleware],
 })
 export class ObservabilityModule {}

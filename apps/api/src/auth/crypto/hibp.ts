@@ -65,15 +65,26 @@ export class HibpClient implements PwnedPasswordClient {
   }
 }
 
-/** Test double: reports exactly the given passwords as breached. */
+/**
+ * Reports exactly the given passwords as breached. With no entries it is the HIBP-off client
+ * (`HIBP_ENABLED=false`); tests add entries per case and `clear()` them between cases.
+ */
 export class FakePwnedClient implements PwnedPasswordClient {
-  private readonly pwned: ReadonlySet<string>;
+  private readonly pwned: Set<string>;
 
-  constructor(set: string[]) {
+  constructor(set: string[] = []) {
     this.pwned = new Set(set);
   }
 
   isPwned(plain: string): Promise<boolean> {
     return Promise.resolve(this.pwned.has(plain));
+  }
+
+  add(...plain: string[]): void {
+    for (const p of plain) this.pwned.add(p);
+  }
+
+  clear(): void {
+    this.pwned.clear();
   }
 }

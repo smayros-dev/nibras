@@ -69,12 +69,24 @@ TRUST_PROXY_HOPS=1
 OTEL_EXPORTER_OTLP_ENDPOINT=
 
 SMTP_URL=smtp://<user>:<password>@<smtp relay>:587
+EMAIL_FROM="TT <no-reply@staging.example.com>"
+
+# Auth (SP1): fresh values per environment, never the .env.example ones.
+JWT_SECRET=<openssl rand -base64 48>
+TOTP_ENCRYPTION_KEY=<openssl rand -base64 32>
+HIBP_ENABLED=true
+COOKIE_SECURE=true
 
 S3_ENDPOINT=http://minio:9000
 S3_ACCESS_KEY=<random>
 S3_SECRET_KEY=<random>
 S3_BUCKET=tt-staging
 ```
+
+The API validates these at startup and refuses to boot when one is missing or malformed:
+`TOTP_ENCRYPTION_KEY` must be canonical base64 of exactly 32 bytes, `REDIS_URL` must use `redis:`
+or `rediss:`, and `SMS_PROVIDER=console` (the only provider so far, which logs instead of sending)
+is rejected when `NODE_ENV=production` — staging needs a real SMS provider before it can run SP1.
 
 `PORT` and `WORKER_PORT` are left out on purpose: every app service reads this one file, so
 `compose.staging.yml` pins them per service (api `3001`, web `3000`, worker `3002`) and any value
