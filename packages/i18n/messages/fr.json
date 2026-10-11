@@ -96,7 +96,7 @@
       "recovery_code_used": {
         "subject": "Un code de récupération a été utilisé",
         "title": "Code de récupération utilisé",
-        "body": "Bonjour {firstName},\n\nUn code de récupération vient d’être utilisé pour vous connecter. Il vous reste {remaining, plural, =0 {aucun code de récupération} one {# code de récupération} other {# codes de récupération}}.\n\nSi ce n’était pas vous, changez votre mot de passe et régénérez vos codes de récupération."
+        "body": "Bonjour {firstName},\n\nUn code de récupération vient d’être utilisé pour vous connecter. {remaining, plural, =0 {Vous n’avez plus aucun code de récupération.} one {Il vous reste # code de récupération.} other {Il vous reste # codes de récupération.}}\n\nSi ce n’était pas vous, changez votre mot de passe et régénérez vos codes de récupération."
       }
     },
     "phone": {

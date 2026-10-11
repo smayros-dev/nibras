@@ -96,7 +96,7 @@
       "recovery_code_used": {
         "subject": "A recovery code was used",
         "title": "Recovery code used",
-        "body": "Hello {firstName},\n\nA recovery code was just used to sign in to your account. You have {remaining, plural, =0 {no recovery codes} one {# recovery code} other {# recovery codes}} left.\n\nIf this was not you, change your password and generate new recovery codes."
+        "body": "Hello {firstName},\n\nA recovery code was just used to sign in to your account. {remaining, plural, =0 {You have no recovery codes left.} one {You have # recovery code left.} other {You have # recovery codes left.}}\n\nIf this was not you, change your password and generate new recovery codes."
       }
     },
     "phone": {

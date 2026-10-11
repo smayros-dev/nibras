@@ -24,20 +24,52 @@ export const EMAIL_TEMPLATE_KEYS = [
 
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number];
 
-/**
- * ICU arguments of a template. A `link` param becomes the call-to-action button; one-time codes
- * are named `otpCode` (log redaction rule).
- */
-export type EmailParams = Record<string, string | number>;
+type Name = { firstName: string };
 
-export interface EmailMessage {
-  to: string;
-  templateKey: EmailTemplateKey;
-  locale: Locale;
-  params: EmailParams;
-  /** iCalendar invitation sent as a `text/calendar` alternative. */
-  ics?: string;
-}
+/**
+ * Exact ICU arguments of each template (a wrong or missing param fails at compile time; the
+ * renderer still throws at runtime). A `link` param becomes the call-to-action button (absolute
+ * http(s) URL); one-time codes are named `otpCode` (log redaction rule).
+ */
+export type EmailParamsByKey = {
+  'auth.verify_email': Name & { link: string };
+  'auth.password_reset': Name & { link: string };
+  /** Sent to both the old and the new address. */
+  'auth.email_change_confirm': Name & { newEmail: string; link: string };
+  'security.password_changed': Name;
+  'security.email_changed': Name & { newEmail: string };
+  'security.new_device': Name & { device: string; ip: string };
+  'security.token_reuse': Name;
+  'security.account_locked': Name & { minutes: number };
+  'security.2fa_enabled': Name;
+  'security.2fa_disabled': Name;
+  'security.recovery_code_used': Name & { remaining: number };
+  'phone.otp_dev': { otpCode: string };
+  /** Sent to both the previous and the new owner. */
+  'workspace.ownership_transferred': Name & { workspaceName: string };
+  'abuse.report_received': Name;
+  /** `link`: the report in the admin console. */
+  'abuse.new_report': { link: string };
+  /** `link`: the report in the admin console. */
+  'abuse.minor_safety_reminder': { link: string };
+  'admin.user_suspended': Name & { reason: string };
+  'admin.user_unsuspended': Name;
+};
+
+/** ICU arguments of template `K`. */
+export type EmailParams<K extends EmailTemplateKey = EmailTemplateKey> = EmailParamsByKey[K];
+
+/** One email; `templateKey` and `params` are correlated (a union over the keys). */
+export type EmailMessage<K extends EmailTemplateKey = EmailTemplateKey> = {
+  [P in K]: {
+    to: string;
+    templateKey: P;
+    locale: Locale;
+    params: EmailParamsByKey[P];
+    /** iCalendar invitation sent as a `text/calendar` alternative. */
+    ics?: string;
+  };
+}[K];
 
 export interface RenderedEmail {
   subject: string;
@@ -47,9 +79,8 @@ export interface RenderedEmail {
 
 /** PRD §13.4 (`verifyWebhook` arrives with SP7). */
 export interface EmailProvider {
-  send(msg: EmailMessage): Promise<{ providerMessageId: string }>;
+  send<K extends EmailTemplateKey>(msg: EmailMessage<K>): Promise<{ providerMessageId: string }>;
 }
 
-export interface SentEmail extends EmailMessage, RenderedEmail {
-  providerMessageId: string;
-}
+export type SentEmail<K extends EmailTemplateKey = EmailTemplateKey> = EmailMessage<K> &
+  RenderedEmail & { providerMessageId: string };

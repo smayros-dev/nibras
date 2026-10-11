@@ -68,7 +68,7 @@ export function layout(locale: Locale, content: LayoutContent): string {
 <html lang="${locale}" dir="${dir}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(content.title)}</title></head>
 <body style="margin:0;padding:0;background:#f3f4f6">
-<div dir="${dir}" style="max-width:560px;margin:0 auto;padding:24px 16px;font-family:Arial,Helvetica,sans-serif;color:#111827;text-align:${align}">
+<div dir="${dir}" lang="${locale}" style="max-width:560px;margin:0 auto;padding:24px 16px;font-family:Arial,Helvetica,sans-serif;color:#111827;text-align:${align}">
 <p style="font-size:14px;font-weight:700;color:#1d4ed8;margin:0 0 16px">${escapeHtml(appName)}</p>
 <div style="background:#ffffff;border-radius:8px;padding:24px">
 <h1 style="font-size:20px;margin:0 0 16px">${escapeHtml(content.title)}</h1>

@@ -1,9 +1,9 @@
 import { LOCALES } from '@tt/contracts';
 import { describe, expect, it } from 'vitest';
 import { extractFirstLink, renderEmail } from './templates';
-import { EMAIL_TEMPLATE_KEYS, type EmailTemplateKey } from './types';
+import { EMAIL_TEMPLATE_KEYS, type EmailParamsByKey } from './types';
 
-const SAMPLE_PARAMS: Record<EmailTemplateKey, Record<string, string | number>> = {
+const SAMPLE_PARAMS: EmailParamsByKey = {
   'auth.verify_email': { firstName: 'Mohamed', link: 'https://x/fr/verify-email?token=t' },
   'auth.password_reset': { firstName: 'Mohamed', link: 'https://x/fr/reset-password?token=t' },
   'auth.email_change_confirm': {
@@ -58,12 +58,28 @@ describe('renderEmail', () => {
       link: 'https://x/verify?token=t',
     });
     expect(out.html).toContain('dir="rtl"');
+    expect(out.html).toMatch(/<div dir="rtl" lang="ar"/);
     expect(out.subject).toMatch(/[؀-ۿ]/);
+    // Interpolated values are bidi-isolated: <bdi> in html, FSI…PDI in the text part.
+    expect(out.html).toContain('<bdi>أحمد</bdi>');
+    expect(out.text).toContain('⁨أحمد⁩');
     for (const key of EMAIL_TEMPLATE_KEYS) {
       const ar = renderEmail(key, 'ar', SAMPLE_PARAMS[key]);
       expect(ar.html, key).toContain('dir="rtl"');
       expect(ar.subject, key).toMatch(ARABIC);
     }
+  });
+
+  it('isolates Latin values inside Arabic text and escapes inside <bdi>', () => {
+    const out = renderEmail('security.new_device', 'ar', {
+      firstName: '<b>Ali</b>',
+      device: 'Firefox / Windows',
+      ip: '203.0.113.7',
+    });
+    expect(out.html).toContain('<bdi>&lt;b&gt;Ali&lt;/b&gt;</bdi>');
+    expect(out.html).toContain('<bdi>Firefox / Windows</bdi>');
+    expect(out.text).toContain('⁨Firefox / Windows⁩');
+    expect(out.text).toContain('⁨203.0.113.7⁩');
   });
 
   it('French and English emails are LTR', () => {
@@ -118,16 +134,21 @@ describe('renderEmail', () => {
   });
 
   it('throws on a missing ICU argument instead of sending a broken email', () => {
+    // @ts-expect-error firstName is required by the template's params type
     expect(() => renderEmail('auth.verify_email', 'fr', { link: 'https://x/v' })).toThrow();
   });
 
-  it('pluralises counts per locale', () => {
-    expect(
-      renderEmail('security.recovery_code_used', 'fr', { firstName: 'M', remaining: 1 }).text,
-    ).toContain('1 code de récupération');
-    expect(
-      renderEmail('security.recovery_code_used', 'en', { firstName: 'M', remaining: 9 }).text,
-    ).toContain('9 recovery codes');
+  it('pluralises counts per locale with a grammatical zero branch', () => {
+    const text = (locale: 'fr' | 'en' | 'ar', remaining: number) =>
+      renderEmail('security.recovery_code_used', locale, { firstName: 'M', remaining }).text;
+    expect(text('fr', 0)).toContain('Vous n’avez plus aucun code de récupération.');
+    expect(text('fr', 1)).toContain('Il vous reste 1 code de récupération.');
+    expect(text('fr', 9)).toContain('Il vous reste 9 codes de récupération.');
+    expect(text('en', 0)).toContain('You have no recovery codes left.');
+    expect(text('en', 1)).toContain('You have 1 recovery code left.');
+    expect(text('en', 9)).toContain('You have 9 recovery codes left.');
+    expect(text('ar', 0)).toContain('لم يتبقَّ لديك أي رمز استرداد.');
+    expect(text('ar', 2)).toContain('تبقّى لديك رمزا استرداد.');
   });
 
   it('puts the one-time code of phone.otp_dev in the body', () => {

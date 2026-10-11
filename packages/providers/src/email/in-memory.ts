@@ -6,10 +6,12 @@ import type { EmailMessage, EmailProvider, EmailTemplateKey, SentEmail } from '.
 export class InMemoryEmailProvider implements EmailProvider {
   readonly sent: SentEmail[] = [];
 
-  async send(msg: EmailMessage): Promise<{ providerMessageId: string }> {
+  async send<K extends EmailTemplateKey>(
+    msg: EmailMessage<K>,
+  ): Promise<{ providerMessageId: string }> {
     const rendered = renderEmail(msg.templateKey, msg.locale, msg.params);
     const providerMessageId = `mem-${randomUUID()}`;
-    this.sent.push({ ...msg, ...rendered, providerMessageId });
+    this.sent.push({ ...msg, ...rendered, providerMessageId } as SentEmail);
     return { providerMessageId };
   }
 
@@ -18,8 +20,10 @@ export class InMemoryEmailProvider implements EmailProvider {
     return this.sent.findLast((m) => to === undefined || m.to === to);
   }
 
-  findByTemplate(key: EmailTemplateKey, to?: string): SentEmail[] {
-    return this.sent.filter((m) => m.templateKey === key && (to === undefined || m.to === to));
+  findByTemplate<K extends EmailTemplateKey>(key: K, to?: string): SentEmail<K>[] {
+    return this.sent.filter(
+      (m) => m.templateKey === key && (to === undefined || m.to === to),
+    ) as SentEmail<K>[];
   }
 
   clear(): void {

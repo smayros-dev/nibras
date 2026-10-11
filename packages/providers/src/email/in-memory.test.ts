@@ -46,6 +46,7 @@ describe('InMemoryEmailProvider', () => {
         to: 'a@example.com',
         templateKey: 'auth.verify_email',
         locale: 'fr',
+        // @ts-expect-error firstName and link are required
         params: {},
       }),
     ).rejects.toThrow();

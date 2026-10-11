@@ -32,6 +32,7 @@
     "@tt/contracts": "workspace:*",
     "@tt/i18n": "workspace:*",
     "intl-messageformat": "^10.7.18",
+    "libphonenumber-js": "^1.13.15",
     "nodemailer": "^7.0.13"
   },
   "devDependencies": {

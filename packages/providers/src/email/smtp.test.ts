@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { SmtpEmailProvider } from './smtp';
+import { SmtpEmailProvider, smtpTransportOptions } from './smtp';
 
 // Load the monorepo root `.env` (already-set variables win) so `SMTP_URL` points at Mailpit.
 const rootEnv = resolve(import.meta.dirname, '../../../../.env');
@@ -53,5 +53,45 @@ describe.skipIf(!SMTP_URL)('SmtpEmailProvider (Mailpit)', () => {
     expect(message.HTML).toContain('dir="rtl"');
     expect(message.Text).toContain('https://x/ar/verify-email?token=abc');
     expect(message.Attachments.map((a) => a.FileName)).toContain('invite.ics');
+  });
+});
+
+describe('smtpTransportOptions', () => {
+  const TIMEOUTS = { connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 30_000 };
+
+  it('parses a local Mailpit URL without TLS requirement', () => {
+    expect(smtpTransportOptions('smtp://localhost:1025')).toEqual({
+      host: 'localhost',
+      port: 1025,
+      secure: false,
+      requireTLS: false,
+      ...TIMEOUTS,
+    });
+    for (const host of ['127.0.0.1', 'mailpit'])
+      expect(smtpTransportOptions(`smtp://${host}:1025`).requireTLS).toBe(false);
+  });
+
+  it('requires STARTTLS on a remote plain smtp host and decodes credentials', () => {
+    expect(smtpTransportOptions('smtp://user%40x:p%40ss@mail.example.com:587')).toEqual({
+      host: 'mail.example.com',
+      port: 587,
+      secure: false,
+      requireTLS: true,
+      auth: { user: 'user@x', pass: 'p@ss' },
+      ...TIMEOUTS,
+    });
+  });
+
+  it('uses implicit TLS for smtps and leaves the default port to nodemailer', () => {
+    expect(smtpTransportOptions('smtps://mail.example.com')).toEqual({
+      host: 'mail.example.com',
+      secure: true,
+      requireTLS: false,
+      ...TIMEOUTS,
+    });
+  });
+
+  it('rejects a non-SMTP URL', () => {
+    expect(() => smtpTransportOptions('http://mail.example.com')).toThrow(/smtp/);
   });
 });
