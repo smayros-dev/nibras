@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { authCookieOptions } from '../../src/auth/cookies';
+import { emailHmac } from '../../src/auth/crypto/email-hmac';
 import { createTestApp, type TestContext } from '../helpers/app';
 import { cookieValue, setCookieLine, setCookies } from '../helpers/auth';
 import { createUser } from '../helpers/factories';
@@ -70,7 +71,7 @@ describe('POST /auth/login', () => {
     expect(JSON.stringify(failed)).not.toContain('wrong wrong wrong');
   });
 
-  it('unknown email is also 401 INVALID_CREDENTIALS (no enumeration), audited as ANONYMOUS with the email hash', async () => {
+  it('unknown email is also 401 INVALID_CREDENTIALS (no enumeration), audited as ANONYMOUS with the keyed email HMAC', async () => {
     const u = await createUser();
     const wrong = await login({ email: u.email, password: 'wrong wrong wrong' }).expect(401);
     const unknown = await login({
@@ -86,7 +87,7 @@ describe('POST /auth/login', () => {
     });
     expect(entry).toMatchObject({ actorUserId: null, actorRole: 'ANONYMOUS', entityType: 'User' });
     expect(entry.after).toEqual({
-      emailSha256: createHash('sha256').update('nobody@example.com').digest('hex'),
+      emailHmac: emailHmac('nobody@example.com'),
       reason: 'invalid_credentials',
     });
     expect(JSON.stringify(entry)).not.toContain('nobody@example.com');
