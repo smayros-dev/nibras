@@ -1,5 +1,5 @@
 export * from '@prisma/client';
-export { createPrismaClient, systemPrisma } from './client';
+export { createPrismaClient, systemPrisma, TRANSACTION_OPTIONS } from './client';
 export { resetDatabase } from './testing';
 export {
   NULLABLE_TENANT_MODELS,

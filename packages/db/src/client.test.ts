@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createPrismaClient, systemPrisma, resetDatabase } from './index';
+import { createPrismaClient, systemPrisma, resetDatabase, TRANSACTION_OPTIONS } from './index';
 
 describe.skipIf(!process.env.DATABASE_URL_TEST)('db client', () => {
   it('connects as app_user without BYPASSRLS', async () => {
@@ -8,6 +8,19 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('db client', () => {
       SELECT rolname, rolbypassrls FROM pg_roles WHERE rolname = current_user`;
     expect(row).toEqual({ rolname: 'app_user', rolbypassrls: false });
   });
+  it('interactive transactions may run past Prisma 5 s default timeout (TRANSACTION_OPTIONS)', async () => {
+    expect(TRANSACTION_OPTIONS).toEqual({ maxWait: 5_000, timeout: 10_000 });
+    const db = createPrismaClient(process.env.DATABASE_URL_TEST);
+    try {
+      const result = await db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_sleep(5.5)`;
+        return 'committed';
+      });
+      expect(result).toBe('committed');
+    } finally {
+      await db.$disconnect();
+    }
+  }, 20_000);
   it('system role bypasses RLS and migrations table exists', async () => {
     const [{ rolbypassrls }] = await systemPrisma().$queryRaw<[{ rolbypassrls: boolean }]>`
       SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user`;

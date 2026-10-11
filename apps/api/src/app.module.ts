@@ -1,6 +1,8 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AuditModule } from './audit/audit.module';
+import { AuthModule } from './auth/auth.module';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
@@ -20,6 +22,8 @@ import { RedisModule } from './redis/redis.module';
     QueueModule,
     ProvidersModule,
     AuditModule,
+    EventEmitterModule.forRoot(),
+    AuthModule,
     HealthModule,
   ],
   providers: [

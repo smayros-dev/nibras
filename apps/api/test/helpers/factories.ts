@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { CONSENT_VERSIONS, type CurrentConsentType } from '@tt/contracts';
+import { CONSENT_VERSIONS, defaultWorkspaceSettings, type CurrentConsentType } from '@tt/contracts';
 import {
   systemPrisma,
   uuidv7,
@@ -88,23 +88,6 @@ export async function createUser(
   return { ...user, password };
 }
 
-/** PRD §8.2.1 defaults (`WorkspaceSettingsSchema` v1). */
-function defaultSettings(timezone: string) {
-  return {
-    v: 1,
-    default_timezone: timezone,
-    teacher_join_window_min: 15,
-    student_join_window_min: 10,
-    empty_room_grace_min: 5,
-    late_threshold_min: 10,
-    present_ratio: 0.75,
-    partial_ratio: 0.25,
-    default_sequential_lessons: false,
-    default_pdf_download: false,
-    default_reminder_offsets_min: [1440, 15, 0],
-  };
-}
-
 export interface CreateWorkspaceOptions {
   name: string;
   slug: string;
@@ -128,7 +111,7 @@ async function createWorkspace(
       defaultTimezone: owner.timezone,
       defaultLocale: owner.locale,
       storageQuotaBytes: (type === 'PERSONAL' ? 20n : 200n) * GIB,
-      settings: defaultSettings(owner.timezone),
+      settings: { ...defaultWorkspaceSettings(owner.timezone) },
       ...(o.allowPersonalWorkspaces !== undefined && {
         allowPersonalWorkspaces: o.allowPersonalWorkspaces,
       }),
