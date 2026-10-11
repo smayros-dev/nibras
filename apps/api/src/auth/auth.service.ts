@@ -9,7 +9,7 @@ import { ApiError } from '../common/api-error';
 import { DB } from '../db/db.module';
 import { EMAIL_PROVIDER } from '../providers/providers.module';
 import { hashPassword, verifyPassword } from './crypto/password';
-import { hashToken } from './crypto/tokens';
+import { emailHmac } from './crypto/email-hmac';
 import { deviceLabel } from './device-label';
 import { LoginThrottleService } from './login-throttle.service';
 import { SessionService, type SessionMeta, type SessionTokens } from './session.service';
@@ -61,10 +61,12 @@ export class AuthService implements OnModuleInit {
    * actor. On success: a new session, `lastLoginAt`, `auth.login`, and `security.new_device` when
    * the user has no active session on a device with the same label.
    *
-   * Before any lookup, `LoginThrottleService.check` on (email, client ip) may answer
-   * `429 RATE_LIMITED` (ip+email backoff) or `429 ACCOUNT_LOCKED` (15-minute lock) with
-   * `details.retryAfterS` (the filter adds `Retry-After`), identically for unknown emails. Each
-   * `INVALID_CREDENTIALS` counts as a failure; a successful sign-in resets the counters.
+   * Before any lookup, `LoginThrottleService.check` on (email, client ip) atomically reserves the
+   * attempt or answers `429 RATE_LIMITED` (ip+email backoff, or too many attempts in flight) or
+   * `429 ACCOUNT_LOCKED` (15-minute lock) with `details.retryAfterS` (the filter adds
+   * `Retry-After`), identically for unknown emails; Redis down → `503 SERVICE_UNAVAILABLE` (fail
+   * closed, before argon2). Each `INVALID_CREDENTIALS` counts as a failure; a successful sign-in
+   * resets this ip+email pair.
    */
   async login(input: LoginInput, meta: SessionMeta): Promise<LoginResult> {
     const gate = await this.throttle.check(input.email, meta.ip);
@@ -77,21 +79,7 @@ export class AuthService implements OnModuleInit {
       );
     }
 
-    const user = await this.db.user.findUnique({ where: { email: input.email } });
-    const hash = user?.passwordHash ?? (await getDummyHash());
-    const passwordOk = await verifyPassword(hash, input.password);
-
-    if (!user || !user.passwordHash || !passwordOk || GONE_STATUSES.has(user.status)) {
-      await this.auditFailure(user, input.email, 'invalid_credentials');
-      await this.throttle.recordFailure(input.email, meta.ip, user);
-      throw invalidCredentials();
-    }
-    if (user.status === 'SUSPENDED') {
-      await this.auditFailure(user, input.email, 'suspended');
-      throw new ApiError(HttpStatus.FORBIDDEN, 'ACCOUNT_SUSPENDED', 'Account suspended');
-    }
-
-    await this.throttle.reset(input.email, meta.ip);
+    const user = await this.verifyCredentials(input, meta.ip);
     // Task 10: `totpEnabledAt` set → `{ status: 'TWO_FACTOR_REQUIRED', challengeToken }`.
     const label = deviceLabel(meta.userAgent);
     const knownDevice = await this.sessions.hasActiveDevice(user.id, label);
@@ -118,13 +106,43 @@ export class AuthService implements OnModuleInit {
     return { status: 'OK', user: signedIn, tokens };
   }
 
-  /** Actor role `ANONYMOUS` (the request is unauthenticated); the email only as a SHA-256. */
+  /**
+   * The user whose credentials these are, settling the attempt `check` reserved: a failure is
+   * recorded (`INVALID_CREDENTIALS`), a success resets this ip+email pair, any other outcome
+   * (suspended account, unexpected error) just releases the reservation.
+   */
+  private async verifyCredentials(input: LoginInput, ip: string): Promise<User> {
+    let settled = false;
+    try {
+      const user = await this.db.user.findUnique({ where: { email: input.email } });
+      const hash = user?.passwordHash ?? (await getDummyHash());
+      const passwordOk = await verifyPassword(hash, input.password);
+
+      if (!user || !user.passwordHash || !passwordOk || GONE_STATUSES.has(user.status)) {
+        await this.auditFailure(user, input.email, 'invalid_credentials');
+        settled = true;
+        await this.throttle.recordFailure(input.email, ip, user);
+        throw invalidCredentials();
+      }
+      if (user.status === 'SUSPENDED') {
+        await this.auditFailure(user, input.email, 'suspended');
+        throw new ApiError(HttpStatus.FORBIDDEN, 'ACCOUNT_SUSPENDED', 'Account suspended');
+      }
+      settled = true;
+      await this.throttle.reset(input.email, ip);
+      return user;
+    } finally {
+      if (!settled) await this.throttle.release(input.email, ip);
+    }
+  }
+
+  /** Actor role `ANONYMOUS` (the request is unauthenticated); an unknown email as a keyed HMAC. */
   private auditFailure(user: User | null, email: string, reason: string): Promise<void> {
     return this.audit.log({
       action: 'auth.login_failed',
       entityType: 'User',
       entityId: user?.id,
-      after: user ? { reason } : { emailSha256: hashToken(email), reason },
+      after: user ? { reason } : { emailHmac: emailHmac(email), reason },
     });
   }
 

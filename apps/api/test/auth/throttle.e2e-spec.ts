@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type Redis from 'ioredis';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { REDIS } from '../../src/redis/redis.module';
 import { createTestApp, type TestContext } from '../helpers/app';
 import { as, loginAs } from '../helpers/auth';
@@ -20,6 +20,7 @@ describe('login throttling, lockout and global rate limits (AC-AUTH-03)', () => 
     await ctx.app.close();
   });
   beforeEach(() => ctx.reset());
+  afterEach(() => vi.restoreAllMocks());
 
   const login = (ip: string, body: Record<string, unknown>) =>
     ctx.http.post('/api/v1/auth/login').set('X-Forwarded-For', ip).send(body);
@@ -45,7 +46,10 @@ describe('login throttling, lockout and global rate limits (AC-AUTH-03)', () => 
     expect(locked.headers['retry-after']).toBe(String(locked.body.details.retryAfterS));
     expect(locked.headers['set-cookie']).toBeUndefined();
 
-    expect(email.findByTemplate('security.account_locked', u.email)).toHaveLength(1);
+    // Sent without being awaited (same timing as an unknown email's 10th failure).
+    await vi.waitFor(() =>
+      expect(email.findByTemplate('security.account_locked', u.email)).toHaveLength(1),
+    );
     expect(email.findByTemplate('security.account_locked', u.email)[0]!.params).toMatchObject({
       minutes: 15,
     });
@@ -55,7 +59,7 @@ describe('login throttling, lockout and global rate limits (AC-AUTH-03)', () => 
     expect(JSON.stringify(await redis.keys('*'))).not.toContain(u.email);
 
     // 15 minutes later (lock TTL expired) the right password works again.
-    await redis.del(`login:lock:${sha(u.email)}`);
+    await redis.del(`login:lock:${sha(u.email)}`, `login:fail:${sha(u.email)}`);
     await login('10.0.0.9', { email: u.email, password: u.password }).expect(200);
   });
 
@@ -81,14 +85,85 @@ describe('login throttling, lockout and global rate limits (AC-AUTH-03)', () => 
     expect(r.status).toBe(429);
   });
 
-  it('a successful login resets the counters', async () => {
+  it('a successful login resets the ip+email pair (not the email-wide counter)', async () => {
     const u = await createUser();
     const bad = { email: u.email, password: 'wrong wrong wrong' };
     for (let i = 0; i < 4; i++) await login('9.9.9.7', bad).expect(401);
     await login('9.9.9.7', { email: u.email, password: u.password }).expect(200);
     expect(await redis.exists(`login:fail:${sha(u.email)}:9.9.9.7`)).toBe(0);
-    expect(await redis.exists(`login:fail:${sha(u.email)}`)).toBe(0);
+    expect(await redis.get(`login:fail:${sha(u.email)}`)).toBe('4');
     for (let i = 0; i < 5; i++) await login('9.9.9.7', bad).expect(401);
+  });
+
+  it('concurrent bad logins for one ip+email: at most 5 reach the password check, the rest are 429', async () => {
+    const u = await createUser();
+    const bad = { email: u.email, password: 'wrong wrong wrong' };
+    const res = await Promise.all(Array.from({ length: 20 }, () => login('9.9.9.6', bad)));
+    const statuses = res.map((r) => r.status);
+    expect(statuses.filter((s) => s === 401).length).toBeLessThanOrEqual(5);
+    expect(statuses.filter((s) => s !== 401).every((s) => s === 429)).toBe(true);
+    expect(Number(await redis.get(`login:fail:${sha(u.email)}:9.9.9.6`))).toBeLessThanOrEqual(5);
+    // The backoff holds: the next attempt is still refused.
+    await login('9.9.9.6', bad).expect(429);
+  });
+
+  it('concurrent bad logins for one email from many ips: at most 10 reach the password check, then locked', async () => {
+    const u = await createUser();
+    const bad = { email: u.email, password: 'wrong wrong wrong' };
+    const res = await Promise.all(Array.from({ length: 20 }, (_, i) => login(`10.2.0.${i}`, bad)));
+    const statuses = res.map((r) => r.status);
+    expect(statuses.filter((s) => s === 401).length).toBeLessThanOrEqual(10);
+    expect(statuses.filter((s) => s !== 401).every((s) => s === 429)).toBe(true);
+    expect(await ctx.db.auditLog.count({ where: { action: 'auth.login_failed' } })).toBe(
+      statuses.filter((s) => s === 401).length,
+    );
+    expect(Number(await redis.get(`login:fail:${sha(u.email)}`))).toBeLessThanOrEqual(10);
+  });
+
+  it('a valid access token does not lift the per-ip limit of public routes (61st login → 429)', async () => {
+    const u = await createUser();
+    const { accessToken } = await loginAs(ctx, u);
+    // Malformed bodies (422) still count: the guard runs before validation, no argon2 needed.
+    const attempt = () =>
+      ctx.http
+        .post('/api/v1/auth/login')
+        .set('X-Forwarded-For', '6.6.6.5')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({});
+    for (let i = 0; i < 60; i++) await attempt().expect(422);
+    const r = await attempt().expect(429);
+    expect(r.body.code).toBe('RATE_LIMITED');
+    expect(await redis.get('throttle:anon:6.6.6.5')).toBe('61');
+    // The user budget counted them too.
+    expect(Number(await redis.get(`throttle:user:${u.id}`))).toBe(61);
+  });
+
+  it('login throttle fails closed: Redis down → 503 SERVICE_UNAVAILABLE before any password check', async () => {
+    const u = await createUser();
+    vi.spyOn(redis, 'eval').mockRejectedValue(new Error('ECONNREFUSED'));
+    const r = await login('9.9.9.5', { email: u.email, password: u.password }).expect(503);
+    expect(r.body.code).toBe('SERVICE_UNAVAILABLE');
+    expect(r.headers['set-cookie']).toBeUndefined();
+    expect(
+      await ctx.db.auditLog.count({
+        where: { action: { in: ['auth.login', 'auth.login_failed'] } },
+      }),
+    ).toBe(0);
+  });
+
+  it('global limiters fail open: Redis down → requests proceed with a warning', async () => {
+    const logout = () => ctx.http.post('/api/v1/auth/logout').set('X-Forwarded-For', '7.7.7.6');
+    for (let i = 0; i < 60; i++) await logout().expect(204);
+    await logout().expect(429);
+    vi.spyOn(redis, 'multi').mockImplementation(() => {
+      throw new Error('ECONNREFUSED');
+    });
+    await logout().expect(204);
+    await logout().expect(204);
+    const warnings = ctx.logs
+      .lines()
+      .filter((l) => String(l.msg).includes('rate limiter unavailable, failing open'));
+    expect(warnings).toHaveLength(1); // rate-limited warning
   });
 
   it('anonymous ip is limited to 60 requests per minute (61st → 429 RATE_LIMITED)', async () => {

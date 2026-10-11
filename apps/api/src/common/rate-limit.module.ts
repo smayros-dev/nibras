@@ -15,6 +15,7 @@ import type { Request } from 'express';
 import type Redis from 'ioredis';
 import { UNPREFIXED_ROUTES } from '../app.setup';
 import { accessTokenOf } from '../auth/cookies';
+import { IS_PUBLIC_KEY } from '../auth/decorators/public';
 import { JwtService } from '../auth/jwt.service';
 import { REDIS } from '../redis/redis.module';
 import { ApiError } from './api-error';
@@ -55,18 +56,32 @@ export class RedisThrottlerStorage implements ThrottlerStorage {
 }
 
 /** Who the request counts against, resolved once per request. */
-type Identity = { userId: string } | { userId: null; ip: string };
+interface Identity {
+  /** Subject of a valid access JWT, if any. */
+  userId: string | null;
+  ip: string;
+}
+
+/** Fail-open warnings are logged at most this often (a Redis outage hits every request). */
+const FAIL_OPEN_WARN_INTERVAL_MS = 60_000;
 const IDENTITY = Symbol('rateLimitIdentity');
 type IdentifiedRequest = Request & { [IDENTITY]?: Promise<Identity> };
 
 /**
- * First global guard (before `JwtAuthGuard`), so failed authentications are counted too. A
- * request carrying a valid access JWT (signature and expiry only, no database read) counts
- * against the `user` throttler, keyed on the user id; any other against `anon`, keyed on the
- * client ip (`req.ip`, i.e. `trust proxy` = `TRUST_PROXY_HOPS`; IPv6 grouped per /64). Counters
- * are global per tracker (`throttle:{name}:{tracker}`), not per route. `/health/*` and `/metrics`
- * are never throttled. Over the limit → `429 RATE_LIMITED` with `details.retryAfterS` and
- * `Retry-After` (set by the exception filter).
+ * First global guard (before `JwtAuthGuard`), so failed authentications are counted too.
+ * - `user` (600/min, keyed on the user id): requests carrying a valid access JWT (signature and
+ *   expiry only, no database read);
+ * - `anon` (60/min, keyed on the client ip — `req.ip`, i.e. `trust proxy` = `TRUST_PROXY_HOPS`;
+ *   IPv6 grouped per /64): requests without a valid token AND every `@Public()` route (login,
+ *   register, password reset, verify-email, refresh, …) even with one, so a token never lifts the
+ *   per-ip limit of the anonymous surface (both limits then apply).
+ * Counters are global per tracker (`throttle:{name}:{tracker}`), not per route. `/health/*` and
+ * `/metrics` are never throttled. Over the limit → `429 RATE_LIMITED` with `details.retryAfterS`
+ * and `Retry-After` (set by the exception filter).
+ *
+ * Redis failure: these limiters FAIL OPEN (the request proceeds, a warning is logged at most once
+ * a minute): availability of the whole API outweighs a minute of unthrottled traffic, and the
+ * login throttle, which guards passwords, fails closed on its own.
  */
 @Injectable()
 export class RateLimitGuard extends ThrottlerGuard {
@@ -88,15 +103,37 @@ export class RateLimitGuard extends ThrottlerGuard {
     return UNPREFIXED_ROUTES.includes(path);
   }
 
+  private lastFailOpenWarn = 0;
+
   protected override async handleRequest(props: ThrottlerRequest): Promise<boolean> {
-    const who = await this.identify(props.context.switchToHttp().getRequest<IdentifiedRequest>());
-    const applies = props.throttler.name === (who.userId ? 'user' : 'anon');
-    return applies ? super.handleRequest(props) : true;
+    const { context, throttler } = props;
+    const who = await this.identify(context.switchToHttp().getRequest<IdentifiedRequest>());
+    const isPublic = this.reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    let tracker: string | null;
+    if (throttler.name === 'user') tracker = who.userId;
+    else tracker = who.userId === null || isPublic ? who.ip : null;
+    if (tracker === null) return true;
+
+    const key = tracker;
+    try {
+      return await super.handleRequest({ ...props, getTracker: () => key });
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      this.warnFailOpen(err);
+      return true;
+    }
   }
 
-  protected override async getTracker(req: Record<string, unknown>): Promise<string> {
-    const who = await this.identify(req as unknown as IdentifiedRequest);
-    return who.userId ?? who.ip;
+  private warnFailOpen(err: unknown): void {
+    const now = Date.now();
+    if (now - this.lastFailOpenWarn < FAIL_OPEN_WARN_INTERVAL_MS) return;
+    this.lastFailOpenWarn = now;
+    this.logger.warn(
+      `rate limiter unavailable, failing open (${err instanceof Error ? err.name : typeof err})`,
+    );
   }
 
   protected override generateKey(
@@ -122,15 +159,16 @@ export class RateLimitGuard extends ThrottlerGuard {
   }
 
   private async resolveIdentity(req: Request): Promise<Identity> {
+    const ip = req.ip ? normalizeIp(req.ip) : 'unknown';
     const token = accessTokenOf(req);
     if (token) {
       try {
-        return { userId: (await this.jwt.verify(token, 'access')).sub };
+        return { userId: (await this.jwt.verify(token, 'access')).sub, ip };
       } catch {
         // Invalid or expired: the request is anonymous.
       }
     }
-    return { userId: null, ip: req.ip ? normalizeIp(req.ip) : 'unknown' };
+    return { userId: null, ip };
   }
 }
 
