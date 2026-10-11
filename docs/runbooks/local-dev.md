@@ -82,7 +82,7 @@ Integration tests need the containers running (`docker compose up -d`) and migra
 (`pnpm db:migrate:test`). They read `DATABASE_URL_TEST`, `DATABASE_URL_TEST_SYSTEM` and
 `REDIS_URL_TEST` from the environment / `.env` as **bases**: turbo runs the packages' tests in
 parallel, so each package's Vitest setup derives its own database and Redis index
-(`packages/config/vitest/test-env.ts`):
+(`packages/config/vitest/test-env.mjs`):
 
 | Package      | Database         | Redis DB |
 | ------------ | ---------------- | -------- |
@@ -91,6 +91,15 @@ parallel, so each package's Vitest setup derives its own database and Redis inde
 | `@tt/worker` | `tt_worker_test` | 15       |
 
 Within a package, spec files run one at a time (`fileParallelism: false`).
+
+**Parallel worktrees.** Several git worktrees can share the one compose stack when each gets its own
+test databases and Redis indexes. In the worktree's `.env` (a copy of the root one) set
+`TEST_DB_PREFIX` (e.g. `tt_t1`: databases `tt_t1_db_test`, `tt_t1_api_test`, `tt_t1_worker_test`;
+keep the `_test` suffix that `resetDatabase` requires, which the derivation appends) and
+`TEST_REDIS_DB_BASE` (an integer 1..13; the packages use `base`, `base+1`, `base+2`, e.g. `10` for
+the first worktree and `7` for the second, while the main checkout keeps the default `13`), then
+run `pnpm db:migrate:test` in the worktree (Prisma creates the missing databases). Drop the
+`<prefix>_*_test` databases when the worktree is removed.
 
 ### Environment variables and turbo
 

@@ -20,7 +20,8 @@ env:
   # (created by infra/docker/postgres/init.sql), not secrets. Every variable a test or build reads
   # must be listed here AND in turbo.json (strict env mode), or the task does not see it.
   # DATABASE_URL_TEST*/REDIS_URL_TEST are bases: each package derives tt_<pkg>_test and its own
-  # Redis index (packages/config/vitest/test-env.ts).
+  # Redis index (packages/config/vitest/test-env.mjs). TEST_DB_PREFIX/TEST_REDIS_DB_BASE (turbo.json)
+  # are left unset here: the defaults apply.
   DATABASE_URL: postgresql://app_user:app@localhost:5432/tt
   DATABASE_URL_SYSTEM: postgresql://app_system:app@localhost:5432/tt
   DATABASE_URL_TEST: postgresql://app_user:app@localhost:5432/tt_test

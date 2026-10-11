@@ -104,6 +104,15 @@ override it). Do not set 2 for this topology: the API would take the entry to th
 TLS proxy's, which the client controls (a spoofable address). Use 2 only when a second proxy that
 appends to the header (e.g. a cloud load balancer in front of the TLS proxy) is added.
 
+- **`WEB_BIND=0.0.0.0` caveat.** Exposing `web` directly (binding it on all interfaces instead of
+  behind the TLS proxy) removes the TLS proxy hop: with `TRUST_PROXY_HOPS=1` the API then believes
+  whatever `X-Forwarded-For` the browser sends. Set `TRUST_PROXY_HOPS=0` in that topology and accept
+  that `req.ip` is then the `web` container (rate limits and audit see one address).
+- **Overwrite-XFF proxies.** A proxy configured to _replace_ the header (nginx
+  `proxy_set_header X-Forwarded-For $remote_addr`) makes hop counting moot: the header holds only
+  the client address it saw, so keep `1`. Never combine `$proxy_add_x_forwarded_for` (appending)
+  with a hop count larger than the number of appending proxies: the extra hop is client-controlled.
+
 ## First run
 
 ```bash

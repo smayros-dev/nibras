@@ -17,8 +17,9 @@ export const EnvSchema = z.object({
   OTEL_EXPORTER_OTLP_ENDPOINT: optionalUrl,
   /**
    * Reverse-proxy hops in front of the API whose `X-Forwarded-For` entries are trusted (Express
-   * `trust proxy`), so `req.ip` is the client: 1 locally (the Next.js server), 2 on staging
-   * (TLS proxy + Next.js server). 0 trusts none.
+   * `trust proxy`), so `req.ip` is the client: 1 locally and on staging (the Next.js server is the
+   * only hop that terminates on the API; the TLS proxy's entry is the rightmost), 2 only when a
+   * second appending proxy is added — see docs/runbooks/staging.md. 0 trusts none.
    */
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
 });
