@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cookieSecureDefault, EnvSchema } from './env';
+import { EnvSchema } from './env';
 
 const valid = {
   NODE_ENV: 'test',
@@ -113,12 +113,24 @@ describe('EnvSchema', () => {
     expect(() => EnvSchema.parse({ ...valid, SMS_PROVIDER: 'twilio' })).toThrow(/SMS_PROVIDER/);
   });
 
-  it('refuses the console SMS provider in production', () => {
-    expect(() => EnvSchema.parse({ ...valid, NODE_ENV: 'production' })).toThrow(/SMS_PROVIDER/);
+  it('refuses the console SMS provider only when APP_ENV=production', () => {
+    expect(() => EnvSchema.parse({ ...valid, APP_ENV: 'production' })).toThrow(/SMS_PROVIDER/);
     expect(() =>
-      EnvSchema.parse({ ...valid, NODE_ENV: 'production', SMS_PROVIDER: 'console' }),
+      EnvSchema.parse({ ...valid, APP_ENV: 'production', NODE_ENV: 'development' }),
     ).toThrow(/SMS_PROVIDER/);
-    expect(EnvSchema.parse({ ...valid, NODE_ENV: 'development' }).SMS_PROVIDER).toBe('console');
+    // Staging images run NODE_ENV=production: the tier, not NODE_ENV, decides.
+    expect(
+      EnvSchema.parse({ ...valid, APP_ENV: 'staging', NODE_ENV: 'production' }).SMS_PROVIDER,
+    ).toBe('console');
+    expect(EnvSchema.parse({ ...valid, NODE_ENV: 'production' }).SMS_PROVIDER).toBe('console');
+  });
+
+  it('defaults APP_ENV to development and rejects unknown tiers', () => {
+    expect(EnvSchema.parse(valid).APP_ENV).toBe('development');
+    expect(EnvSchema.parse({ ...valid, APP_ENV: 'staging' }).APP_ENV).toBe('staging');
+    for (const bad of ['prod', 'test', '']) {
+      expect(() => EnvSchema.parse({ ...valid, APP_ENV: bad })).toThrow(/APP_ENV/);
+    }
   });
 
   it('parses HIBP_ENABLED as a string boolean, on by default', () => {
@@ -131,9 +143,10 @@ describe('EnvSchema', () => {
   it('defaults COOKIE_SECURE to true only in production', () => {
     expect(EnvSchema.parse(valid).COOKIE_SECURE).toBe(false);
     expect(EnvSchema.parse({ ...valid, NODE_ENV: 'development' }).COOKIE_SECURE).toBe(false);
-    // A production env cannot parse yet (console SMS is refused), so check the derivation itself.
-    expect(cookieSecureDefault('production')).toBe(true);
-    expect(cookieSecureDefault('test')).toBe(false);
+    expect(EnvSchema.parse({ ...valid, NODE_ENV: 'production' }).COOKIE_SECURE).toBe(true);
+    expect(
+      EnvSchema.parse({ ...valid, NODE_ENV: 'production', COOKIE_SECURE: 'false' }).COOKIE_SECURE,
+    ).toBe(false);
     expect(
       EnvSchema.parse({ ...valid, NODE_ENV: 'test', COOKIE_SECURE: 'true' }).COOKIE_SECURE,
     ).toBe(true);

@@ -3,10 +3,13 @@ import type { NextFunction, Request, Response } from 'express';
 import { httpRequestDuration } from './metrics';
 
 /**
- * Times every HTTP request into `http_request_duration_seconds`, including those rejected before
- * a handler runs (unknown routes, body parsing, guards' 401/403). The sample is taken when the
- * response closes, so the status is the final one and the route is the handler's route template
- * resolved by then; unmatched requests are labelled `unknown`, never with their raw URL.
+ * Times requests into `http_request_duration_seconds` from the moment Nest's middleware chain
+ * starts, so rejections inside Nest are measured: guards' 401/403, pipes' 400, handler errors and
+ * 404s for unknown paths under the `/api/v1` prefix (labelled `unknown`). Not measured: requests
+ * rejected by app-level Express middleware registered before Nest's (body parsing, helmet, CORS
+ * preflight) and unknown paths outside the prefix, which never reach this middleware. The sample is
+ * taken when the response closes, so the status is the final one and the route is the handler's
+ * route template, never the raw URL.
  */
 @Injectable()
 export class MetricsMiddleware implements NestMiddleware {

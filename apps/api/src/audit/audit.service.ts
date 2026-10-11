@@ -5,6 +5,7 @@ import { CROSS_TENANT_AUDIT_ACTION, Prisma, type GuardedClient } from '@tt/db';
 import { PinoLogger } from 'nestjs-pino';
 import { RequestContext, type RequestStore } from '../common/request-context';
 import { DB } from '../db/db.module';
+import { auditWriteFailures } from '../observability/metrics';
 
 /** Every audited action of SP1 (PRD §8.16.3); later sub-projects append theirs. */
 export type AuditAction =
@@ -68,10 +69,16 @@ function isSecretKey(key: string): boolean {
   return SECRET_KEY.test(key) || REDACTED.has(key.toLowerCase());
 }
 
-/** Deep copy of `value` without secret keys (objects and arrays, any depth). */
+/**
+ * JSON-safe deep copy of `value` without secret keys (objects and arrays, any depth): `bigint`
+ * (e.g. storage quotas) becomes a decimal string, which JSON cannot otherwise carry, and a `Date`
+ * an ISO string.
+ */
 function stripSecrets(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stripSecrets);
-  if (value === null || typeof value !== 'object' || value instanceof Date) return value;
+  if (typeof value === 'bigint') return value.toString();
+  if (value instanceof Date) return value.toISOString();
+  if (value === null || typeof value !== 'object') return value;
   return Object.fromEntries(
     Object.entries(value)
       .filter(([key]) => !isSecretKey(key))
@@ -133,6 +140,7 @@ export class AuditService {
         },
       });
     } catch (err) {
+      auditWriteFailures.inc({ action: entry.action });
       // Only identifiers: before/after may hold personal data, and a Prisma validation error's
       // message prints the query arguments, so only its name is kept.
       const safeErr = err instanceof Prisma.PrismaClientValidationError ? { type: err.name } : err;

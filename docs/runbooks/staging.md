@@ -84,9 +84,11 @@ S3_BUCKET=tt-staging
 ```
 
 The API validates these at startup and refuses to boot when one is missing or malformed:
-`TOTP_ENCRYPTION_KEY` must be canonical base64 of exactly 32 bytes, `REDIS_URL` must use `redis:`
-or `rediss:`, and `SMS_PROVIDER=console` (the only provider so far, which logs instead of sending)
-is rejected when `NODE_ENV=production` — staging needs a real SMS provider before it can run SP1.
+`TOTP_ENCRYPTION_KEY` must be canonical base64 of exactly 32 bytes and `REDIS_URL` must use
+`redis:` or `rediss:`. `compose.staging.yml` sets `APP_ENV=staging` for the api and the worker
+(images run with `NODE_ENV=production`; `APP_ENV` is the deployment tier), so staging may use
+`SMS_PROVIDER=console` (the log provider: nothing is sent). `APP_ENV=production` refuses `console`: production needs a real SMS provider, which is
+still an owner decision.
 
 `PORT` and `WORKER_PORT` are left out on purpose: every app service reads this one file, so
 `compose.staging.yml` pins them per service (api `3001`, web `3000`, worker `3002`) and any value

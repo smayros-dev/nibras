@@ -99,7 +99,7 @@ describe('observability', () => {
     expect(metrics).not.toContain('splat');
   });
 
-  it('labels unprefixed routes and unknown paths outside the prefix', async () => {
+  it('labels unprefixed routes by template and never labels an unknown path by its url', async () => {
     await http.get('/health/live').expect(200);
     await http.get('/nope-outside').expect(404);
     const metrics = (await http.get('/metrics').expect(200)).text;

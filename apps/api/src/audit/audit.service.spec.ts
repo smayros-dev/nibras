@@ -1,6 +1,7 @@
 import { Prisma } from '@tt/db';
 import { describe, expect, it, vi } from 'vitest';
 import { RequestContext, type AuthUser, type RequestStore } from '../common/request-context';
+import { auditWriteFailures } from '../observability/metrics';
 import { AuditService } from './audit.service';
 
 const user: AuthUser = {
@@ -194,5 +195,34 @@ describe('AuditService', () => {
     });
     expect(logger.error).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(logger.error.mock.calls)).not.toContain('a@b.c');
+  });
+
+  it('stores bigints as strings and dates as ISO strings', async () => {
+    const { audit, data } = setup();
+    const at = new Date('2026-10-11T08:00:00.000Z');
+    await audit.log({
+      action: 'workspace.quota_changed',
+      entityType: 'Workspace',
+      entityId: w,
+      before: { storageQuotaBytes: 20n * 1024n ** 3n, at },
+      after: { storageQuotaBytes: 200n * 1024n ** 3n, nested: [{ n: 1n }] },
+    });
+    expect(data(0)?.before).toEqual({
+      storageQuotaBytes: '21474836480',
+      at: '2026-10-11T08:00:00.000Z',
+    });
+    expect(data(0)?.after).toEqual({ storageQuotaBytes: '214748364800', nested: [{ n: '1' }] });
+    // JSON-serialisable as Prisma will send it.
+    expect(() => JSON.stringify(data(0))).not.toThrow();
+  });
+
+  it('counts failed writes by action', async () => {
+    const count = async (action: string) =>
+      (await auditWriteFailures.get()).values.find((v) => v.labels.action === action)?.value ?? 0;
+    const before = await count('member.removed');
+    const { audit } = setup(vi.fn().mockRejectedValue(new Error('db down')));
+    await audit.log({ action: 'member.removed', entityType: 'Membership' });
+    await audit.log({ action: 'member.removed', entityType: 'Membership' });
+    expect(await count('member.removed')).toBe(before + 2);
   });
 });

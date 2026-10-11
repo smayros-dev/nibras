@@ -15,13 +15,13 @@ function isTotpKey(value: string): boolean {
   return key.length === TOTP_KEY_BYTES && key.toString('base64') === value.trim();
 }
 
-/** `Secure` auth cookies unless explicitly turned off; on by default only in production. */
-export function cookieSecureDefault(nodeEnv: 'development' | 'test' | 'production'): boolean {
-  return nodeEnv === 'production';
-}
-
 const EnvObject = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  /**
+   * Deployment tier. Independent of `NODE_ENV`, which is `production` in every built image
+   * (staging included): production-only guards key off this.
+   */
+  APP_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   /** `app_user` role: RLS enforced (PRD §13.3). */
   DATABASE_URL: z.url(),
@@ -64,15 +64,15 @@ const EnvObject = z.object({
 
 export const EnvSchema = EnvObject.superRefine((e, ctx) => {
   // The log provider never delivers a code: production would lock every teacher out of phone
-  // verification without anyone noticing.
-  if (e.NODE_ENV === 'production' && e.SMS_PROVIDER === 'console') {
+  // verification without anyone noticing. Staging (APP_ENV=staging) may use it.
+  if (e.APP_ENV === 'production' && e.SMS_PROVIDER === 'console') {
     ctx.addIssue({
       code: 'custom',
       path: ['SMS_PROVIDER'],
-      message: 'SMS_PROVIDER=console (log only) is not allowed in production',
+      message: 'SMS_PROVIDER=console (log only) is not allowed when APP_ENV=production',
     });
   }
-}).transform((e) => ({ ...e, COOKIE_SECURE: e.COOKIE_SECURE ?? cookieSecureDefault(e.NODE_ENV) }));
+}).transform((e) => ({ ...e, COOKIE_SECURE: e.COOKIE_SECURE ?? e.NODE_ENV === 'production' }));
 
 export type Env = z.infer<typeof EnvSchema>;
 

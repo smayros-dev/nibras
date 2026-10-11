@@ -7,6 +7,7 @@ import { FakePwnedClient } from '../src/auth/crypto/hibp';
 import { SecretBox } from '../src/auth/crypto/secret-box';
 import { RequestContext, type AuthUser } from '../src/common/request-context';
 import { DB } from '../src/db/db.module';
+import { auditWriteFailures } from '../src/observability/metrics';
 import {
   EMAIL_PROVIDER,
   PWNED_CLIENT,
@@ -179,5 +180,41 @@ describe('test infrastructure', () => {
     expect(responses.map((r) => r.body as unknown)).toEqual(
       names.map((n) => ({ name: n, requestId: `rq-${n}` })),
     );
+  });
+
+  it('AuditService stores bigints and counts a failed write without logging the query', async () => {
+    const user = await createUser();
+    const audit = ctx.app.get(AuditService);
+    const failures = async () =>
+      (await auditWriteFailures.get()).values.find(
+        (v) => v.labels.action === 'workspace.quota_changed',
+      )?.value ?? 0;
+    const initial = await failures();
+    await RequestContext.run({ requestId: 'infra-2', ip: '', userAgent: '', user }, async () => {
+      await audit.log({
+        action: 'workspace.quota_changed',
+        entityType: 'Workspace',
+        before: { storageQuotaBytes: 21474836480n },
+        after: { storageQuotaBytes: 214748364800n },
+      });
+      // entity_id is a uuid column: the insert fails in Postgres.
+      await audit.log({
+        action: 'workspace.quota_changed',
+        entityType: 'Workspace',
+        entityId: 'not-a-uuid',
+        after: { marker: 'query-arg-marker' },
+      });
+    });
+    const rows = await ctx.db.auditLog.findMany({ where: { requestId: 'infra-2' } });
+    expect(rows).toEqual([
+      expect.objectContaining({
+        before: { storageQuotaBytes: '21474836480' },
+        after: { storageQuotaBytes: '214748364800' },
+      }),
+    ]);
+    expect(await failures()).toBe(initial + 1);
+    const failure = ctx.logs.lines().find((l) => l.msg === 'audit log write failed');
+    expect(failure).toMatchObject({ level: 50, action: 'workspace.quota_changed' });
+    expect(JSON.stringify(ctx.logs.lines())).not.toContain('query-arg-marker');
   });
 });
