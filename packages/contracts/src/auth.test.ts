@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   BirthDateSchema,
+  canonicalTimeZone,
   isValidTimeZone,
   RegisterTeacherSchema,
   TimezoneSchema,
@@ -19,17 +20,51 @@ const valid = {
   acceptPrivacy: true,
 };
 
+const runtimeCanonical = (tz: string) =>
+  new Intl.DateTimeFormat('en', { timeZone: tz }).resolvedOptions().timeZone;
+
 describe('TimezoneSchema', () => {
-  it('accepts IANA zones and UTC', () => {
-    for (const tz of ['Africa/Tunis', 'Europe/Paris', 'Africa/Casablanca', 'UTC']) {
+  it('accepts every IANA zone the runtime resolves, aliases included, and UTC', () => {
+    for (const tz of [
+      'Africa/Tunis',
+      'Europe/Paris',
+      'Asia/Kolkata',
+      'Asia/Calcutta',
+      'Europe/Kyiv',
+      'America/Argentina/Buenos_Aires',
+      'UTC',
+    ]) {
       expect(isValidTimeZone(tz)).toBe(true);
       expect(TimezoneSchema.safeParse(tz).success).toBe(true);
     }
   });
 
-  it('rejects non-IANA names, offsets and empty strings', () => {
-    for (const tz of ['Europe/Tunis', 'GMT+1', '+01:00', '', 'africa/tunis', 'Mars/Olympus']) {
+  it('outputs the runtime canonical form', () => {
+    expect(TimezoneSchema.parse('Africa/Tunis')).toBe('Africa/Tunis');
+    expect(TimezoneSchema.parse('UTC')).toBe('UTC');
+    expect(TimezoneSchema.parse('africa/tunis')).toBe('Africa/Tunis');
+    expect(TimezoneSchema.parse('Asia/Kolkata')).toBe(runtimeCanonical('Asia/Kolkata'));
+    expect(TimezoneSchema.parse('Asia/Kolkata')).toBe(TimezoneSchema.parse('Asia/Calcutta'));
+    expect(TimezoneSchema.parse('Europe/Kyiv')).toBe(TimezoneSchema.parse('Europe/Kiev'));
+    expect(canonicalTimeZone('Europe/Kyiv')).toBe(runtimeCanonical('Europe/Kyiv'));
+  });
+
+  it('rejects unknown zones, offsets, legacy names, Etc/* and empty strings', () => {
+    for (const tz of [
+      'Europe/Tunis',
+      'GMT+1',
+      '+01:00',
+      '',
+      'Mars/Olympus',
+      'EST5EDT',
+      'CET',
+      'Etc/GMT+1',
+      'Etc/UTC',
+      'Africa/Tunis/',
+      'Africa/../Tunis',
+    ]) {
       expect(TimezoneSchema.safeParse(tz).success).toBe(false);
+      expect(canonicalTimeZone(tz)).toBeNull();
     }
   });
 });

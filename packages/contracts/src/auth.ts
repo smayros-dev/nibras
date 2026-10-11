@@ -2,18 +2,40 @@ import { z } from 'zod';
 import { CurrentConsentTypes } from './consents';
 import { LocaleSchema } from './locale';
 
-let ianaZones: ReadonlySet<string> | undefined;
+/**
+ * Shape of an IANA region zone (`Area/Location`, optionally `Area/Region/Location`) or `UTC`.
+ * Refuses raw offsets (`GMT+1`, `+01:00`) and legacy single names (`EST5EDT`, `CET`).
+ */
+const TIME_ZONE_SHAPE = /^(UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+){1,2})$/;
 
 /**
- * IANA zone known to the runtime's ICU data (`Intl.supportedValuesOf('timeZone')`, canonical
- * names only, case-sensitive), or `UTC`, which some runtimes leave out of that list.
+ * The runtime's canonical name of `tz` (`resolvedOptions().timeZone`, e.g. the case-folded name
+ * or the alias ICU/CLDR prefers: `Asia/Kolkata` and `Asia/Calcutta` resolve to the same value),
+ * or `null` when `tz` is not an accepted IANA zone. Every zone the runtime can resolve is
+ * accepted, not only `Intl.supportedValuesOf('timeZone')`, which omits aliases such as
+ * `Asia/Kolkata` or `Europe/Kyiv` on some ICU versions.
+ *
+ * `Etc/*` is refused on purpose: its offset zones have inverted signs (`Etc/GMT+1` is UTC−1) and
+ * `Etc/UTC` is spelled `UTC` here.
  */
-export function isValidTimeZone(tz: string): boolean {
-  ianaZones ??= new Set(Intl.supportedValuesOf('timeZone'));
-  return tz === 'UTC' || ianaZones.has(tz);
+export function canonicalTimeZone(tz: string): string | null {
+  if (!TIME_ZONE_SHAPE.test(tz) || /^etc\//i.test(tz)) return null;
+  try {
+    return new Intl.DateTimeFormat('en', { timeZone: tz }).resolvedOptions().timeZone;
+  } catch {
+    return null;
+  }
 }
 
-export const TimezoneSchema = z.string().refine(isValidTimeZone, 'Invalid IANA time zone');
+export function isValidTimeZone(tz: string): boolean {
+  return canonicalTimeZone(tz) !== null;
+}
+
+/** IANA time zone, output in the runtime's canonical form (what the API stores). */
+export const TimezoneSchema = z
+  .string()
+  .refine(isValidTimeZone, 'Invalid IANA time zone')
+  .transform((tz) => canonicalTimeZone(tz)!);
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 export const BIRTH_DATE_MIN = '1900-01-01';

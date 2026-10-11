@@ -14,6 +14,7 @@ import {
   type User,
   type Workspace,
 } from '@tt/db';
+import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
 import { DB } from '../db/db.module';
@@ -58,7 +59,10 @@ export class RegisterService {
     private readonly verification: EmailVerificationService,
     private readonly audit: AuditService,
     private readonly events: EventEmitter2,
-  ) {}
+    private readonly logger: PinoLogger,
+  ) {
+    logger.setContext(RegisterService.name);
+  }
 
   /**
    * Validates the password (`422 PASSWORD_*`), then in ONE transaction creates the user (ACTIVE,
@@ -162,10 +166,24 @@ export class RegisterService {
         consents: REQUIRED_CONSENTS.map((type) => CONSENT_VERSIONS[type]),
       },
     });
-    this.events.emit(
-      TEACHER_REGISTERED,
-      new TeacherRegisteredEvent(user.id, workspace.id, user.locale, now),
-    );
+    this.publishRegistered(new TeacherRegisteredEvent(user.id, workspace.id, user.locale, now));
     return { user, workspace };
+  }
+
+  /**
+   * Fire-and-forget: the registration is committed, so a listener's failure (sync throw or
+   * rejection) is logged and never reaches the HTTP response.
+   */
+  private publishRegistered(event: TeacherRegisteredEvent): void {
+    const failed = (err: unknown) =>
+      this.logger.error(
+        { err: { type: err instanceof Error ? err.name : typeof err }, userId: event.userId },
+        'TeacherRegisteredEvent listener failed',
+      );
+    try {
+      this.events.emitAsync(TEACHER_REGISTERED, event).catch(failed);
+    } catch (err) {
+      failed(err);
+    }
   }
 }
