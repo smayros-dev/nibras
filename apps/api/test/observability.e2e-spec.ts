@@ -11,8 +11,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ApiError } from '../src/common/api-error';
 import { buildOpenApiDocument, toStableJson } from '../src/openapi/export';
 import { createTestApp, type CapturedLogs, type TestAgent } from './helpers/app';
+import { Public } from '../src/auth/decorators/public';
 
 /** Test-only routes, mounted next to AppModule by this spec alone. */
+@Public()
 @Controller('__obs')
 class ObsController {
   @Get('items/:id')
@@ -33,6 +35,7 @@ class RejectingGuard implements CanActivate {
 }
 
 /** A route whose guard always rejects: the handler never runs. */
+@Public()
 @Controller('__test')
 class GuardedProbeController {
   @Get('guarded')

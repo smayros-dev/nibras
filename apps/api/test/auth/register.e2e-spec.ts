@@ -9,6 +9,7 @@ import { TEACHER_REGISTERED, type TeacherRegisteredEvent } from '../../src/auth/
 import { RequestContext } from '../../src/common/request-context';
 import { REDIS } from '../../src/redis/redis.module';
 import { createTestApp, type TestContext } from '../helpers/app';
+import { cookieValue, setCookieLine } from '../helpers/auth';
 import { createUser } from '../helpers/factories';
 
 const body = {
@@ -118,6 +119,55 @@ describe('teacher registration and email verification', () => {
         pendingConsents: [],
       },
     });
+  });
+
+  it('signs the new teacher in: auth cookies for a fresh session, no new-device email', async () => {
+    const res = await register().expect(201);
+    expect(setCookieLine(res, 'tt_access')).toMatch(/HttpOnly/);
+    expect(setCookieLine(res, 'tt_refresh')).toMatch(/Path=\/api\/v1\/auth/);
+    // Not "remembered": a browser-session refresh cookie.
+    expect(setCookieLine(res, 'tt_refresh')).not.toMatch(/Max-Age/);
+    const user = await ctx.db.user.findUniqueOrThrow({ where: { email: body.email } });
+    const sessions = await ctx.db.userSession.findMany({ where: { userId: user.id } });
+    expect(sessions).toHaveLength(1);
+    expect(cookieValue(res, 'tt_refresh').startsWith(`${sessions[0]!.id}.`)).toBe(true);
+    expect(ctx.email.findByTemplate('security.new_device', body.email)).toEqual([]);
+
+    // The session works right away on the routes an unverified user may reach.
+    const me = await ctx.http
+      .get('/api/v1/me')
+      .set('Cookie', `tt_access=${cookieValue(res, 'tt_access')}`)
+      .expect(200);
+    expect(me.body.user).toMatchObject({ id: user.id, emailVerifiedAt: null });
+  });
+
+  it('POST /auth/resend-verification with the registration session: new link, then 429 within a minute', async () => {
+    const res = await register().expect(201);
+    const first = tokenFromLastEmail();
+    const cookie = `tt_access=${cookieValue(res, 'tt_access')}`;
+    await ctx.http
+      .post('/api/v1/auth/resend-verification')
+      .set('Cookie', cookie)
+      .expect(200, { ok: true });
+    expect(ctx.email.findByTemplate('auth.verify_email', body.email)).toHaveLength(2);
+    const second = tokenFromLastEmail();
+    expect(second).not.toBe(first);
+    const again = await ctx.http
+      .post('/api/v1/auth/resend-verification')
+      .set('Cookie', cookie)
+      .expect(429);
+    expect(again.body.code).toBe('RATE_LIMITED');
+    await ctx.http.post('/api/v1/auth/verify-email').send({ token: first }).expect(410);
+    await ctx.http.post('/api/v1/auth/verify-email').send({ token: second }).expect(200);
+    // Verified: resending is a no-op.
+    const redis = ctx.app.get<Redis>(REDIS);
+    const user = await ctx.db.user.findUniqueOrThrow({ where: { email: body.email } });
+    await redis.del(`auth:resend-verification:${user.id}`);
+    await ctx.http
+      .post('/api/v1/auth/resend-verification')
+      .set('Cookie', cookie)
+      .expect(200, { ok: true });
+    expect(ctx.email.findByTemplate('auth.verify_email', body.email)).toHaveLength(2);
   });
 
   it('emits TeacherRegisteredEvent after the commit', async () => {

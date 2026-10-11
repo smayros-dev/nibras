@@ -12,7 +12,11 @@ import { LOG_DESTINATION } from '../../src/observability/logger.module';
 import { EMAIL_PROVIDER, PWNED_CLIENT, SMS_PROVIDER } from '../../src/providers/providers.module';
 import { FakeQueueService, QueueService } from '../../src/queue/queue.service';
 
-export type TestAgent = ReturnType<typeof request.agent>;
+/**
+ * Stateless supertest client: no cookie jar, so a response's `Set-Cookie` never leaks into later
+ * requests (or later tests). Specs pass cookies explicitly (`helpers/auth.ts`: `as`, `loginAs`).
+ */
+export type TestAgent = ReturnType<typeof request>;
 
 /** Log lines the app wrote (parsed JSON), captured in memory instead of stdout. */
 export interface CapturedLogs {
@@ -83,7 +87,7 @@ export async function createTestApp(opts: CreateTestAppOptions = {}) {
   const db: PrismaClient = systemPrisma();
   return {
     app: app as INestApplication,
-    http: request.agent(app.getHttpServer()) as TestAgent,
+    http: request(app.getHttpServer()),
     logs,
     db,
     email,

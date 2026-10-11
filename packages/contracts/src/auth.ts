@@ -109,3 +109,39 @@ export const MeUserSchema = z.object({
 });
 
 export type MeUser = z.infer<typeof MeUserSchema>;
+
+/**
+ * `POST /auth/login`. The email is normalised exactly like at registration (trimmed,
+ * lower-cased). `remember` = "Se souvenir de cet appareil": a persistent 30-day refresh cookie
+ * instead of a browser-session one (the server-side lifetime is 30 days either way).
+ */
+export const LoginSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+  password: z.string().min(1).max(256),
+  remember: z.boolean().optional().default(false),
+});
+
+export type LoginInput = z.infer<typeof LoginSchema>;
+
+/** `200` of `POST /auth/login`: cookies set on `OK`; `TWO_FACTOR_REQUIRED` arrives with Task 10. */
+export const LoginResponseSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('OK'), user: MeUserSchema }),
+  z.object({ status: z.literal('TWO_FACTOR_REQUIRED'), challengeToken: z.string() }),
+]);
+
+export type LoginResponse = z.infer<typeof LoginResponseSchema>;
+
+/** One active session of the signed-in user (`GET /auth/sessions`); dates are ISO strings. */
+export const SessionSummarySchema = z.object({
+  id: z.string(),
+  /** Browser and OS derived from the user-agent, e.g. `Firefox · Windows`. */
+  deviceLabel: z.string(),
+  /** Address of the last sign-in or refresh. */
+  ip: z.string(),
+  createdAt: z.string(),
+  lastSeenAt: z.string(),
+  /** The session making this request. */
+  current: z.boolean(),
+});
+
+export type SessionSummary = z.infer<typeof SessionSummarySchema>;

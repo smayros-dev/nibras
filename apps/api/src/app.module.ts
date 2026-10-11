@@ -1,8 +1,10 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { AccountGatesGuard } from './auth/guards/account-gates.guard';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
@@ -29,6 +31,10 @@ import { RedisModule } from './redis/redis.module';
   providers: [
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_PIPE, useClass: ZodValidationPipe },
+    // Global guards run in this order: session first, then the account gates. Later tasks append
+    // the workspace context, permission and teacher-verified guards after these two.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: AccountGatesGuard },
   ],
 })
 export class AppModule implements NestModule {

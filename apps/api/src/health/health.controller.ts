@@ -10,6 +10,7 @@ import type { PrismaClient } from '@tt/db';
 import type { Response } from 'express';
 import type Redis from 'ioredis';
 import { REDIS } from '../redis/redis.module';
+import { Public } from '../auth/decorators/public';
 
 /** Injection token for the Prisma client (`app_user`) the readiness probe pings. */
 export const DB_HEALTH_CLIENT = Symbol('DB_HEALTH_CLIENT');
@@ -17,6 +18,7 @@ export const DB_HEALTH_CLIENT = Symbol('DB_HEALTH_CLIENT');
 /** A dependency that does not answer within this budget counts as down (no hanging probes). */
 const CHECK_TIMEOUT_MS = 1000;
 
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(
