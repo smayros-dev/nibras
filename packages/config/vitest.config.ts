@@ -3,5 +3,5 @@ import { baseVitestConfig } from './vitest/base';
 
 export default mergeConfig(
   baseVitestConfig,
-  defineConfig({ test: { include: ['vitest/**/*.test.ts'] } }),
+  defineConfig({ test: { include: ['vitest/**/*.test.ts', 'eslint/**/*.test.mjs'] } }),
 );

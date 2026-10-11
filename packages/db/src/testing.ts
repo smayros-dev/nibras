@@ -16,5 +16,7 @@ export async function resetDatabase(client: PrismaClient = systemPrisma()): Prom
   const list = tables
     .map(({ tablename }) => `"public"."${tablename.replace(/"/g, '""')}"`)
     .join(', ');
+  // Identifiers cannot be bound parameters; each name comes from pg_tables and is quoted above.
+  // eslint-disable-next-line no-restricted-properties -- test-only reset, no external input
   await client.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
 }
