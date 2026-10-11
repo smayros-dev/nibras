@@ -22,6 +22,7 @@
     "@opentelemetry/sdk-node": "^0.223.0",
     "@tt/contracts": "workspace:*",
     "@tt/db": "workspace:*",
+    "argon2": "^0.44.0",
     "cookie-parser": "^1.4.7",
     "helmet": "^8.3.0",
     "ioredis": "^5.11.1",
