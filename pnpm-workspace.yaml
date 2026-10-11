@@ -6,6 +6,7 @@ packages:
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - '@swc/core'
+  - argon2
   - esbuild
   - msgpackr-extract
   - prisma

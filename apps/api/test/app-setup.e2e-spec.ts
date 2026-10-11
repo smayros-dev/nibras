@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { testDbName, testRedisDb } from '@tt/config/vitest/test-env';
 import { createTestApp, type TestAgent } from './helpers/app';
 
 describe('http setup (shared with main.ts)', () => {
@@ -12,13 +13,16 @@ describe('http setup (shared with main.ts)', () => {
     await app.close();
   });
 
-  it('runs against its own test database and Redis index (tt_api_test, DB 14)', () => {
+  it('runs against its own test database and Redis index (tt_api_test, DB 14 by default)', () => {
+    // Without the worktree knobs (TEST_DB_PREFIX / TEST_REDIS_DB_BASE) these are tt_api_test and 14.
+    expect(testDbName('api', {})).toBe('tt_api_test');
+    expect(testRedisDb('api', {})).toBe(14);
     if (process.env.REDIS_URL_TEST) {
       expect(process.env.REDIS_URL).toBe(process.env.REDIS_URL_TEST);
-      expect(new URL(process.env.REDIS_URL ?? '').pathname).toBe('/14');
+      expect(new URL(process.env.REDIS_URL ?? '').pathname).toBe(`/${testRedisDb('api')}`);
     }
     if (process.env.DATABASE_URL_TEST) {
-      expect(new URL(process.env.DATABASE_URL ?? '').pathname).toBe('/tt_api_test');
+      expect(new URL(process.env.DATABASE_URL ?? '').pathname).toBe(`/${testDbName('api')}`);
     }
   });
 
