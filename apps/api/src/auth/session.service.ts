@@ -48,6 +48,15 @@ const unauthenticated = () =>
 export const sessionRevoked = () =>
   new ApiError(HttpStatus.UNAUTHORIZED, 'SESSION_REVOKED', 'Session revoked or expired');
 
+/**
+ * Whether a session's password proof predates the user's last password reset or change: such a
+ * session is dead (it may come from a login that verified the old password while the change was
+ * committing).
+ */
+export function credentialsStale(passwordChangedAt: Date | null, authenticatedAt: Date): boolean {
+  return passwordChangedAt !== null && passwordChangedAt.getTime() > authenticatedAt.getTime();
+}
+
 /** Splits `${sid}.${raw}`; `null` when malformed. */
 export function parseRefreshToken(token: string): { sid: string; raw: string } | null {
   const dot = token.indexOf('.');
@@ -126,10 +135,14 @@ export class SessionService {
     logger.setContext(SessionService.name);
   }
 
-  /** A new session (and family) for `user`, with its first access and refresh tokens. */
+  /**
+   * A new session (and family) for `user`, with its first access and refresh tokens.
+   * `authenticatedAt` is when the password check began (default: now); a password reset or change
+   * committed after it kills the session (see {@link credentialsStale}).
+   */
   async createSession(
     user: Pick<User, 'id'>,
-    meta: SessionMeta & { remember: boolean },
+    meta: SessionMeta & { remember: boolean; authenticatedAt?: Date },
   ): Promise<SessionTokens> {
     const id = uuidv7();
     const { raw, hash } = generateToken();
@@ -145,6 +158,7 @@ export class SessionService {
         ip: meta.ip || UNKNOWN_IP,
         userAgent,
         remember: meta.remember,
+        authenticatedAt: meta.authenticatedAt ?? now,
         lastSeenAt: now,
         expiresAt: new Date(now.getTime() + REFRESH_TTL_MS),
       },
@@ -181,7 +195,15 @@ export class SessionService {
       const row = await tx.userSession.findUniqueOrThrow({
         where: { id: parsed.sid },
         include: {
-          user: { select: { email: true, firstName: true, locale: true, status: true } },
+          user: {
+            select: {
+              email: true,
+              firstName: true,
+              locale: true,
+              status: true,
+              passwordChangedAt: true,
+            },
+          },
         },
       });
       const { user, ...session } = row;
@@ -198,7 +220,8 @@ export class SessionService {
       if (
         session.revokedAt !== null ||
         session.expiresAt.getTime() <= Date.now() ||
-        user.status !== 'ACTIVE'
+        user.status !== 'ACTIVE' ||
+        credentialsStale(user.passwordChangedAt, session.authenticatedAt)
       ) {
         if (session.revokedAt === null) {
           await tx.userSession.update({

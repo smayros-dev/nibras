@@ -12,6 +12,7 @@ import { JwtService } from './jwt.service';
 import { MeController } from './me.controller';
 import { PasswordController } from './password.controller';
 import { PasswordResetService } from './password-reset.service';
+import { ReauthLimiter } from './reauth-limiter';
 import { RegisterService } from './register.service';
 import { SessionService } from './session.service';
 
@@ -30,6 +31,7 @@ import { SessionService } from './session.service';
     RegisterService,
     SessionService,
     AuthService,
+    ReauthLimiter,
     PasswordResetService,
     EmailChangeService,
   ],

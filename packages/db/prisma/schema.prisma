@@ -126,6 +126,8 @@ model User {
   suspendedAt       DateTime?    @map("suspended_at") @db.Timestamptz
   deletedAt         DateTime?    @map("deleted_at") @db.Timestamptz
   lastLoginAt       DateTime?    @map("last_login_at") @db.Timestamptz
+  /// Last password reset or change: sessions whose credentials were proven before it are dead.
+  passwordChangedAt DateTime?    @map("password_changed_at") @db.Timestamptz
   createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -159,6 +161,9 @@ model UserSession {
   lastSeenAt       DateTime  @map("last_seen_at") @db.Timestamptz
   expiresAt        DateTime  @map("expires_at") @db.Timestamptz
   revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
+  /// When the user last proved the password for this session (before its verification started);
+  /// a later `User.passwordChangedAt` kills the session.
+  authenticatedAt  DateTime  @default(now()) @map("authenticated_at") @db.Timestamptz
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 

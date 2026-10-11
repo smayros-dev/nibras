@@ -14,7 +14,7 @@ import { DB } from '../../db/db.module';
 import { accessTokenOf } from '../cookies';
 import { IS_PUBLIC_KEY } from '../decorators/public';
 import { JwtService, type AccessPayload } from '../jwt.service';
-import { sessionRevoked } from '../session.service';
+import { credentialsStale, sessionRevoked } from '../session.service';
 
 /** The `AuthUser` columns (never hashes or secrets). */
 export const AUTH_USER_SELECT = {
@@ -74,7 +74,8 @@ export class JwtAuthGuard implements CanActivate {
         userId: true,
         revokedAt: true,
         expiresAt: true,
-        user: { select: AUTH_USER_SELECT },
+        authenticatedAt: true,
+        user: { select: { ...AUTH_USER_SELECT, passwordChangedAt: true } },
       },
     });
     if (
@@ -83,15 +84,17 @@ export class JwtAuthGuard implements CanActivate {
       session.revokedAt !== null ||
       session.expiresAt.getTime() <= Date.now() ||
       session.user.status === 'DELETING' ||
-      session.user.status === 'DELETED'
+      session.user.status === 'DELETED' ||
+      credentialsStale(session.user.passwordChangedAt, session.authenticatedAt)
     ) {
       throw sessionRevoked();
     }
+    const { passwordChangedAt: _changedAt, ...user } = session.user;
 
     const store = RequestContext.get();
     // Fails closed: without the request context nothing downstream could see the user.
     if (!store) throw unauthenticated();
-    store.user = session.user;
+    store.user = user;
     store.session = { id: session.id, familyId: session.familyId };
     return true;
   }

@@ -58,9 +58,9 @@ describe('email change with double confirmation', () => {
 
     // The old address is told, the new one is not.
     expect(ctx.email.findByTemplate('security.email_changed', 'old@example.com')).toHaveLength(1);
-    expect(ctx.email.findByTemplate('security.email_changed', 'old@example.com')[0]!.params).toEqual(
-      { firstName: u.firstName, newEmail: 'new@example.com' },
-    );
+    expect(
+      ctx.email.findByTemplate('security.email_changed', 'old@example.com')[0]!.params,
+    ).toEqual({ firstName: u.firstName, newEmail: 'new@example.com' });
     expect(ctx.email.findByTemplate('security.email_changed', 'new@example.com')).toHaveLength(0);
 
     const audit = await ctx.db.auditLog.findMany({ where: { action: 'auth.email_changed' } });
@@ -131,7 +131,9 @@ describe('email change with double confirmation', () => {
     expect(res.body.code).toBe('INVALID_CREDENTIALS');
     expect(ctx.email.sent).toHaveLength(0);
     expect(await ctx.db.verificationToken.count()).toBe(0);
-    const failed = await ctx.db.auditLog.findMany({ where: { action: 'auth.email_change_failed' } });
+    const failed = await ctx.db.auditLog.findMany({
+      where: { action: 'auth.email_change_failed' },
+    });
     expect(failed).toHaveLength(1);
     expect(failed[0]).toMatchObject({ entityId: u.id, actorUserId: u.id });
     expect(failed[0]!.after).toMatchObject({ reason: 'invalid_credentials' });
@@ -177,7 +179,9 @@ describe('email change with double confirmation', () => {
       .expect(202);
     expect(res.status).toBe(202);
     await confirm(first.tNew).expect(410);
-    const tOld2 = tokenFrom(ctx.email.findByTemplate('auth.email_change_confirm', 'old@example.com'));
+    const tOld2 = tokenFrom(
+      ctx.email.findByTemplate('auth.email_change_confirm', 'old@example.com'),
+    );
     const tNew2 = tokenFrom(
       ctx.email.findByTemplate('auth.email_change_confirm', 'other@example.com'),
     );
@@ -191,9 +195,13 @@ describe('email change with double confirmation', () => {
     expect(expired.body.code).toBe('TOKEN_INVALID');
     expect(await emailOf(first.u.id)).toBe('old@example.com');
 
-    const failed = await ctx.db.auditLog.findMany({ where: { action: 'auth.email_change_failed' } });
+    const failed = await ctx.db.auditLog.findMany({
+      where: { action: 'auth.email_change_failed' },
+    });
     expect(failed.length).toBeGreaterThanOrEqual(3);
-    expect(JSON.stringify(failed)).not.toMatch(new RegExp([first.tOld, first.tNew, tNew2].join('|')));
+    expect(JSON.stringify(failed)).not.toMatch(
+      new RegExp([first.tOld, first.tNew, tNew2].join('|')),
+    );
   });
 
   it('a token of another purpose is 410 TOKEN_INVALID', async () => {

@@ -12,6 +12,8 @@ import { EMAIL_PROVIDER } from '../providers/providers.module';
 import { verifyPassword } from './crypto/password';
 import { generateToken, hashToken } from './crypto/tokens';
 import { invalidCredentials, tokenInvalid } from './password-reset.service';
+import { ReauthLimiter } from './reauth-limiter';
+import { lockAccountTokens } from './token-locks';
 
 /** Both confirmation links are valid 24 h (like the email-verification link). */
 export const EMAIL_CHANGE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -55,6 +57,7 @@ export class EmailChangeService {
   constructor(
     @Inject(DB) private readonly db: GuardedClient,
     @Inject(EMAIL_PROVIDER) private readonly email: EmailProvider,
+    private readonly limiter: ReauthLimiter,
     private readonly audit: AuditService,
     private readonly logger: PinoLogger,
   ) {
@@ -62,12 +65,15 @@ export class EmailChangeService {
   }
 
   /**
-   * `POST /me/email-change`. The password is checked first (`401 INVALID_CREDENTIALS`), so only
-   * the account holder learns whether an address is taken (`409 EMAIL_TAKEN`, also for the
-   * user's own address). `input.newEmail` is trimmed and lower-cased (`EmailChangeRequestSchema`)
+   * `POST /me/email-change`. The password is checked first (`401 INVALID_CREDENTIALS`; more than
+   * 5 wrong ones in 15 min, shared with `PATCH /me/password` → `429 RATE_LIMITED`), so only the
+   * account holder learns whether an address is taken (`409 EMAIL_TAKEN`, also for the user's
+   * own address). Past the password, at most 3 requests per user per hour (`429`), successful
+   * ones included, so a session cannot be used to flood inboxes. `input.newEmail` is trimmed and lower-cased (`EmailChangeRequestSchema`)
    * and matched case-insensitively (citext).
    */
   async request(user: AuthUser, input: EmailChangeRequestInput): Promise<void> {
+    await this.limiter.attempt(user.id);
     const current = await this.db.user.findUniqueOrThrow({
       where: { id: user.id },
       select: { email: true, firstName: true, locale: true, passwordHash: true },
@@ -76,8 +82,13 @@ export class EmailChangeService {
       await this.auditFailure(user.id, 'invalid_credentials');
       throw invalidCredentials();
     }
+    await this.limiter.succeeded(user.id);
+    await this.limiter.takeEmailChangeSlot(user.id);
     const { newEmail } = input;
-    const taken = await this.db.user.findUnique({ where: { email: newEmail }, select: { id: true } });
+    const taken = await this.db.user.findUnique({
+      where: { email: newEmail },
+      select: { id: true },
+    });
     if (taken) {
       await this.auditFailure(user.id, 'email_taken');
       throw emailTaken();
@@ -87,12 +98,7 @@ export class EmailChangeService {
     const newSide = generateToken();
     const expiresAt = new Date(Date.now() + EMAIL_CHANGE_TTL_MS);
     await this.db.$transaction(async (tx) => {
-      // Same lock order as `confirm` (by id), so a request racing a confirmation cannot deadlock.
-      await tx.$queryRaw`
-        SELECT id FROM verification_token
-        WHERE user_id = ${user.id}::uuid
-          AND purpose IN ('EMAIL_CHANGE_OLD', 'EMAIL_CHANGE_NEW')
-        ORDER BY id FOR UPDATE`;
+      await lockAccountTokens(tx, user.id);
       await tx.verificationToken.deleteMany({
         where: { userId: user.id, purpose: { in: [...SIDES] } },
       });
@@ -116,7 +122,7 @@ export class EmailChangeService {
 
   /**
    * `POST /auth/email-change/confirm` (public: the link may be opened on any device). Under row
-   * locks on the user's pair (taken in `id` order): an unknown, used or expired token, or one of
+   * locks on the user's account tokens (`lockAccountTokens`, `id` order): an unknown, used or expired token, or one of
    * another purpose → `410 TOKEN_INVALID`; otherwise that side is marked used. When the other
    * side is already used, the email becomes `newEmail` (verified now) in the same transaction,
    * after re-checking that no other account took the address meanwhile (`409 EMAIL_TAKEN`, the
@@ -135,11 +141,7 @@ export class EmailChangeService {
         if (!target || !(SIDES as readonly VerificationPurpose[]).includes(target.purpose)) {
           return { kind: 'invalid' };
         }
-        await tx.$queryRaw`
-          SELECT id FROM verification_token
-          WHERE user_id = ${target.userId}::uuid
-            AND purpose IN ('EMAIL_CHANGE_OLD', 'EMAIL_CHANGE_NEW')
-          ORDER BY id FOR UPDATE`;
+        await lockAccountTokens(tx, target.userId);
         // Read after the locks: the latest committed state, which nobody else can now change.
         const pair = await tx.verificationToken.findMany({
           where: { userId: target.userId, purpose: { in: [...SIDES] } },

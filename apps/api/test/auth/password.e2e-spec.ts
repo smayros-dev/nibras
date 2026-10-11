@@ -148,8 +148,14 @@ describe('password reset and change (AC-AUTH-06)', () => {
       await as(http, s2.cookie).get('/api/v1/me').expect(401);
       expect(await db.userSession.count({ where: { userId: u.id, revokedAt: null } })).toBe(0);
 
-      await http.post('/api/v1/auth/login').send({ email: u.email, password: u.password }).expect(401);
-      await http.post('/api/v1/auth/login').send({ email: u.email, password: NEW_PASSWORD }).expect(200);
+      await http
+        .post('/api/v1/auth/login')
+        .send({ email: u.email, password: u.password })
+        .expect(401);
+      await http
+        .post('/api/v1/auth/login')
+        .send({ email: u.email, password: NEW_PASSWORD })
+        .expect(200);
       const again = await http
         .post(RESET)
         .send({ token, newPassword: 'encore un autre mot de passe' })
@@ -195,7 +201,10 @@ describe('password reset and change (AC-AUTH-06)', () => {
         },
       });
       for (const token of [raw, 'not-a-real-token']) {
-        const res = await ctx.http.post(RESET).send({ token, newPassword: NEW_PASSWORD }).expect(410);
+        const res = await ctx.http
+          .post(RESET)
+          .send({ token, newPassword: NEW_PASSWORD })
+          .expect(410);
         expect(res.body.code).toBe('TOKEN_INVALID');
       }
       const failed = await ctx.db.auditLog.findMany({
@@ -265,7 +274,10 @@ describe('password reset and change (AC-AUTH-06)', () => {
       expect(res.body).toEqual({ ok: true });
       await as(http, current.cookie).get('/api/v1/me').expect(200);
       await as(http, other.cookie).get('/api/v1/me').expect(401);
-      await http.post('/api/v1/auth/login').send({ email: u.email, password: NEW_PASSWORD }).expect(200);
+      await http
+        .post('/api/v1/auth/login')
+        .send({ email: u.email, password: NEW_PASSWORD })
+        .expect(200);
 
       expect(email.findByTemplate('security.password_changed', u.email)).toHaveLength(1);
       const audit = await db.auditLog.findMany({ where: { action: 'auth.password_changed' } });

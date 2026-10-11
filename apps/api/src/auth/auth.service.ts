@@ -60,6 +60,8 @@ export class AuthService implements OnModuleInit {
    * the user has no active session on a device with the same label.
    */
   async login(input: LoginInput, meta: SessionMeta): Promise<LoginResult> {
+    // Before the password is read: a reset committed after this instant kills the new session.
+    const authenticatedAt = new Date();
     const user = await this.db.user.findUnique({ where: { email: input.email } });
     const hash = user?.passwordHash ?? (await getDummyHash());
     const passwordOk = await verifyPassword(hash, input.password);
@@ -76,7 +78,11 @@ export class AuthService implements OnModuleInit {
     // Task 10: `totpEnabledAt` set → `{ status: 'TWO_FACTOR_REQUIRED', challengeToken }`.
     const label = deviceLabel(meta.userAgent);
     const knownDevice = await this.sessions.hasActiveDevice(user.id, label);
-    const tokens = await this.sessions.createSession(user, { ...meta, remember: input.remember });
+    const tokens = await this.sessions.createSession(user, {
+      ...meta,
+      remember: input.remember,
+      authenticatedAt,
+    });
     const signedIn = await this.db.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
