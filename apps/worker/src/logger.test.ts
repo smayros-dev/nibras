@@ -1,5 +1,5 @@
 import { Writable } from 'node:stream';
-import { REDACT_KEYS, redactPaths } from '@tt/contracts';
+import { REDACT_KEYS, REDACT_SCOPED_PATHS, redactPaths } from '@tt/contracts';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
@@ -19,7 +19,7 @@ function memorySink(): { sink: Writable; text: () => string } {
 describe('redactPaths (shared with the API)', () => {
   it('builds key, *.key, *.*.key and *.*.*.key for every shared key', () => {
     const paths = redactPaths();
-    expect(paths).toHaveLength(REDACT_KEYS.length * 4);
+    expect(paths).toHaveLength(REDACT_KEYS.length * 4 + REDACT_SCOPED_PATHS.length);
     expect(paths).toEqual(
       expect.arrayContaining(['password', '*.password', '*.*.password', '*.*.*.password']),
     );
@@ -52,5 +52,25 @@ describe('createLogger', () => {
       expect(line).not.toContain(secret);
     }
     expect(JSON.parse(line)).toMatchObject({ service: 'tt-worker', queue: 'notifications' });
+  });
+
+  it('keeps err.code readable but censors otpCode and body.code', () => {
+    const { sink, text } = memorySink();
+    const log = createLogger('info', sink);
+    const lastLine = () => JSON.parse(text().trimEnd().split('\n').at(-1) ?? '{}');
+    log.info(
+      {
+        err: { code: 'P1001' },
+        otpCode: '123456',
+        req: { body: { code: '654321' } },
+        job: { data: { code: 'abc' } },
+      },
+      'x',
+    );
+    const line = lastLine();
+    expect(line.err.code).toBe('P1001');
+    expect(line.otpCode).toBe('[REDACTED]');
+    expect(line.req.body.code).toBe('[REDACTED]');
+    expect(line.job.data.code).toBe('[REDACTED]');
   });
 });

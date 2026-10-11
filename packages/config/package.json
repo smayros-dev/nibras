@@ -8,7 +8,10 @@
     "./eslint/*": "./eslint/*.mjs",
     "./vitest/base": "./vitest/base.ts",
     "./tailwind/preset": "./tailwind/preset.ts",
-    "./vitest/test-env": "./vitest/test-env.ts"
+    "./vitest/test-env": {
+      "types": "./vitest/test-env.d.mts",
+      "default": "./vitest/test-env.mjs"
+    }
   },
   "scripts": {
     "lint": "eslint .",

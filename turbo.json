@@ -42,6 +42,9 @@
         "DATABASE_URL_SHADOW",
         "REDIS_URL",
         "REDIS_URL_TEST",
+        // Parallel worktrees: test DB name prefix and Redis index base (@tt/config/vitest/test-env).
+        "TEST_DB_PREFIX",
+        "TEST_REDIS_DB_BASE",
         "WEB_ORIGIN",
         "LOG_LEVEL",
         "TRUST_PROXY_HOPS",
@@ -55,7 +58,15 @@
         "COOKIE_SECURE"
       ]
     },
+    // Playwright starts the built apps, so the workspace packages they import must be built first.
     "e2e": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    // The web e2e suite also boots the API and worker (Playwright `webServer`), which import
+    // `@tt/db`'s dist; `@tt/web` itself does not depend on `@tt/db`, so `^build` alone misses it.
+    "@tt/web#e2e": {
+      "dependsOn": ["^build", "@tt/db#build"],
       "cache": false
     },
     "openapi:export": {

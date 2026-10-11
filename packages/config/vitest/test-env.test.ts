@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { applyTestEnv, testDatabaseUrl, testRedisUrl } from './test-env.js';
+import {
+  applyTestEnv,
+  testDatabaseUrl,
+  testDbName,
+  testRedisDb,
+  testRedisUrl,
+} from './test-env.mjs';
 
 describe('per-package test env', () => {
   it('derives tt_<pkg>_test from the base URL, keeping credentials and query', () => {
@@ -28,5 +34,22 @@ describe('per-package test env', () => {
       DATABASE_URL_TEST_SYSTEM: 'postgresql://app_system:app@localhost:5432/tt_worker_test',
       DATABASE_URL: 'postgresql://app_user:app@localhost:5432/tt',
     });
+  });
+
+  it('TEST_DB_PREFIX and TEST_REDIS_DB_BASE drive the per-worktree names', () => {
+    const env: Record<string, string | undefined> = {
+      TEST_DB_PREFIX: 'tt_t3',
+      TEST_REDIS_DB_BASE: '10',
+      DATABASE_URL_TEST: 'postgresql://u:p@h:5432/tt_test?schema=public',
+      REDIS_URL_TEST: 'redis://h:6379/15',
+    };
+    applyTestEnv('api', env);
+    expect(env.DATABASE_URL_TEST).toBe('postgresql://u:p@h:5432/tt_t3_api_test?schema=public');
+    expect(env.REDIS_URL_TEST).toBe('redis://h:6379/11');
+    expect(testDbName('worker', {})).toBe('tt_worker_test');
+    expect(testRedisDb('worker', {})).toBe(15);
+    for (const bad of ['0', '14', 'x', '-1']) {
+      expect(() => testRedisDb('db', { TEST_REDIS_DB_BASE: bad })).toThrow(/TEST_REDIS_DB_BASE/);
+    }
   });
 });

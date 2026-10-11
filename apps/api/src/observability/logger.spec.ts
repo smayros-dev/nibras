@@ -84,6 +84,32 @@ describe('buildPinoOptions', () => {
     expect(line).not.toContain('sid=');
   });
 
+  it('keeps err.code readable but censors otpCode and body.code', () => {
+    const lines: string[] = [];
+    const sink = new Writable({
+      write(chunk: Buffer, _enc, cb) {
+        lines.push(chunk.toString());
+        cb();
+      },
+    });
+    const log = pino({ redact: httpOptions(buildPinoOptions(env)).redact }, sink);
+    const lastLine = () => JSON.parse(lines.at(-1) ?? '{}');
+    log.info(
+      {
+        err: { code: 'P1001' },
+        otpCode: '123456',
+        req: { body: { code: '654321' } },
+        job: { data: { code: 'abc' } },
+      },
+      'x',
+    );
+    const line = lastLine();
+    expect(line.err.code).toBe('P1001');
+    expect(line.otpCode).toBe('[REDACTED]');
+    expect(line.req.body.code).toBe('[REDACTED]');
+    expect(line.job.data.code).toBe('[REDACTED]');
+  });
+
   it('logs the request path without its query string', () => {
     const opts = httpOptions(buildPinoOptions(env));
     const serialize = (opts.serializers as { req: (req: unknown) => Record<string, unknown> }).req;
