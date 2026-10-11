@@ -277,6 +277,10 @@ model TeacherStudentAssignment {
   student   User      @relation("AssignmentStudent", fields: [studentUserId], references: [id])
 
   @@unique([workspaceId, teacherUserId, studentUserId])
+  @@index([workspaceId, studentUserId])
+  // FK indexes: the composite keys above lead with workspace_id.
+  @@index([teacherUserId])
+  @@index([studentUserId])
   @@map("teacher_student_assignment")
 }
 
@@ -295,6 +299,7 @@ model TeacherProfile {
   user      User      @relation(fields: [userId], references: [id])
 
   @@unique([workspaceId, userId])
+  @@index([userId])
   @@map("teacher_profile")
 }
 
@@ -374,5 +379,6 @@ model AbuseReport {
 
   @@index([workspaceId, status, createdAt(sort: Desc)])
   @@index([entityType, entityId])
+  @@index([reporterUserId])
   @@map("abuse_report")
 }

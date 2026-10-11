@@ -7,10 +7,14 @@ function newUser(email: string) {
   return systemPrisma().user.create({ data: { email, firstName: 'A', lastName: 'B' } });
 }
 
-function newWorkspace(ownerUserId: string, slug: string) {
+function newWorkspace(
+  ownerUserId: string,
+  slug: string,
+  type: 'PERSONAL' | 'ORGANIZATION' = 'PERSONAL',
+) {
   return systemPrisma().workspace.create({
     data: {
-      type: 'PERSONAL',
+      type,
       name: 'Espace de A',
       slug,
       ownerUserId,
@@ -50,8 +54,99 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('identity schema', () => {
 
   it('workspace slug is case-insensitive unique (citext)', async () => {
     const u = await newUser('o@example.com');
-    await newWorkspace(u.id, 'espace-de-a-abcdef');
-    await expect(newWorkspace(u.id, 'Espace-De-A-ABCDEF')).rejects.toMatchObject(P2002);
+    await newWorkspace(u.id, 'espace-de-a-abcdef', 'ORGANIZATION');
+    await expect(newWorkspace(u.id, 'Espace-De-A-ABCDEF', 'ORGANIZATION')).rejects.toMatchObject({
+      ...P2002,
+      meta: { target: ['slug'] },
+    });
+  });
+
+  it('one live PERSONAL workspace per owner; organisations and soft-deleted ones do not count', async () => {
+    const db = systemPrisma();
+    const u = await newUser('p@example.com');
+    const first = await newWorkspace(u.id, 'perso-aaaaaa');
+    await expect(newWorkspace(u.id, 'perso-bbbbbb')).rejects.toMatchObject(P2002);
+    await expect(newWorkspace(u.id, 'org-aaaaaa', 'ORGANIZATION')).resolves.toBeDefined();
+    await expect(newWorkspace(u.id, 'org-bbbbbb', 'ORGANIZATION')).resolves.toBeDefined();
+    await db.workspace.update({ where: { id: first.id }, data: { deletedAt: new Date() } });
+    await expect(newWorkspace(u.id, 'perso-cccccc')).resolves.toBeDefined();
+  });
+
+  it('consent workspace scope: account-level types have no workspace, the others require one', async () => {
+    const db = systemPrisma();
+    const owner = await newUser('co@example.com');
+    const ws = await newWorkspace(owner.id, 'ws-scope1');
+    const base = {
+      userId: owner.id,
+      version: 'v1',
+      granted: true,
+      grantedAt: new Date(),
+      ip: '127.0.0.1',
+      userAgent: 'vitest',
+    };
+    const check = /consent_workspace_scope_check/;
+    await expect(
+      db.consent.create({ data: { ...base, type: 'GUARDIAN_PARENTAL', workspaceId: null } }),
+    ).rejects.toThrow(check);
+    await expect(
+      db.consent.create({ data: { ...base, type: 'RECORDING', workspaceId: null } }),
+    ).rejects.toThrow(check);
+    await expect(
+      db.consent.create({ data: { ...base, type: 'TERMS', workspaceId: ws.id } }),
+    ).rejects.toThrow(check);
+    await expect(
+      db.consent.create({ data: { ...base, type: 'MARKETING', workspaceId: ws.id } }),
+    ).rejects.toThrow(check);
+    for (const type of ['TERMS', 'PRIVACY', 'CODE_OF_CONDUCT', 'MARKETING'] as const)
+      await expect(db.consent.create({ data: { ...base, type } })).resolves.toBeDefined();
+    for (const type of ['GUARDIAN_PARENTAL', 'RECORDING', 'AI_PROCESSING', 'WHATSAPP'] as const)
+      await expect(
+        db.consent.create({ data: { ...base, type, workspaceId: ws.id } }),
+      ).resolves.toBeDefined();
+  });
+
+  it('array columns are NOT NULL with an empty-array default', async () => {
+    const cols = await systemPrisma().$queryRaw<
+      { table_name: string; column_name: string; is_nullable: string; column_default: string }[]
+    >`
+      SELECT table_name::text, column_name::text, is_nullable::text, column_default::text
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND data_type = 'ARRAY'
+      ORDER BY table_name, column_name`;
+    expect(cols).toEqual([
+      expect.objectContaining({
+        table_name: 'abuse_report',
+        column_name: 'attachments',
+        is_nullable: 'NO',
+      }),
+      expect.objectContaining({
+        table_name: 'teacher_profile',
+        column_name: 'subjects',
+        is_nullable: 'NO',
+      }),
+      expect.objectContaining({
+        table_name: 'user',
+        column_name: 'recovery_codes_hash',
+        is_nullable: 'NO',
+      }),
+    ]);
+    for (const c of cols) expect(c.column_default).toMatch(/^(ARRAY\[\]|'\{\}')/);
+  });
+
+  it('every foreign-key column to user is the leading column of some index', async () => {
+    const unindexed = await systemPrisma().$queryRaw<{ fk: string }[]>`
+      SELECT c.conrelid::regclass::text || '.' || a.attname AS fk
+      FROM pg_constraint c
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+      WHERE c.contype = 'f' AND c.confrelid = '"user"'::regclass
+        AND NOT EXISTS (
+          SELECT 1 FROM pg_index i WHERE i.indrelid = c.conrelid AND i.indkey[0] = c.conkey[1])
+      ORDER BY 1`;
+    expect(unindexed).toEqual([]);
+    const [{ ok }] = await systemPrisma().$queryRaw<[{ ok: boolean }]>`
+      SELECT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'teacher_student_assignment'
+        AND indexdef LIKE '%(workspace_id, student_user_id)') AS ok`;
+    expect(ok).toBe(true);
   });
 
   it('one membership per (workspace, user) and one guardian consent per (user, workspace)', async () => {
