@@ -35,6 +35,7 @@ env:
   WORKER_PORT: '3002'
   LOG_LEVEL: warn
   TRUST_PROXY_HOPS: '1'
+  APP_ENV: development
   SMTP_URL: smtp://localhost:1025
   # SP1 auth settings: CI-only dummy values, not secrets.
   EMAIL_FROM: TT CI <no-reply@tt.localhost>

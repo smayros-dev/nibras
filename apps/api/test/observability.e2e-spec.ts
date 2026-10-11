@@ -1,5 +1,14 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import {
+  CanActivate,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  UseGuards,
+  type ExecutionContext,
+} from '@nestjs/common';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { ApiError } from '../src/common/api-error';
 import { buildOpenApiDocument, toStableJson } from '../src/openapi/export';
 import { createTestApp, type CapturedLogs, type TestAgent } from './helpers/app';
 
@@ -17,13 +26,31 @@ class ObsController {
   }
 }
 
+class RejectingGuard implements CanActivate {
+  canActivate(_context: ExecutionContext): boolean {
+    throw new ApiError(HttpStatus.UNAUTHORIZED, 'UNAUTHENTICATED', 'nope');
+  }
+}
+
+/** A route whose guard always rejects: the handler never runs. */
+@Controller('__test')
+class GuardedProbeController {
+  @Get('guarded')
+  @UseGuards(RejectingGuard)
+  guarded(): { ok: true } {
+    return { ok: true };
+  }
+}
+
 describe('observability', () => {
   let app: Awaited<ReturnType<typeof createTestApp>>['app'];
   let http: TestAgent;
   let logs: CapturedLogs;
 
   beforeAll(async () => {
-    ({ app, http, logs } = await createTestApp({ controllers: [ObsController] }));
+    ({ app, http, logs } = await createTestApp({
+      controllers: [ObsController, GuardedProbeController],
+    }));
   });
   afterAll(async () => {
     await app.close();
@@ -57,6 +84,28 @@ describe('observability', () => {
     await http.get('/api/v1/__obs/boom').expect(500);
     const res = await http.get('/metrics').expect(200);
     expect(res.text).toMatch(/route="\/api\/v1\/__obs\/boom",status="500"/);
+  });
+
+  it('requests rejected by a guard or by routing are measured', async () => {
+    await http.get('/api/v1/__test/guarded').expect(401);
+    await http.get('/api/v1/nope').expect(404);
+    const metrics = (await http.get('/metrics').expect(200)).text;
+    expect(metrics).toMatch(
+      /http_request_duration_seconds_count\{[^}]*route="\/api\/v1\/__test\/guarded"[^}]*status="401"/,
+    );
+    expect(metrics).toMatch(/route="unknown"[^}]*status="404"/);
+    // Unknown routes are never labelled with the raw url (cardinality) or the middleware mount.
+    expect(metrics).not.toContain('route="/api/v1/nope"');
+    expect(metrics).not.toContain('splat');
+  });
+
+  it('labels unprefixed routes by template and never labels an unknown path by its url', async () => {
+    await http.get('/health/live').expect(200);
+    await http.get('/nope-outside').expect(404);
+    const metrics = (await http.get('/metrics').expect(200)).text;
+    expect(metrics).toMatch(/route="\/health\/live",status="200"/);
+    expect(metrics).not.toContain('nope-outside');
+    expect(metrics).not.toContain('splat');
   });
 
   it('writes one JSON request log line carrying request_id, with credentials redacted', async () => {

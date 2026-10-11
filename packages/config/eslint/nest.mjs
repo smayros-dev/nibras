@@ -18,6 +18,17 @@ export default defineConfig(
     },
   },
   {
+    // Type-aware rules: a dropped promise (un-awaited query, job, email) fails silently. Each app
+    // runs `eslint .` from its own directory, so the project service finds its tsconfig.json.
+    files: ['**/*.ts'],
+    languageOptions: { parserOptions: { projectService: true } },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      // Express/Nest callbacks may be async (void return is fine); conditionals on promises are not.
+      '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
+    },
+  },
+  {
     // The admin console (Task 17) is the only caller of crossTenantDb({ reason: 'super_admin' }).
     // Changes here need the tenancy owner's review (PRD §13.3).
     files: ['src/admin/**', 'test/**', '**/*.spec.ts', '**/*.test.ts'],

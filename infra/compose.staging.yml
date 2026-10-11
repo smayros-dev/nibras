@@ -66,6 +66,7 @@ services:
     image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-api:${TT_IMAGE_TAG:-latest}
     environment:
       PORT: '3001'
+      APP_ENV: staging
       # Browser -> host TLS proxy (appends the client IP to X-Forwarded-For) -> web (Next.js, forwards
       # X-Forwarded-For unchanged) -> api. The api trusts its peer (web) and reads the client from the
       # entry the TLS proxy appended: 1 hop. See docs/runbooks/staging.md before changing it.
@@ -83,6 +84,7 @@ services:
     image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-worker:${TT_IMAGE_TAG:-latest}
     environment:
       WORKER_PORT: '3002'
+      APP_ENV: staging
     depends_on:
       migrate:
         condition: service_completed_successfully

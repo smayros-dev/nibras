@@ -48,6 +48,8 @@
         "WEB_ORIGIN",
         "LOG_LEVEL",
         "TRUST_PROXY_HOPS",
+        // Deployment tier (development | staging | production), independent of NODE_ENV.
+        "APP_ENV",
         // SP1 (auth): listed ahead of time so the first SP1 test does not run without them.
         "JWT_SECRET",
         "TOTP_ENCRYPTION_KEY",

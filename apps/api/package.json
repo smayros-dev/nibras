@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@nestjs/bullmq": "^11.0.5",
     "@nestjs/common": "^11.2.7",
     "@nestjs/core": "^11.2.7",
     "@nestjs/platform-express": "^11.2.7",
@@ -22,7 +23,9 @@
     "@opentelemetry/sdk-node": "^0.223.0",
     "@tt/contracts": "workspace:*",
     "@tt/db": "workspace:*",
+    "@tt/providers": "workspace:*",
     "argon2": "^0.44.0",
+    "bullmq": "^5.81.5",
     "cookie-parser": "^1.4.7",
     "helmet": "^8.3.0",
     "ioredis": "^5.11.1",

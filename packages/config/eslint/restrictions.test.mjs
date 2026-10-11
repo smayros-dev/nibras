@@ -2,7 +2,20 @@
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import base from './base.mjs';
-import nest from './nest.mjs';
+import nestConfig from './nest.mjs';
+
+// The fixtures are virtual files the TypeScript project service cannot load: lint them with the
+// nest config minus its type-aware layer (checked on its own below).
+const nest = [
+  ...nestConfig,
+  {
+    languageOptions: { parserOptions: { projectService: false } },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/no-misused-promises': 'off',
+    },
+  },
+];
 
 // Lints in-memory fixtures with the shared configs (no config file lookup); paths are virtual and
 // resolved against this directory, as an app's own eslint.config.mjs would resolve them.
@@ -32,7 +45,7 @@ describe('tenancy lint restrictions', () => {
   it('bans hand-written set_config / app.workspace_id / app.bypass_tenant SQL, also in admin and tests', async () => {
     const fixtures = [
       "export const q = (db) => db.$executeRaw`SELECT set_config('app.workspace_id', ${'x'}, true)`;\n",
-      "export const s = \"SET LOCAL app.bypass_tenant = 'on'\";\n",
+      'export const s = "SET LOCAL app.bypass_tenant = \'on\'";\n',
       "export const t = `SELECT current_setting('app.workspace_id')`;\n",
     ];
     for (const code of fixtures) {
@@ -55,5 +68,22 @@ describe('tenancy lint restrictions', () => {
     expect(await ruleIds(nest, aliased, 'src/me/me.service.ts')).toEqual(['no-restricted-syntax']);
     const member = 'export const q = (t) => t.crossTenantDb({ reason: "super_admin" });\n';
     expect(await ruleIds(base, member, 'src/a.ts')).toEqual(['no-restricted-syntax']);
+  });
+});
+
+describe('nest type-aware rules', () => {
+  it('turns on no-floating-promises and no-misused-promises with the project service', async () => {
+    const eslint = new ESLint({
+      cwd: import.meta.dirname,
+      overrideConfigFile: true,
+      overrideConfig: nestConfig,
+    });
+    const config = await eslint.calculateConfigForFile('src/a.ts');
+    expect(config.languageOptions.parserOptions.projectService).toBe(true);
+    expect(config.rules['@typescript-eslint/no-floating-promises']).toEqual([2]);
+    expect(config.rules['@typescript-eslint/no-misused-promises']).toEqual([
+      2,
+      { checksVoidReturn: false },
+    ]);
   });
 });
