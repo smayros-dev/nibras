@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   BirthDateSchema,
   canonicalTimeZone,
+  ChangePasswordSchema,
+  EmailChangeConfirmResponseSchema,
+  EmailChangeConfirmSchema,
+  EmailChangeRequestSchema,
+  ForgotPasswordSchema,
+  ResetPasswordSchema,
   isValidTimeZone,
   LoginSchema,
   RegisterTeacherSchema,
@@ -140,5 +146,49 @@ describe('LoginSchema', () => {
     expect(
       LoginSchema.safeParse({ email: 'a@example.com', password: 'x', remember: 'yes' }).success,
     ).toBe(false);
+  });
+});
+
+describe('password reset, password change and email change schemas', () => {
+  it('normalise the email at forgot-password and email change like registration', () => {
+    expect(ForgotPasswordSchema.parse({ email: ' Ahmed@Example.COM ' })).toEqual({
+      email: 'ahmed@example.com',
+    });
+    expect(
+      EmailChangeRequestSchema.parse({ newEmail: ' New@Example.com', password: 'x' }).newEmail,
+    ).toBe('new@example.com');
+    expect(ForgotPasswordSchema.safeParse({ email: 'nope' }).success).toBe(false);
+  });
+
+  it('bound passwords to 256 characters and new ones to at least 12', () => {
+    const strong = 'un mot de passe assez long';
+    expect(ResetPasswordSchema.safeParse({ token: 't', newPassword: strong }).success).toBe(true);
+    expect(ResetPasswordSchema.safeParse({ token: 't', newPassword: 'court' }).success).toBe(false);
+    expect(
+      ResetPasswordSchema.safeParse({ token: 't', newPassword: 'a'.repeat(257) }).success,
+    ).toBe(false);
+    expect(ResetPasswordSchema.safeParse({ token: '', newPassword: strong }).success).toBe(false);
+    expect(
+      ChangePasswordSchema.safeParse({ currentPassword: 'x', newPassword: strong }).success,
+    ).toBe(true);
+    expect(
+      ChangePasswordSchema.safeParse({ currentPassword: '', newPassword: strong }).success,
+    ).toBe(false);
+    expect(
+      ChangePasswordSchema.safeParse({ currentPassword: 'a'.repeat(257), newPassword: strong })
+        .success,
+    ).toBe(false);
+    expect(
+      EmailChangeRequestSchema.safeParse({ newEmail: 'a@example.com', password: 'a'.repeat(257) })
+        .success,
+    ).toBe(false);
+  });
+
+  it('confirm takes a bounded token and answers the pending side or null', () => {
+    expect(EmailChangeConfirmSchema.safeParse({ token: 'x'.repeat(513) }).success).toBe(false);
+    for (const pending of ['OLD', 'NEW', null]) {
+      expect(EmailChangeConfirmResponseSchema.safeParse({ pending }).success).toBe(true);
+    }
+    expect(EmailChangeConfirmResponseSchema.safeParse({ pending: 'BOTH' }).success).toBe(false);
   });
 });

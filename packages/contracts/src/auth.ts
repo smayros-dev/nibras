@@ -145,3 +145,53 @@ export const SessionSummarySchema = z.object({
 });
 
 export type SessionSummary = z.infer<typeof SessionSummarySchema>;
+
+/** An email address as every entry point normalises it: trimmed, lower-cased (column is citext). */
+const EmailAddressSchema = z.string().trim().toLowerCase().email().max(254);
+
+/** A new password as the web forms check it; the API reports policy failures as `PASSWORD_*`. */
+const NewPasswordSchema = z.string().min(12).max(256);
+
+/** `POST /auth/password/forgot`: always `202 {}`, whether or not the account exists. */
+export const ForgotPasswordSchema = z.object({ email: EmailAddressSchema });
+
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>;
+
+/** `POST /auth/password/reset`: the token of the emailed link (1 h, single use). */
+export const ResetPasswordSchema = z.object({
+  token: z.string().min(1).max(512),
+  newPassword: NewPasswordSchema,
+});
+
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;
+
+/** `PATCH /me/password`: every other session is revoked. */
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+  newPassword: NewPasswordSchema,
+});
+
+export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
+
+/** `POST /me/email-change`: a confirmation link goes to the current AND the new address. */
+export const EmailChangeRequestSchema = z.object({
+  newEmail: EmailAddressSchema,
+  password: z.string().min(1).max(256),
+});
+
+export type EmailChangeRequestInput = z.infer<typeof EmailChangeRequestSchema>;
+
+/** `POST /auth/email-change/confirm`: either side's token (24 h, single use). */
+export const EmailChangeConfirmSchema = z.object({ token: z.string().min(1).max(512) });
+
+export type EmailChangeConfirmInput = z.infer<typeof EmailChangeConfirmSchema>;
+
+/**
+ * `200` of `POST /auth/email-change/confirm`: the side still to confirm (`OLD` = the current
+ * address, `NEW` = the new one), or `null` once both are confirmed and the email has changed.
+ */
+export const EmailChangeConfirmResponseSchema = z.object({
+  pending: z.enum(['OLD', 'NEW']).nullable(),
+});
+
+export type EmailChangeConfirmResponse = z.infer<typeof EmailChangeConfirmResponseSchema>;

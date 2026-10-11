@@ -1,6 +1,69 @@
 {
   "components": {
     "schemas": {
+      "ChangePasswordDto": {
+        "properties": {
+          "currentPassword": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "newPassword": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ],
+        "type": "object"
+      },
+      "EmailChangeConfirmDto": {
+        "properties": {
+          "token": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
+      "EmailChangeRequestDto": {
+        "properties": {
+          "newEmail": {
+            "format": "email",
+            "maxLength": 254,
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "newEmail",
+          "password"
+        ],
+        "type": "object"
+      },
+      "ForgotPasswordDto": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "maxLength": 254,
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      },
       "LoginDto": {
         "properties": {
           "email": {
@@ -89,6 +152,24 @@
         ],
         "type": "object"
       },
+      "ResetPasswordDto": {
+        "properties": {
+          "newPassword": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "newPassword"
+        ],
+        "type": "object"
+      },
       "VerifyEmailDto": {
         "properties": {
           "token": {
@@ -112,6 +193,30 @@
   },
   "openapi": "3.0.0",
   "paths": {
+    "/auth/email-change/confirm": {
+      "post": {
+        "operationId": "PasswordController_confirmEmailChange",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeConfirmDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Password"
+        ]
+      }
+    },
     "/auth/login": {
       "post": {
         "operationId": "AuthController_login",
@@ -147,6 +252,54 @@
         },
         "tags": [
           "Auth"
+        ]
+      }
+    },
+    "/auth/password/forgot": {
+      "post": {
+        "operationId": "PasswordController_forgot",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Password"
+        ]
+      }
+    },
+    "/auth/password/reset": {
+      "post": {
+        "operationId": "PasswordController_reset",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Password"
         ]
       }
     },
@@ -471,6 +624,54 @@
       "get": {
         "operationId": "MeController_me",
         "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/email-change": {
+      "post": {
+        "operationId": "MeController_requestEmailChange",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/password": {
+      "patch": {
+        "operationId": "MeController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": ""

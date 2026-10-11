@@ -6,15 +6,18 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import type { PwnedPasswordClient } from './crypto/hibp';
 import { PasswordPolicy } from './crypto/password-policy';
+import { EmailChangeService } from './email-change.service';
 import { EmailVerificationService } from './email-verification.service';
 import { JwtService } from './jwt.service';
 import { MeController } from './me.controller';
+import { PasswordController } from './password.controller';
+import { PasswordResetService } from './password-reset.service';
 import { RegisterService } from './register.service';
 import { SessionService } from './session.service';
 
 @Module({
   imports: [AuditModule, ProvidersModule],
-  controllers: [AuthController, MeController],
+  controllers: [AuthController, PasswordController, MeController],
   providers: [
     // HIBP when `HIBP_ENABLED`, else the no-op client (`createPwnedClient`); tests inject a fake.
     {
@@ -27,6 +30,8 @@ import { SessionService } from './session.service';
     RegisterService,
     SessionService,
     AuthService,
+    PasswordResetService,
+    EmailChangeService,
   ],
   exports: [PasswordPolicy, EmailVerificationService, RegisterService, JwtService, SessionService],
 })
