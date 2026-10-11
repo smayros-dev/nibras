@@ -52,4 +52,11 @@ describe('per-package test env', () => {
       expect(() => testRedisDb('db', { TEST_REDIS_DB_BASE: bad })).toThrow(/TEST_REDIS_DB_BASE/);
     }
   });
+
+  it('rejects a TEST_DB_PREFIX that is not a lower-case Postgres identifier', () => {
+    for (const bad of ['', 'TT_T1', 'tt-t1']) {
+      expect(() => testDbName('db', { TEST_DB_PREFIX: bad })).toThrow(/TEST_DB_PREFIX/);
+    }
+    expect(testDbName('api', { TEST_DB_PREFIX: 'tt_t1' })).toBe('tt_t1_api_test');
+  });
 });

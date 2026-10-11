@@ -58,13 +58,15 @@
         "COOKIE_SECURE"
       ]
     },
-    // Playwright starts the built apps, so the workspace packages they import must be built first.
+    // Playwright starts the web dev server (`webServer`), which imports the workspace packages'
+    // dist: build them first.
     "e2e": {
       "dependsOn": ["^build"],
       "cache": false
     },
-    // The web e2e suite also boots the API and worker (Playwright `webServer`), which import
-    // `@tt/db`'s dist; `@tt/web` itself does not depend on `@tt/db`, so `^build` alone misses it.
+    // The web e2e suite will boot the API and worker once later tasks add them to Playwright
+    // `webServer`; they import `@tt/db`'s dist, and `@tt/web` itself does not depend on `@tt/db`,
+    // so `^build` alone misses it.
     "@tt/web#e2e": {
       "dependsOn": ["^build", "@tt/db#build"],
       "cache": false

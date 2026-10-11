@@ -6,7 +6,7 @@ type Env = Record<string, string | undefined>;
 
 export declare const TEST_PACKAGES: readonly TestPackage[];
 
-/** `<TEST_DB_PREFIX ?? 'tt'>_<pkg>_test`. */
+/** `<TEST_DB_PREFIX ?? 'tt'>_<pkg>_test`; throws when a set prefix (even empty) does not match `/^[a-z_][a-z0-9_]*$/`. */
 export declare function testDbName(pkg: TestPackage, env?: Env): string;
 
 /** `TEST_REDIS_DB_BASE` (default 13, integer 1..13, else throws) + 0/1/2 for db/api/worker. */

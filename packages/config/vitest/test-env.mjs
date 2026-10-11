@@ -15,9 +15,18 @@ export const TEST_PACKAGES = ['db', 'api', 'worker'];
 
 const REDIS_DB_OFFSET = { db: 0, api: 1, worker: 2 };
 
-/** `<TEST_DB_PREFIX ?? 'tt'>_<pkg>_test`. */
+const DB_PREFIX = /^[a-z_][a-z0-9_]*$/;
+
+/**
+ * `<TEST_DB_PREFIX ?? 'tt'>_<pkg>_test`. A set prefix (even empty) must match
+ * `/^[a-z_][a-z0-9_]*$/` (an unquoted lower-case Postgres identifier), else this throws.
+ */
 export function testDbName(pkg, env = process.env) {
-  return `${env.TEST_DB_PREFIX ?? 'tt'}_${pkg}_test`;
+  const prefix = env.TEST_DB_PREFIX ?? 'tt';
+  if (!DB_PREFIX.test(prefix)) {
+    throw new Error(`TEST_DB_PREFIX must match ${DB_PREFIX}, got "${prefix}"`);
+  }
+  return `${prefix}_${pkg}_test`;
 }
 
 /**
