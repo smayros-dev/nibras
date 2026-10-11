@@ -65,5 +65,118 @@
   },
   "health": {
     "ok": "Service is up"
+  },
+  "emails": {
+    "footer": {
+      "legal": "This automated email was sent to you by {appName} about your account. Please do not reply.",
+      "linkFallback": "If the button does not work, copy this link into your browser:"
+    },
+    "auth": {
+      "verify_email": {
+        "subject": "Verify your email",
+        "title": "Verify your email address",
+        "body": "Hello {firstName},\n\nThank you for signing up. Confirm your email address by clicking the button below. This link is valid for 24 hours.\n\nIf you did not sign up, please ignore this email.",
+        "cta": "Verify my email"
+      },
+      "password_reset": {
+        "subject": "Reset your password",
+        "title": "Password reset",
+        "body": "Hello {firstName},\n\nWe received a request to reset the password of your account. This link is valid for 1 hour and can be used only once. Once your new password is saved, all your sessions will be signed out.\n\nIf you did not request this, please ignore this email: your password stays unchanged.",
+        "cta": "Choose a new password"
+      },
+      "email_change_confirm": {
+        "subject": "Confirm your email address change",
+        "title": "Confirm your email address change",
+        "body": "Hello {firstName},\n\nA request was made to replace the email address of your account with {newEmail}. For security reasons, the change must be confirmed from both the old and the new address. This link is valid for 24 hours.\n\nIf you did not make this request, please ignore this email and change your password.",
+        "cta": "Confirm the change"
+      }
+    },
+    "security": {
+      "password_changed": {
+        "subject": "Your password was changed",
+        "title": "Password changed",
+        "body": "Hello {firstName},\n\nThe password of your account was just changed.\n\nIf you did not make this change, reset your password immediately and contact support."
+      },
+      "email_changed": {
+        "subject": "The email address of your account was changed",
+        "title": "Email address changed",
+        "body": "Hello {firstName},\n\nThe email address of your account is now {newEmail}. Future emails will be sent to this address.\n\nIf you did not make this change, contact support immediately."
+      },
+      "new_device": {
+        "subject": "New sign-in to your account",
+        "title": "Sign-in from a new device",
+        "body": "Hello {firstName},\n\nYour account was signed in from a new device:\n{device} — IP address {ip}\n\nIf this was you, there is nothing to do. Otherwise, change your password and sign out your sessions from the security settings."
+      },
+      "token_reuse": {
+        "subject": "Suspicious activity: your sessions were signed out",
+        "title": "Suspicious activity detected",
+        "body": "Hello {firstName},\n\nWe detected the reuse of a session token that had already been used, which may indicate a stolen session. As a precaution, the affected sessions were signed out.\n\nSign in again and, if you do not recognise this activity, change your password."
+      },
+      "account_locked": {
+        "subject": "Your account is temporarily locked",
+        "title": "Account temporarily locked",
+        "body": "Hello {firstName},\n\nAfter several failed sign-in attempts, your account is locked for {minutes, plural, one {# minute} other {# minutes}}.\n\nIf this was not you, change your password as soon as the lock ends."
+      },
+      "2fa_enabled": {
+        "subject": "Two-factor authentication enabled",
+        "title": "Two-factor authentication enabled",
+        "body": "Hello {firstName},\n\nTwo-factor authentication is now enabled on your account. Keep your recovery codes somewhere safe.\n\nIf you did not make this change, contact support immediately."
+      },
+      "2fa_disabled": {
+        "subject": "Two-factor authentication disabled",
+        "title": "Two-factor authentication disabled",
+        "body": "Hello {firstName},\n\nTwo-factor authentication was disabled on your account: it is now protected by your password only.\n\nIf you did not make this change, contact support immediately."
+      },
+      "recovery_code_used": {
+        "subject": "A recovery code was used",
+        "title": "Recovery code used",
+        "body": "Hello {firstName},\n\nA recovery code was just used to sign in to your account. {remaining, plural, =0 {You have no recovery codes left.} one {You have # recovery code left.} other {You have # recovery codes left.}}\n\nIf this was not you, change your password and generate new recovery codes."
+      }
+    },
+    "phone": {
+      "otp_dev": {
+        "subject": "Your phone verification code (development)",
+        "title": "Phone verification code",
+        "body": "Your verification code is: {otpCode}\n\nIt is valid for 10 minutes. This email replaces the text message in development environments only."
+      }
+    },
+    "workspace": {
+      "ownership_transferred": {
+        "subject": "Ownership of the workspace {workspaceName} was transferred",
+        "title": "Workspace ownership transferred",
+        "body": "Hello {firstName},\n\nOwnership of the workspace “{workspaceName}” was transferred. The roles of the previous and the new owner were updated; you can review them in the workspace settings."
+      }
+    },
+    "abuse": {
+      "report_received": {
+        "subject": "We received your report",
+        "title": "Report received",
+        "body": "Hello {firstName},\n\nThank you for your report. Our moderation team will review it as soon as possible and take the necessary action.\n\nFor confidentiality reasons, we may not always be able to share the details of the action taken."
+      },
+      "new_report": {
+        "subject": "New report to review",
+        "title": "New report",
+        "body": "A new report was submitted and is awaiting your review.",
+        "cta": "Review the report"
+      },
+      "minor_safety_reminder": {
+        "subject": "Reminder: minor safety report without a response",
+        "title": "Minor safety report pending",
+        "body": "A report about the safety of a minor has not received a first response within the 24-hour deadline.\n\nPlease handle it as a priority.",
+        "cta": "Handle the report"
+      }
+    },
+    "admin": {
+      "user_suspended": {
+        "subject": "Your account was suspended",
+        "title": "Account suspended",
+        "body": "Hello {firstName},\n\nYour account was suspended by the platform team.\nReason: {reason}\n\nYour sessions were signed out. To appeal this decision, contact support."
+      },
+      "user_unsuspended": {
+        "subject": "Your account was reactivated",
+        "title": "Account reactivated",
+        "body": "Hello {firstName},\n\nYour account was reactivated. You can sign in and use the platform again."
+      }
+    }
   }
 }
