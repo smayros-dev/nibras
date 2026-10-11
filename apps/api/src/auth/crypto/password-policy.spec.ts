@@ -27,6 +27,17 @@ describe('PasswordPolicy', () => {
     });
   });
 
+  it('counts the length on the NFKC form', async () => {
+    const p = new PasswordPolicy(new FakePwnedClient([]));
+    // 6 "ffi" ligatures (U+FB03) are 6 code points raw but 18 after NFKC.
+    expect(await p.validate('ﬃ'.repeat(6))).toEqual({ ok: true });
+    // 12 code points in NFD (6 letters + 6 combining accents) are 6 after NFKC.
+    expect(await p.validate('é'.repeat(6))).toEqual({
+      ok: false,
+      code: 'PASSWORD_TOO_SHORT',
+    });
+  });
+
   it('matches the common list case-insensitively after NFKC normalisation', async () => {
     const p = new PasswordPolicy(new FakePwnedClient([]));
     expect(await p.validate('PassWord1234')).toEqual({ ok: false, code: 'PASSWORD_TOO_COMMON' });
@@ -69,6 +80,20 @@ describe('HibpClient (k-anonymity)', () => {
     expect(init?.signal).toBeInstanceOf(AbortSignal);
     expect(JSON.stringify(fetchImpl.mock.calls)).not.toContain(plain);
     expect(JSON.stringify(fetchImpl.mock.calls)).not.toContain(suffix);
+  });
+
+  it('computes the range prefix on the NFKC form', async () => {
+    const nfc = 'mot de passe déjà vu';
+    const nfd = 'mot de passe déjà vu';
+    const nfcSha1 = createHash('sha1').update(nfc).digest('hex').toUpperCase();
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(`${nfcSha1.slice(5)}:3\r\n`));
+    const client = new HibpClient({ fetchImpl, logger: { warn: vi.fn() } });
+    expect(await client.isPwned(nfd)).toBe(true);
+    expect(fetchImpl.mock.calls[0]![0]).toBe(
+      `https://api.pwnedpasswords.com/range/${nfcSha1.slice(0, 5)}`,
+    );
   });
 
   it('ignores padding entries with a zero count', async () => {

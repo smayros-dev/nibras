@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Logger } from '@nestjs/common';
+import { normalisePassword } from './password';
 
 /** Breached-password lookup used by {@link PasswordPolicy}. */
 export interface PwnedPasswordClient {
@@ -17,7 +18,8 @@ const RANGE_URL = 'https://api.pwnedpasswords.com/range/';
 
 /**
  * Have I Been Pwned "Pwned Passwords" with k-anonymity: only the first 5 hex chars of the SHA-1
- * leave the process; the suffix is matched locally. `Add-Padding` hides the real bucket size.
+ * of the NFKC-normalised password leave the process; the suffix is matched locally.
+ * `Add-Padding` hides the real bucket size.
  * Fail-open (planner ruling): on network error, timeout or non-2xx the password is treated as not
  * breached and a warning is logged — the 10 000-common list still applies.
  */
@@ -33,7 +35,10 @@ export class HibpClient implements PwnedPasswordClient {
   }
 
   async isPwned(plain: string): Promise<boolean> {
-    const sha1 = createHash('sha1').update(plain, 'utf8').digest('hex').toUpperCase();
+    const sha1 = createHash('sha1')
+      .update(normalisePassword(plain), 'utf8')
+      .digest('hex')
+      .toUpperCase();
     const prefix = sha1.slice(0, 5);
     const suffix = sha1.slice(5);
     let body: string;

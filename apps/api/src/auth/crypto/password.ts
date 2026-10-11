@@ -8,14 +8,23 @@ const ARGON2_OPTIONS = {
   parallelism: 1,
 } as const;
 
+/**
+ * NIST SP 800-63B §5.1.1.2: Unicode NFKC before hashing, verifying, length counting and the
+ * breach lookup, so the same password typed as NFC, NFD or with compatibility forms matches.
+ * No trimming and no case folding.
+ */
+export function normalisePassword(plain: string): string {
+  return plain.normalize('NFKC');
+}
+
 export function hashPassword(plain: string): Promise<string> {
-  return argon2.hash(plain, ARGON2_OPTIONS);
+  return argon2.hash(normalisePassword(plain), ARGON2_OPTIONS);
 }
 
 /** `false` for a wrong password and for a malformed hash; never throws on bad input. */
 export async function verifyPassword(hash: string, plain: string): Promise<boolean> {
   try {
-    return await argon2.verify(hash, plain);
+    return await argon2.verify(hash, normalisePassword(plain));
   } catch {
     return false;
   }

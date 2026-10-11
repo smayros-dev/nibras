@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hashPassword, verifyPassword } from './password';
+import { hashPassword, normalisePassword, verifyPassword } from './password';
 
 describe('password hashing', () => {
   it('argon2id hash verifies and is salted', async () => {
@@ -18,5 +18,20 @@ describe('password hashing', () => {
 
   it('returns false (does not throw) for a malformed hash', async () => {
     expect(await verifyPassword('not-a-hash', 'whatever')).toBe(false);
+  });
+
+  it('NFKC-normalises before hashing and verifying (NFC and NFD forms are the same password)', async () => {
+    const nfc = 'mot de passe déjà vu';
+    const nfd = 'mot de passe déjà vu';
+    expect(nfd).not.toBe(nfc);
+    expect(nfd.normalize('NFC')).toBe(nfc);
+    expect(await verifyPassword(await hashPassword(nfc), nfd)).toBe(true);
+    expect(await verifyPassword(await hashPassword(nfd), nfc)).toBe(true);
+  });
+
+  it('normalisePassword applies NFKC only (no trimming, no case folding)', () => {
+    // Fullwidth P (U+FF30) and the fi ligature (U+FB01) fold; spaces and case are kept.
+    expect(normalisePassword(' Ｐassﬁle ')).toBe(' Passfile ');
+    expect(normalisePassword('é')).toBe('é');
   });
 });
