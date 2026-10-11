@@ -83,7 +83,12 @@ export class AuthService implements OnModuleInit {
     // Task 10: `totpEnabledAt` set → `{ status: 'TWO_FACTOR_REQUIRED', challengeToken }`.
     const label = deviceLabel(meta.userAgent);
     const knownDevice = await this.sessions.hasActiveDevice(user.id, label);
-    const tokens = await this.sessions.createSession(user, { ...meta, remember: input.remember });
+    // The version comes from the same row read as the verified hash (`verifyCredentials`).
+    const tokens = await this.sessions.createSession(user, {
+      ...meta,
+      remember: input.remember,
+      credentialsVersion: user.credentialsVersion,
+    });
     const signedIn = await this.db.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },

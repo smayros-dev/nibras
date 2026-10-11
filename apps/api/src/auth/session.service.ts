@@ -48,6 +48,16 @@ const unauthenticated = () =>
 export const sessionRevoked = () =>
   new ApiError(HttpStatus.UNAUTHORIZED, 'SESSION_REVOKED', 'Session revoked or expired');
 
+/**
+ * Whether a session was issued under another credentials version than the user's current one,
+ * i.e. the password was reset or changed since the hash it was issued on was read. A plain
+ * integer comparison: no clock is involved, so a login that read the old hash while a reset was
+ * committing always ends up with a dead session.
+ */
+export function credentialsOutdated(sessionVersion: number, userVersion: number): boolean {
+  return sessionVersion !== userVersion;
+}
+
 /** Splits `${sid}.${raw}`; `null` when malformed. */
 export function parseRefreshToken(token: string): { sid: string; raw: string } | null {
   const dot = token.indexOf('.');
@@ -126,11 +136,25 @@ export class SessionService {
     logger.setContext(SessionService.name);
   }
 
-  /** A new session (and family) for `user`, with its first access and refresh tokens. */
+  /**
+   * A new session (and family) for `user`, with its first access and refresh tokens.
+   * `credentialsVersion` is the `User.credentialsVersion` read in the SAME row read as the
+   * password hash that was verified (login); a reset or change committed since makes the session
+   * dead on first use (see {@link credentialsOutdated}). Callers that verified no password (a
+   * just-created account) omit it and the current value is used.
+   */
   async createSession(
     user: Pick<User, 'id'>,
-    meta: SessionMeta & { remember: boolean },
+    meta: SessionMeta & { remember: boolean; credentialsVersion?: number },
   ): Promise<SessionTokens> {
+    const credentialsVersion =
+      meta.credentialsVersion ??
+      (
+        await this.db.user.findUniqueOrThrow({
+          where: { id: user.id },
+          select: { credentialsVersion: true },
+        })
+      ).credentialsVersion;
     const id = uuidv7();
     const { raw, hash } = generateToken();
     const now = new Date();
@@ -145,6 +169,7 @@ export class SessionService {
         ip: meta.ip || UNKNOWN_IP,
         userAgent,
         remember: meta.remember,
+        credentialsVersion,
         lastSeenAt: now,
         expiresAt: new Date(now.getTime() + REFRESH_TTL_MS),
       },
@@ -181,7 +206,15 @@ export class SessionService {
       const row = await tx.userSession.findUniqueOrThrow({
         where: { id: parsed.sid },
         include: {
-          user: { select: { email: true, firstName: true, locale: true, status: true } },
+          user: {
+            select: {
+              email: true,
+              firstName: true,
+              locale: true,
+              status: true,
+              credentialsVersion: true,
+            },
+          },
         },
       });
       const { user, ...session } = row;
@@ -198,7 +231,8 @@ export class SessionService {
       if (
         session.revokedAt !== null ||
         session.expiresAt.getTime() <= Date.now() ||
-        user.status !== 'ACTIVE'
+        user.status !== 'ACTIVE' ||
+        credentialsOutdated(session.credentialsVersion, user.credentialsVersion)
       ) {
         if (session.revokedAt === null) {
           await tx.userSession.update({

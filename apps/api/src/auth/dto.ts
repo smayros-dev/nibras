@@ -1,4 +1,13 @@
-import { LoginSchema, RegisterTeacherSchema, VerifyEmailSchema } from '@tt/contracts';
+import {
+  ChangePasswordSchema,
+  EmailChangeConfirmSchema,
+  EmailChangeRequestSchema,
+  ForgotPasswordSchema,
+  LoginSchema,
+  RegisterTeacherSchema,
+  ResetPasswordSchema,
+  VerifyEmailSchema,
+} from '@tt/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { PASSWORD_MAX_LENGTH } from './crypto/password-policy';
@@ -29,3 +38,25 @@ export class LoginDto extends createZodDto(
     password: PasswordInputSchema.refine((p) => p.length > 0, 'Password required'),
   }),
 ) {}
+
+/** A password the user types to prove who they are: capped like a new one, not empty. */
+const CurrentPasswordSchema = PasswordInputSchema.refine((p) => p.length > 0, 'Password required');
+
+export class ForgotPasswordDto extends createZodDto(ForgotPasswordSchema) {}
+
+export class ResetPasswordDto extends createZodDto(
+  ResetPasswordSchema.extend({ newPassword: PasswordInputSchema }),
+) {}
+
+export class ChangePasswordDto extends createZodDto(
+  ChangePasswordSchema.extend({
+    currentPassword: CurrentPasswordSchema,
+    newPassword: PasswordInputSchema,
+  }),
+) {}
+
+export class EmailChangeRequestDto extends createZodDto(
+  EmailChangeRequestSchema.extend({ password: CurrentPasswordSchema }),
+) {}
+
+export class EmailChangeConfirmDto extends createZodDto(EmailChangeConfirmSchema) {}
