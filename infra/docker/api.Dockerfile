@@ -49,6 +49,8 @@ exec "$@"
 SH
 USER tt
 EXPOSE 3001
+# Probes ${PORT}, the port the server listens on. compose.staging.yml pins PORT per service because
+# the shared .env.staging would otherwise override it (healthy, yet listening on the wrong port).
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/health/live" || exit 1
 ENTRYPOINT ["tt-entrypoint"]

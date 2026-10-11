@@ -62,8 +62,6 @@ DATABASE_URL_SYSTEM=postgresql://app_system:<APP_SYSTEM_DB_PASSWORD>@postgres:54
 
 REDIS_URL=redis://redis:6379
 
-PORT=3001
-WORKER_PORT=3002
 WEB_ORIGIN=https://staging.example.com
 API_URL=http://api:3001
 # See "Client IP behind the proxies" below; compose.staging.yml defaults it to 1.
@@ -77,6 +75,10 @@ S3_ACCESS_KEY=<random>
 S3_SECRET_KEY=<random>
 S3_BUCKET=tt-staging
 ```
+
+`PORT` and `WORKER_PORT` are left out on purpose: every app service reads this one file, so
+`compose.staging.yml` pins them per service (api `3001`, web `3000`, worker `3002`) and any value
+set here is ignored.
 
 `API_URL` is also baked into the web image's `/api/*` rewrite at build time (default
 `http://api:3001`, matching the compose service name).
