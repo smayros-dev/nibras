@@ -1,4 +1,4 @@
-// Models arrive in SP1. Migrations always run as the owner role (app_system).
+// Migrations always run as the owner role (app_system).
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,4 +6,379 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL_SYSTEM")
+}
+
+// ─── Enums (PRD §11.1) ──────────────────────────────────────────────────────────
+
+enum WorkspaceType {
+  PERSONAL
+  ORGANIZATION
+}
+
+enum WorkspaceStatus {
+  ACTIVE
+  SUSPENDED
+  DELETING
+}
+
+enum PlatformRole {
+  NONE
+  SUPER_ADMIN
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  TEACHER
+  ASSISTANT
+  STUDENT
+  GUARDIAN
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PENDING_APPROVAL
+  PENDING_GUARDIAN_CONSENT
+  SUSPENDED_NO_CONSENT
+  SUSPENDED_CONSENT_REVOKED
+  REMOVED
+  REJECTED
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETING
+  DELETED
+}
+
+enum AbuseCategory {
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  IMPERSONATION
+  MINOR_SAFETY
+  OTHER
+}
+
+enum AbuseReportStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+/// PRD §11.7 `AbuseReport.entity_type`.
+enum AbuseEntityType {
+  USER
+  MESSAGE
+  SESSION
+  COURSE
+}
+
+enum ConsentType {
+  TERMS
+  PRIVACY
+  CODE_OF_CONDUCT
+  GUARDIAN_PARENTAL
+  RECORDING
+  AI_PROCESSING
+  WHATSAPP
+  MARKETING
+}
+
+enum Locale {
+  fr
+  ar
+  en
+}
+
+enum VerificationPurpose {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+  EMAIL_CHANGE_OLD
+  EMAIL_CHANGE_NEW
+}
+
+// ─── Identity & tenancy (PRD §11.2) ─────────────────────────────────────────────
+
+model User {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  email             String       @unique @db.Citext
+  emailVerifiedAt   DateTime?    @map("email_verified_at") @db.Timestamptz
+  /// Null when the account only signs in through a social provider (P1).
+  passwordHash      String?      @map("password_hash")
+  firstName         String       @map("first_name")
+  lastName          String       @map("last_name")
+  /// → MediaAsset (SP3); no FK until that table exists.
+  avatarMediaId     String?      @map("avatar_media_id") @db.Uuid
+  locale            Locale       @default(fr)
+  /// IANA zone.
+  timezone          String       @default("Africa/Tunis")
+  phoneE164         String?      @map("phone_e164")
+  phoneVerifiedAt   DateTime?    @map("phone_verified_at") @db.Timestamptz
+  birthDate         DateTime?    @map("birth_date") @db.Date
+  platformRole      PlatformRole @default(NONE) @map("platform_role")
+  totpSecretEnc     String?      @map("totp_secret_enc")
+  totpEnabledAt     DateTime?    @map("totp_enabled_at") @db.Timestamptz
+  recoveryCodesHash String[]     @default([]) @map("recovery_codes_hash")
+  status            UserStatus   @default(ACTIVE)
+  suspendedReason   String?      @map("suspended_reason")
+  suspendedAt       DateTime?    @map("suspended_at") @db.Timestamptz
+  deletedAt         DateTime?    @map("deleted_at") @db.Timestamptz
+  lastLoginAt       DateTime?    @map("last_login_at") @db.Timestamptz
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  sessions           UserSession[]
+  verificationTokens VerificationToken[]
+  phoneOtps          PhoneOtp[]
+  ownedWorkspaces    Workspace[]                @relation("WorkspaceOwner")
+  memberships        Membership[]
+  teacherAssignments TeacherStudentAssignment[] @relation("AssignmentTeacher")
+  studentAssignments TeacherStudentAssignment[] @relation("AssignmentStudent")
+  teacherProfiles    TeacherProfile[]
+  consents           Consent[]
+  abuseReports       AbuseReport[]
+
+  // PRD index (email) is the UNIQUE index above.
+  @@index([status])
+  @@map("user")
+}
+
+/// Authentication session (one member of a refresh-token family).
+model UserSession {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  familyId         String    @map("family_id") @db.Uuid
+  deviceLabel      String    @map("device_label")
+  ip               String    @db.Inet
+  userAgent        String    @map("user_agent")
+  lastSeenAt       DateTime  @map("last_seen_at") @db.Timestamptz
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("user_session")
+}
+
+/// Single-use emailed link (verification, password reset, email change). Stores only the token hash.
+model VerificationToken {
+  id        String              @id @default(uuid(7)) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  purpose   VerificationPurpose
+  tokenHash String              @unique @map("token_hash")
+  payload   Json?
+  expiresAt DateTime            @map("expires_at") @db.Timestamptz
+  usedAt    DateTime?           @map("used_at") @db.Timestamptz
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("verification_token")
+}
+
+/// SMS one-time code for phone verification (D-O6). Stores only the code hash.
+model PhoneOtp {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  phoneE164 String   @map("phone_e164")
+  codeHash  String   @map("code_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("phone_otp")
+}
+
+model Workspace {
+  id                      String          @id @default(uuid(7)) @db.Uuid
+  type                    WorkspaceType
+  name                    String
+  slug                    String          @unique @db.Citext
+  status                  WorkspaceStatus @default(ACTIVE)
+  suspendedReason         String?         @map("suspended_reason")
+  suspendedAt             DateTime?       @map("suspended_at") @db.Timestamptz
+  ownerUserId             String          @map("owner_user_id") @db.Uuid
+  country                 String?         @db.Char(2)
+  defaultTimezone         String          @map("default_timezone")
+  defaultLocale           Locale          @map("default_locale")
+  /// → MediaAsset (SP3), P1; no FK until that table exists.
+  logoMediaId             String?         @map("logo_media_id") @db.Uuid
+  brandColor              String?         @map("brand_color")
+  storageQuotaBytes       BigInt          @map("storage_quota_bytes")
+  storageUsedBytes        BigInt          @default(0) @map("storage_used_bytes")
+  /// Keys of PRD §8.2.1, validated by a versioned zod schema.
+  settings                Json
+  aiEnabled               Boolean         @default(false) @map("ai_enabled")
+  /// ORGANIZATION only (D-O7).
+  allowPersonalWorkspaces Boolean         @default(true) @map("allow_personal_workspaces")
+  deletedAt               DateTime?       @map("deleted_at") @db.Timestamptz
+  createdAt               DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  owner                     User                       @relation("WorkspaceOwner", fields: [ownerUserId], references: [id])
+  memberships               Membership[]
+  teacherStudentAssignments TeacherStudentAssignment[]
+  teacherProfiles           TeacherProfile[]
+
+  @@index([ownerUserId])
+  @@index([status])
+  @@map("workspace")
+}
+
+/// 🏢 tenant table.
+model Membership {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  workspaceId     String           @map("workspace_id") @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  role            MembershipRole
+  /// ADMIN who also teaches.
+  canTeach        Boolean          @default(false) @map("can_teach")
+  status          MembershipStatus
+  invitedByUserId String?          @map("invited_by_user_id") @db.Uuid
+  joinedAt        DateTime?        @map("joined_at") @db.Timestamptz
+  removedAt       DateTime?        @map("removed_at") @db.Timestamptz
+  removalReason   String?          @map("removal_reason")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId, role, status])
+  @@index([userId])
+  @@map("membership")
+}
+
+/// 🏢 Which teacher sees which student. In a PERSONAL workspace a row (owner, student) is created
+/// automatically so queries stay uniform.
+model TeacherStudentAssignment {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  workspaceId      String   @map("workspace_id") @db.Uuid
+  teacherUserId    String   @map("teacher_user_id") @db.Uuid
+  studentUserId    String   @map("student_user_id") @db.Uuid
+  assignedByUserId String   @map("assigned_by_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  teacher   User      @relation("AssignmentTeacher", fields: [teacherUserId], references: [id])
+  student   User      @relation("AssignmentStudent", fields: [studentUserId], references: [id])
+
+  @@unique([workspaceId, teacherUserId, studentUserId])
+  @@index([workspaceId, studentUserId])
+  // FK indexes: the composite keys above lead with workspace_id.
+  @@index([teacherUserId])
+  @@index([studentUserId])
+  @@map("teacher_student_assignment")
+}
+
+/// 🏢 tenant table.
+model TeacherProfile {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  subjects    String[] @default([])
+  bio         String
+  externalUrl String?  @map("external_url")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("teacher_profile")
+}
+
+/// workspaceId is NULL for TERMS / PRIVACY / CODE_OF_CONDUCT / MARKETING and required for
+/// GUARDIAN_PARENTAL, RECORDING, AI_PROCESSING, WHATSAPP. The migration adds the partial unique
+/// index (user_id, workspace_id, type) WHERE type = 'GUARDIAN_PARENTAL' AND revoked_at IS NULL.
+model Consent {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  /// The data subject.
+  userId          String      @map("user_id") @db.Uuid
+  grantedByUserId String?     @map("granted_by_user_id") @db.Uuid
+  grantedByEmail  String?     @map("granted_by_email") @db.Citext
+  type            ConsentType
+  /// e.g. "privacy-2026-10" (CONSENT_VERSIONS in @tt/contracts).
+  version         String
+  granted         Boolean
+  grantedAt       DateTime    @map("granted_at") @db.Timestamptz
+  revokedAt       DateTime?   @map("revoked_at") @db.Timestamptz
+  ip              String      @db.Inet
+  userAgent       String      @map("user_agent")
+  workspaceId     String?     @map("workspace_id") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, type])
+  @@index([workspaceId, type])
+  @@map("consent")
+}
+
+// ─── Compliance & platform (PRD §11.7) ──────────────────────────────────────────
+
+/// Append-only: no updatedAt and no foreign keys (entries outlive the rows they describe).
+model AuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String?  @map("workspace_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  actorRole   String   @map("actor_role")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id") @db.Uuid
+  before      Json?
+  after       Json?
+  ip          String?  @db.Inet
+  userAgent   String?  @map("user_agent")
+  requestId   String   @map("request_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@map("audit_log")
+}
+
+/// MINOR_SAFETY reports are always visible to the super-admin.
+model AbuseReport {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  /// NULL when reported outside a workspace (e.g. a profile).
+  workspaceId      String?           @map("workspace_id") @db.Uuid
+  reporterUserId   String            @map("reporter_user_id") @db.Uuid
+  category         AbuseCategory
+  description      String
+  entityType       AbuseEntityType   @map("entity_type")
+  entityId         String            @map("entity_id") @db.Uuid
+  /// Frozen copy of the entity at report time.
+  contextSnapshot  Json              @map("context_snapshot")
+  attachments      String[]          @default([]) @db.Uuid
+  status           AbuseReportStatus
+  assignedToUserId String?           @map("assigned_to_user_id") @db.Uuid
+  resolution       String?
+  resolvedAt       DateTime?         @map("resolved_at") @db.Timestamptz
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  reporter User @relation(fields: [reporterUserId], references: [id])
+
+  @@index([workspaceId, status, createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@index([reporterUserId])
+  @@map("abuse_report")
 }
