@@ -4,7 +4,19 @@
 >
 > **Model policy (owner decision, overrides the skill's default tiers):** every implementer, task reviewer, re-reviewer and fixer subagent runs on **Opus** (`model: "opus"`). Changes to this plan, the spec or the architecture go back to **Fable** (`model: "fable"`). Always pass the model explicitly when dispatching.
 >
-> **Prerequisite:** SP0 (`docs/superpowers/plans/2026-10-10-sp0-monorepo-infra.md`) is merged. This plan consumes SP0's interfaces by name (`createPrismaClient`, `systemPrisma`, `resetDatabase`, `ApiError`, `RequestContext`, `createTestApp`, `QUEUES`, `ERROR_CODES`, `registerProcessor`, `createApiClient`, `@tt/i18n` messages, `@tt/ui`).
+> **Prerequisite:** SP0 (`docs/superpowers/plans/2026-10-10-sp0-monorepo-infra.md`) is merged on `main` (cffc281). This plan consumes SP0's interfaces exactly as they exist on `main`:
+> - `@tt/db`: `createPrismaClient(url = process.env.DATABASE_URL): PrismaClient` (emits `warn`/`error` log **events**, no default listener), `systemPrisma(): PrismaClient` (singleton on `DATABASE_URL_SYSTEM`), `resetDatabase(client = systemPrisma())` (TRUNCATEs every public table; **refuses** a database whose name does not end in `_test`).
+> - `@tt/contracts` (`src/index.ts` re-exports `error-codes`, `errors`, `locale`, `queues`, `client`, `redact`): `ERROR_CODES` (`VALIDATION_FAILED`, `NOT_FOUND`, `UNAUTHENTICATED`, `PERMISSION_DENIED`, `RATE_LIMITED`, `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`), `ApiErrorBody`, `LOCALES`/`Locale`/`LocaleSchema`/`dirOf`/`intlTag`, `QUEUES`/`QueueName`, `DEFAULT_JOB_OPTIONS` (attempts 3, exponential 1000, keep 1000/5000), `createApiClient(baseUrl, fetchImpl?)` (openapi-fetch; `baseUrl` **includes** `/api/v1`), `REDACT_KEYS`/`redactPaths(depth = 3)` (shared by the API and worker pino loggers).
+> - `apps/api`: `ApiError(status, code: ErrorCode, message, details?)` (`src/common/api-error.ts`) — the **only** way to raise a domain error; `HttpExceptionFilter` maps bare 401/403/404/413/415/429 and 503 by status to the generic codes, so every guard/service that needs a stable code throws `ApiError`; `RequestContext.get()/run(store, fn)` over `RequestStore { requestId; ip; userAgent }` (`src/common/request-context.ts`); `ZodValidationPipe`/`createZodDto` (nestjs-zod); `REDIS` token (ioredis client, `src/redis/redis.module.ts`); `configureApp(app)` + `API_PREFIX = 'api/v1'`; `env` from `src/config/env.ts` (incl. `TRUST_PROXY_HOPS`, default 1 — `X-Forwarded-For` is honoured in tests); `createTestApp({ overrides?, controllers? }): Promise<{ app, http, logs }>` (`test/helpers/app.ts`; `controllers` mounts test-only routes).
+> - `apps/worker`: `ProcessorRegistry.registerProcessor(queue: QueueName, jobName: string, handler: (job: Job) => Promise<unknown>)` (processors register in `onModuleInit`, see `processors/ping.processor.ts`), `redisConnection(url)` (rejects non-`redis:`/`rediss:`), `createLogger(level, destination?)`, test helper `obliterateAllQueues()` (`test/redis.ts`).
+> - `apps/web`: `api = createApiClient('/api/v1')` and `async serverApi()` (`src/lib/api.ts`) which forwards `cookie`, `x-forwarded-for`, `x-request-id`, `accept-language` (`forwardHeaders`, `src/lib/forwarded-headers.ts`); `AppShell` lives in `@tt/ui` (`packages/ui/src/app-shell.tsx`); locale routing in `src/proxy.ts`.
+> - `@tt/config`: `applyTestEnv(pkg: 'db' | 'api' | 'worker', env)` (`vitest/test-env.ts`) rewrites `DATABASE_URL_TEST`, `DATABASE_URL_TEST_SYSTEM`, `REDIS_URL_TEST` to `tt_<pkg>_test` and Redis DB `13 | 14 | 15`; it runs from `packages/db/vitest.setup.ts`, `apps/api/test/setup.ts`, `apps/worker/vitest.setup.ts`. Tests read DB/Redis **only** from env.
+>
+> **Execution notes (owner rulings carried from SP0):**
+> - Tasks may run in **parallel git worktrees** (at most **2** implementers at once — the dev machine has no page file and parallel esbuild/node crash with `cannot allocate memory`). Each worktree copies the root `.env` and sets `TEST_DB_PREFIX=tt_t<N>` and `TEST_REDIS_DB_BASE` (`10` for the first worktree, `7` for the second; the main checkout keeps the default `13`, so the three sets `7–9`, `10–12`, `13–15` never overlap — Task 0 adds both knobs) so its test databases are `tt_t<N>_{db,api,worker}_test` (names end in `_test`, as `resetDatabase` requires) and its Redis indexes do not collide; run `pnpm db:migrate:test` in the worktree first (Prisma creates missing databases — `app_system` has `CREATEDB`). All worktrees share the one docker compose stack (`name: tt`) from the main checkout. Drop the `tt_t<N>_*` databases when the worktree is removed.
+> - Every verification command that runs turbo uses `--concurrency=2`: `pnpm turbo run lint typecheck test --concurrency=2` (never bare `pnpm test` across the repo).
+> - **DB workflow:** schema change → `pnpm --filter @tt/db migrate:dev -- --name <name> --create-only` (wrapper strips pnpm's `--`) → edit the SQL when hand-written statements are needed → `pnpm db:migrate` (dev DB `tt`) → `pnpm db:migrate:test` (migrates `tt_db_test`, `tt_api_test`, `tt_worker_test`, or the prefixed worktree set) → `pnpm --filter @tt/db migrate:check` (shadow DB, no drift). Never call `prisma migrate dev` directly.
+> - **Turbo strict env:** a variable a test or build reads must be listed in `turbo.json` (`test.env` / `build.env`), in `.github/workflows/ci.yml` `env`, and in `.env.example`, or the task silently does not see it. SP1's known variables (`JWT_SECRET`, `TOTP_ENCRYPTION_KEY`, `EMAIL_FROM`, `SMTP_URL`, `SMS_PROVIDER`, `HIBP_ENABLED`, `COOKIE_SECURE`, plus `TRUST_PROXY_HOPS`) are **already present in all three**; a task that adds another variable adds it to all three in the same commit.
 
 **Goal:** Users can register as teachers, verify email and phone, log in with rotating sessions, 2FA and rate limits, accept versioned consents, own a personal workspace or create an organisation, manage members and teacher↔student assignments under the §7 permission matrix, with every tenant row isolated by a Prisma extension **and** PostgreSQL RLS, every sensitive action in an append-only audit log, abuse reports queued for admins, and a minimal super-admin console that can suspend workspaces and teachers.
 
@@ -31,6 +43,9 @@ Everything in SP0's Global Constraints still applies. In addition:
 - Personal workspace name on signup: `Espace de {prénom}`; slug = `slugify(name)-{6 lowercase base32 chars}`.
 - Stable error codes added by this plan (append to `ERROR_CODES` in `@tt/contracts`): `EMAIL_TAKEN`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `TOKEN_INVALID`, `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_COMMON`, `PASSWORD_COMPROMISED`, `ACCOUNT_LOCKED`, `ACCOUNT_SUSPENDED`, `SESSION_REVOKED`, `TWO_FACTOR_REQUIRED`, `TWO_FACTOR_SETUP_REQUIRED`, `TWO_FACTOR_INVALID`, `TWO_FACTOR_MANDATORY`, `TWO_FACTOR_ALREADY_ENABLED`, `CONSENT_REQUIRED`, `CONSENT_VERSION_MISMATCH`, `CONSENT_NOT_REVOCABLE`, `OTP_INVALID`, `OTP_EXPIRED`, `TEACHER_NOT_VERIFIED`, `WORKSPACE_SUSPENDED`, `MEMBERSHIP_INACTIVE`, `PERSONAL_WORKSPACE_FORBIDDEN`, `PERSONAL_WORKSPACE_EXISTS`, `NOT_AN_ORGANIZATION`, `OWNER_CANNOT_BE_REMOVED`, `ROLE_CHANGE_NOT_ALLOWED`, `MEMBER_HAS_FUTURE_SESSIONS`, `ALREADY_MEMBER`, `ALREADY_ASSIGNED`, `ENTITY_TYPE_UNSUPPORTED`, `CANNOT_SUSPEND_SUPER_ADMIN`, `TENANT_CONTEXT_MISSING`.
 - UI copy: French strings quoted from the PRD are verbatim; AR/EN are the builder's translations (native Arabic review is a §22 deliverable, not a gate for this plan).
+- Errors: guards, pipes and services throw `new ApiError(status, code, message, details?)` with one of the stable codes above — never Nest's `UnauthorizedException`/`ForbiddenException`/`NotFoundException`, which the SP0 filter renders as the generic `UNAUTHENTICATED`/`PERMISSION_DENIED`/`NOT_FOUND`. Those bare exceptions are allowed only where the generic code *is* the intended one (e.g. the 404 of AC-WS-01).
+- Secret field names (log redaction, Task 0): every DTO, event, job payload and provider param that carries a one-time code uses `otpCode`, `verificationCode` or `recoveryCode` — never a bare `code` (which is the API error code and Prisma/Node `err.code`). Request-body and job-data fields named `code` are still redacted through the scoped paths `body.code` / `data.code`.
+- Prisma log events (`warn`, `error`) are forwarded to pino by the API (Task 5) and the worker keeps SP0's behaviour; nothing else attaches listeners.
 
 ## Review Focus
 
@@ -49,6 +64,13 @@ Five failure modes the spec implies but no acceptance criterion exercises; each 
 ## File Structure
 
 ```
+packages/config/vitest/{test-env.mjs,test-env.d.mts}      (Task 0, replaces test-env.ts) single source of tt_<pkg>_test / Redis index derivation + worktree knobs
+packages/db/scripts/migrate-test.mjs                      (Task 0, imports the .mjs above)
+packages/contracts/src/redact.ts                          (Task 0) REDACT_KEYS without bare `code`; REDACT_SCOPED_PATHS
+turbo.json  apps/api/src/config/env.ts  docs/runbooks/staging.md   (Task 0 carry-overs)
+packages/config/eslint/nest.mjs                           (Task 5) type-aware no-floating-promises for api + worker
+pnpm-workspace.yaml                                       (Task 4) argon2 in onlyBuiltDependencies
+
 packages/contracts/src/{error-codes,consents,permissions,workspace-settings,auth,me,workspaces,members,abuse,admin}.ts
 packages/db/prisma/schema.prisma + migrations/<ts>_identity_tenancy, <ts>_rls_and_audit_privileges
 packages/db/src/{tenant,index}.ts  src/tenant.test.ts
@@ -56,11 +78,13 @@ packages/providers/src/email/{types,smtp,in-memory,templates/index,templates/lay
 packages/providers/src/sms/{types,log,in-memory}.ts  src/index.ts  src/email/templates.test.ts
 packages/i18n/messages/{fr,ar,en}.json                 + namespaces auth, settings, workspace, members, admin, abuse, emails, errors
 
-apps/api/src/config/env.ts                             + JWT_SECRET, TOTP_ENCRYPTION_KEY, SMTP_URL, EMAIL_FROM, SMS_PROVIDER, HIBP_ENABLED, COOKIE_SECURE
+apps/api/src/config/env.ts                             + JWT_SECRET, TOTP_ENCRYPTION_KEY, SMTP_URL, EMAIL_FROM, SMS_PROVIDER, HIBP_ENABLED, COOKIE_SECURE; REDIS_URL restricted to redis:/rediss:
+apps/api/src/db/{db.module,prisma-logs}.ts             (Task 5) Prisma warn/error events → pino
+apps/api/src/observability/metrics.middleware.ts       (Task 5) replaces metrics.interceptor.ts so guard rejections are measured
 apps/api/src/providers/providers.module.ts             EMAIL_PROVIDER / SMS_PROVIDER tokens
 apps/api/src/queue/{queue.module,queue.service}.ts     QueueService.add(queue, name, data, opts)
 apps/api/src/audit/{audit.module,audit.service}.ts
-apps/api/src/common/request-context.ts                 (modify) store gains user/session/workspace/membership/permissionScope
+apps/api/src/common/request-context.ts                 (modify) RequestStore gains user/session/workspace/membership/permissionScope
 apps/api/src/auth/crypto/{password,password-policy,hibp,tokens,secret-box}.ts   + *.spec.ts
 apps/api/src/auth/{auth.module,auth.controller,auth.service,register.service,session.service,jwt.service,login-throttle.service,two-factor.service,password-reset.service,email-change.service}.ts
 apps/api/src/auth/guards/{jwt-auth.guard,account-gates.guard}.ts  decorators/{public,allow-unverified,current-user}.ts
@@ -74,6 +98,7 @@ apps/api/src/cli/create-super-admin.ts
 apps/api/test/helpers/{app,factories,auth}.ts  test/isolation/tenant-routes.e2e-spec.ts  test/**/*.e2e-spec.ts
 apps/worker/src/processors/abuse.processor.ts
 
+packages/ui/src/app-shell.tsx (+ app-shell.test.tsx)   (Task 19) named nav landmark + skip link
 apps/web/src/lib/{api,session,auth-redirects}.ts
 apps/web/src/app/[locale]/(auth)/{register,login,verify-email,forgot-password,reset-password,2fa,2fa/setup}/page.tsx
 apps/web/src/app/[locale]/(app)/layout.tsx   app/page.tsx   app/settings/{profile,security,verification,consents,workspaces}/page.tsx
@@ -81,6 +106,60 @@ apps/web/src/app/[locale]/(app)/app/w/[wid]/{settings,members,audit-log}/page.ts
 apps/web/src/app/[locale]/(admin)/admin/{workspaces,abuse-reports}/page.tsx
 apps/web/src/components/{consent-gate,workspace-switcher,onboarding-checklist,timezone-banner,report-abuse-button,suspended-banner,form}.tsx
 apps/web/e2e/helpers/{mailpit,totp}.ts  e2e/{auth,settings,workspaces,admin,smoke}.spec.ts
+```
+
+---
+
+### Task 0: SP0 carry-overs — redaction keys, single-source test-DB derivation with worktree knobs, turbo `e2e` ordering, env comment, staging caveat
+
+Runs first (no dependency on any SP1 task); every later task's worktree relies on the knobs it adds. A reviewer could reject the redaction change while approving the schema, so it is not folded into Task 1.
+
+**Files:**
+- Create: `packages/config/vitest/test-env.mjs`, `packages/config/vitest/test-env.d.mts` (replace `test-env.ts`; delete it)
+- Modify: `packages/config/package.json` (`"./vitest/test-env": { "types": "./vitest/test-env.d.mts", "default": "./vitest/test-env.mjs" }`), `packages/config/vitest/test-env.test.ts`, `packages/db/scripts/migrate-test.mjs`, `packages/contracts/src/redact.ts`, `packages/contracts/src/redact.test.ts`, `apps/api/src/observability/logger.spec.ts`, `apps/worker/src/logger.test.ts`, `turbo.json`, `.env.example`, `.github/workflows/ci.yml`, `apps/api/src/config/env.ts` (comment only), `docs/runbooks/staging.md`, `docs/runbooks/local-dev.md`
+- Test: `packages/config/vitest/test-env.test.ts`, `packages/contracts/src/redact.test.ts`, `apps/api/src/observability/logger.spec.ts`, `apps/worker/src/logger.test.ts`
+
+**Interfaces:**
+- Produces (`@tt/config/vitest/test-env`, plain ESM so `migrate-test.mjs` imports the same file — Node ≥ 22 without type stripping): `TEST_PACKAGES`, `TestPackage`, `testDbName(pkg, env = process.env): string` = `` `${env.TEST_DB_PREFIX ?? 'tt'}_${pkg}_test` ``, `testRedisDb(pkg, env = process.env): number` = `base + { db: 0, api: 1, worker: 2 }[pkg]` with `base = Number(env.TEST_REDIS_DB_BASE ?? 13)` (throws unless an integer in `1..13`, so the three indexes stay in `1..15` and never hit `0`), `testDatabaseUrl(base, pkg, env?)`, `testRedisUrl(base, pkg, env?)`, `applyTestEnv(pkg, env)` (same contract as today, now honouring the two knobs). `TEST_REDIS_DB` constant is removed (callers use `testRedisDb`). `migrate-test.mjs` imports `testDbName` from `@tt/config/vitest/test-env` (`@tt/config` is already a workspace dependency of `@tt/db`; otherwise add it) and migrates `testDbName(pkg)` for each `TEST_PACKAGES` entry.
+- `turbo.json`: `test.env` gains `TEST_DB_PREFIX`, `TEST_REDIS_DB_BASE`; `e2e` task becomes `{ "dependsOn": ["^build"], "cache": false }`. `.env.example` documents both knobs commented out (`# TEST_DB_PREFIX=tt_t1` / `# TEST_REDIS_DB_BASE=10`) under the test-DB comment; CI `env` is unchanged (defaults apply; the strict-env rule still requires the `turbo.json` entry).
+- `@tt/contracts`: `REDACT_KEYS` drops `'code'` and gains `'otpCode'`, `'verificationCode'`, `'recoveryCode'`; new `REDACT_SCOPED_PATHS = ['body.code', '*.body.code', 'data.code', '*.data.code'] as const`; `redactPaths(depth = 3)` returns the key-derived paths **plus** `REDACT_SCOPED_PATHS` (order: keys first).
+- `apps/api/src/config/env.ts`: the `TRUST_PROXY_HOPS` doc comment reads "1 locally and on staging (the Next.js server is the only hop that terminates on the API; the TLS proxy's entry is the rightmost), 2 only when a second appending proxy is added — see docs/runbooks/staging.md". No behaviour change.
+- `docs/runbooks/staging.md`, section "Client IP behind the proxies": add (a) **`WEB_BIND=0.0.0.0` caveat** — exposing `web` directly removes the TLS proxy hop, so with `TRUST_PROXY_HOPS=1` the API believes whatever `X-Forwarded-For` the browser sends; set `TRUST_PROXY_HOPS=0` in that topology and accept that `req.ip` is then the `web` container; (b) **overwrite-XFF proxies** — a proxy configured to *replace* the header (nginx `proxy_set_header X-Forwarded-For $remote_addr`) makes hop counting moot: keep `1`, and never use `$proxy_add_x_forwarded_for` *and* a hop count larger than the number of appending proxies. `docs/runbooks/local-dev.md`: a "Parallel worktrees" paragraph with the two knobs and `pnpm db:migrate:test`.
+
+- [ ] **Step 1: Write the failing tests**
+
+```ts
+// packages/config/vitest/test-env.test.ts (keep the 3 existing cases, add)
+it('TEST_DB_PREFIX and TEST_REDIS_DB_BASE drive the per-worktree names', () => {
+  const env = { TEST_DB_PREFIX: 'tt_t3', TEST_REDIS_DB_BASE: '10', DATABASE_URL_TEST: 'postgresql://u:p@h:5432/tt_test?schema=public', REDIS_URL_TEST: 'redis://h:6379/15' };
+  applyTestEnv('api', env);
+  expect(env.DATABASE_URL_TEST).toBe('postgresql://u:p@h:5432/tt_t3_api_test?schema=public'); expect(env.REDIS_URL_TEST).toBe('redis://h:6379/11');
+  expect(testDbName('worker', {})).toBe('tt_worker_test'); expect(testRedisDb('worker', {})).toBe(15);
+  for (const bad of ['0', '14', 'x', '-1']) expect(() => testRedisDb('db', { TEST_REDIS_DB_BASE: bad })).toThrow(/TEST_REDIS_DB_BASE/);
+});
+// packages/contracts/src/redact.test.ts
+it('redacts otp/verification/recovery codes and scoped body/data.code, never bare code', () => {
+  const paths = redactPaths();
+  expect(paths).toEqual(expect.arrayContaining(['otpCode', '*.otpCode', 'verificationCode', 'recoveryCode', 'body.code', '*.body.code', 'data.code', '*.data.code']));
+  expect(paths).not.toContain('code'); expect(paths).not.toContain('*.code'); expect(REDACT_KEYS).not.toContain('code');
+});
+// apps/api/src/observability/logger.spec.ts and apps/worker/src/logger.test.ts (same three assertions through the real pino instance)
+it('keeps err.code readable but censors otpCode and body.code', () => {
+  log.info({ err: { code: 'P1001' }, otpCode: '123456', req: { body: { code: '654321' } }, job: { data: { code: 'abc' } } }, 'x');
+  const line = lastLine(); expect(line.err.code).toBe('P1001'); expect(line.otpCode).toBe('[REDACTED]'); expect(line.req.body.code).toBe('[REDACTED]'); expect(line.job.data.code).toBe('[REDACTED]');
+});
+```
+
+- [ ] **Step 2: Run the tests to verify they fail** — Run: `pnpm turbo run test --filter=@tt/config --filter=@tt/contracts --concurrency=2 && pnpm --filter @tt/api exec vitest run src/observability/logger.spec.ts && pnpm --filter @tt/worker exec vitest run src/logger.test.ts` — Expected: FAIL (`testDbName` undefined; `code` still redacted).
+
+- [ ] **Step 3: Implement** — write `test-env.mjs` + `test-env.d.mts`, repoint the three vitest setup files' imports (the specifier `@tt/config/vitest/test-env` stays), rewrite `migrate-test.mjs` on top of `testDbName`, change `redact.ts`, `turbo.json`, `.env.example`, the `env.ts` comment and the two runbooks. Verify the wrapper still works: `TEST_DB_PREFIX=tt_t9 pnpm db:migrate:test` prints `migrating tt_t9_db_test`, `tt_t9_api_test`, `tt_t9_worker_test` (then drop them).
+
+- [ ] **Step 4: Run the tests to verify they pass** — Run: `pnpm turbo run lint typecheck test --filter=@tt/config --filter=@tt/contracts --filter=@tt/api --filter=@tt/worker --concurrency=2 && pnpm turbo run e2e --dry=json --filter=@tt/web | grep -c '"@tt/db#build"'` — Expected: PASS; the dry run lists `@tt/db#build` among `e2e`'s dependencies (≥ 1).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/config packages/db/scripts packages/contracts apps/api apps/worker turbo.json .env.example .github docs && git commit -m "chore: sp0 carry-overs — otp-aware redaction, single-source test db derivation with worktree knobs, e2e build ordering, proxy docs"
 ```
 
 ---
@@ -118,13 +197,13 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('identity schema', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails** — Run: `pnpm --filter @tt/db test` — Expected: FAIL (`db.user` undefined).
+- [ ] **Step 2: Run the test to verify it fails** — Run: `pnpm --filter @tt/db test` (the package's `vitest.setup.ts` already applies `applyTestEnv('db', …)`, so this hits `tt_db_test`) — Expected: FAIL (`db.user` undefined).
 
 - [ ] **Step 3: Write the models, generate the migration, add the partial index by hand**
 
-Run `pnpm --filter @tt/db exec prisma migrate dev --name identity_tenancy --create-only`, append the partial unique index SQL, then `prisma migrate dev`. Apply to `tt_test` as in SP0 Task 2. Also add the new error codes and `consents.ts` to `@tt/contracts` and rebuild it.
+Run `pnpm --filter @tt/db migrate:dev -- --name identity_tenancy --create-only`, append the partial unique index SQL to the generated `migration.sql`, then `pnpm db:migrate` (dev DB) and `pnpm db:migrate:test` (the three `*_test` DBs, or the worktree's prefixed set). Also add the new error codes and `consents.ts` to `@tt/contracts` and rebuild it (`pnpm turbo run build --filter=@tt/contracts --concurrency=2`).
 
-- [ ] **Step 4: Run the tests to verify they pass** — Run: `pnpm --filter @tt/db test && pnpm --filter @tt/db migrate:check` — Expected: PASS; no drift.
+- [ ] **Step 4: Run the tests to verify they pass** — Run: `pnpm turbo run test --filter=@tt/db --filter=@tt/contracts --concurrency=2 && pnpm --filter @tt/db migrate:check` — Expected: PASS; no drift.
 
 - [ ] **Step 5: Commit**
 
@@ -148,6 +227,7 @@ git add packages/db packages/contracts && git commit -m "feat(db): identity and 
   - `tenantDb(workspaceId: string): TenantClient` — extension that, for every operation on a `TENANT_MODELS` model, (a) injects `workspaceId` into `where`/`data` (`create`, `createMany`, `update`, `updateMany`, `delete`, `deleteMany`, `findMany`, `findFirst`, `findUnique`, `count`, `aggregate`, `upsert`), rejecting `data.workspaceId` that differs → `TenantMismatchError`, and (b) runs `[ $executeRaw SELECT set_config('app.workspace_id', $wid, true), query(args) ]` in one `$transaction` batch (the Prisma RLS recipe). Non-tenant models pass through unchanged.
   - `crossTenantDb(opts?: { reason: 'super_admin' }): CrossTenantClient` — same batch mechanism setting `app.bypass_tenant = 'on'`; the extension requires `where.userId` or `where.id` to be present on tenant models (throws `CrossTenantFilterMissingError` otherwise) — this is the "always filtered by user_id" rule of §13.3. With `opts.reason = 'super_admin'` the filter check is skipped (Task 17's console aggregates are the only caller) and the caller must audit `admin.cross_tenant_query`.
   - `withTenantTx<T>(workspaceId, fn: (tx: TenantClient) => Promise<T>): Promise<T>` — interactive transaction that runs the `set_config` first, then `fn` on an extended `tx`.
+  - `type PrismaLogHandler = (level: 'warn' | 'error', event: { message: string; target?: string; timestamp: Date }) => void`; `onPrismaLog(handler: PrismaLogHandler): void` — attaches `$on('warn')`/`$on('error')` on the **base** (un-extended) `app_user` client behind `db`/`tenantDb`/`crossTenantDb` and on `systemPrisma()` (`$on` is unavailable on `$extends` results, so the base client is kept in module scope). Task 5 is its only caller.
   - RLS migration: `ALTER TABLE membership ENABLE ROW LEVEL SECURITY; ALTER TABLE membership FORCE ROW LEVEL SECURITY;` (same for `teacher_student_assignment`, `teacher_profile`) and policy `tenant_isolation` `USING (workspace_id = current_setting('app.workspace_id', true)::uuid OR current_setting('app.bypass_tenant', true) = 'on') WITH CHECK (same)`; `REVOKE UPDATE, DELETE ON audit_log FROM app_user;`. Later plans copy the two statements for each new 🏢 table in their own migrations.
 
 - [ ] **Step 1: Write the failing isolation tests**
@@ -183,9 +263,9 @@ it('withTenantTx rolls back atomically', ...);
 
 - [ ] **Step 2: Run the tests to verify they fail** — Run: `pnpm --filter @tt/db test` — Expected: FAIL.
 
-- [ ] **Step 3: Implement `tenant.ts` and write the RLS migration** — apply with `prisma migrate dev` (and to `tt_test`).
+- [ ] **Step 3: Implement `tenant.ts` and write the RLS migration** — `pnpm --filter @tt/db migrate:dev -- --name rls_and_audit_privileges --create-only`, replace the empty `migration.sql` with the hand-written statements, then `pnpm db:migrate && pnpm db:migrate:test`.
 
-- [ ] **Step 4: Run the tests to verify they pass** — Run: `pnpm --filter @tt/db test` — Expected: PASS.
+- [ ] **Step 4: Run the tests to verify they pass** — Run: `pnpm --filter @tt/db test && pnpm --filter @tt/db migrate:check` — Expected: PASS; no drift.
 
 - [ ] **Step 5: Commit**
 
@@ -206,9 +286,9 @@ git add packages/db && git commit -m "feat(db): tenant-scoped prisma extension, 
 - Produces (`@tt/providers`):
   - `interface EmailProvider { send(msg: { to: string; templateKey: EmailTemplateKey; locale: Locale; params: Record<string, string | number>; ics?: string }): Promise<{ providerMessageId: string }> }` (PRD §13.4; `verifyWebhook` is SP7).
   - `EmailTemplateKey` union: `auth.verify_email`, `auth.password_reset`, `auth.email_change_confirm`, `security.password_changed`, `security.email_changed`, `security.new_device`, `security.token_reuse`, `security.account_locked`, `security.2fa_enabled`, `security.2fa_disabled`, `security.recovery_code_used`, `phone.otp_dev`, `workspace.ownership_transferred`, `abuse.report_received`, `abuse.new_report`, `abuse.minor_safety_reminder`, `admin.user_suspended`, `admin.user_unsuspended`.
-  - `renderEmail(key, locale, params): { subject: string; html: string; text: string }` — subject/body from `@tt/i18n` `emails.<key>.{subject,title,body,cta}` with ICU interpolation; `layout(locale, { title, bodyHtml, cta? })` emits `<html lang="{locale}" dir="{dirOf(locale)}">`, the app name and a legal footer line (`emails.footer.legal`).
+  - `renderEmail(key, locale, params): { subject: string; html: string; text: string }` — subject/body from `@tt/i18n` `emails.<key>.{subject,title,body,cta}` with ICU interpolation; `layout(locale, { title, bodyHtml, cta? })` emits `<html lang="{locale}" dir="{dirOf(locale)}">` (`dirOf`, `LOCALES`, `Locale` from `@tt/contracts`), the app name and a legal footer line (`emails.footer.legal`). Params carrying one-time codes are named `otpCode` (`phone.otp_dev { otpCode }`) — Global Constraints naming rule.
   - `SmtpEmailProvider(opts: { smtpUrl: string; from: string })` (nodemailer), `InMemoryEmailProvider` with `sent: SentEmail[]`, `last(to?: string)`, `findByTemplate(key, to?)`, `clear()`.
-  - `interface SmsProvider { send(msg: { to: string; templateKey: 'phone.otp'; locale: Locale; params: { code: string } }): Promise<{ providerMessageId: string }> }`; `LogSmsProvider(logger)`, `InMemorySmsProvider` with `sent`, `last(to?)`, `clear()`.
+  - `interface SmsProvider { send(msg: { to: string; templateKey: 'phone.otp'; locale: Locale; params: { otpCode: string } }): Promise<{ providerMessageId: string }> }`; `LogSmsProvider(logger)` (selected by `SMS_PROVIDER=console`, the value `.env.example` and CI already carry; it logs `{ to, templateKey, locale }` at info and the `otpCode` only at debug — redacted by `REDACT_KEYS` anyway), `InMemorySmsProvider` with `sent`, `last(to?)`, `clear()`.
   - `extractFirstLink(html: string, pathContains: string): string | null` (test helper used by API tests and Playwright).
 
 - [ ] **Step 1: Write the failing tests**
@@ -236,7 +316,7 @@ it('verify_email French subject and link', () => {
 
 - [ ] **Step 3: Implement providers and the `emails` messages in the three catalogues** — the i18n parity test from SP0 enforces that `ar`/`en` get every new key.
 
-- [ ] **Step 4: Run the tests to verify they pass** — Run: `pnpm --filter @tt/providers test && pnpm --filter @tt/i18n test` — Expected: PASS.
+- [ ] **Step 4: Run the tests to verify they pass** — Run: `pnpm turbo run test --filter=@tt/providers --filter=@tt/i18n --concurrency=2` — Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -270,28 +350,34 @@ it('tokens: 43-char base64url raw, 64-hex hash, safeEqual constant-time API', ..
 it('secret box round-trips and rejects tampering', () => { const b = new SecretBox(KEY); const s = b.seal('JBSWY3DPEHPK3PXP'); expect(b.open(s)).toBe('JBSWY3DPEHPK3PXP'); expect(() => b.open(s.slice(0, -2) + 'AA')).toThrow(); });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail** — Run: `pnpm --filter @tt/api test -- crypto` — Expected: FAIL.
-- [ ] **Step 3: Implement the five files** (download the SecLists `10-million-password-list-top-10000.txt` into `common-passwords.txt`; load once, lowercase set).
-- [ ] **Step 4: Run the tests to verify they pass** — Expected: PASS.
-- [ ] **Step 5: Commit** — `git add apps/api/src/auth/crypto && git commit -m "feat(api): password hashing, password policy with hibp, opaque tokens and secret box"`
+- [ ] **Step 2: Run the tests to verify they fail** — Run: `pnpm --filter @tt/api exec vitest run src/auth/crypto` — Expected: FAIL.
+- [ ] **Step 3: Implement the five files** (download the SecLists `10-million-password-list-top-10000.txt` into `common-passwords.txt`; load once, lowercase set). `argon2` installs a native binary through an install script that pnpm 10 blocks by default: add `argon2` to `onlyBuiltDependencies` in `pnpm-workspace.yaml` (the list lives there, not in `package.json`) and confirm `pnpm install` prints no "Ignored build scripts: argon2" warning and `node -e "require('argon2')"` loads inside `apps/api`.
+- [ ] **Step 4: Run the tests to verify they pass** — Run: `pnpm --filter @tt/api exec vitest run src/auth/crypto` — Expected: PASS.
+- [ ] **Step 5: Commit** — `git add apps/api/src/auth/crypto apps/api/package.json pnpm-workspace.yaml pnpm-lock.yaml && git commit -m "feat(api): password hashing, password policy with hibp, opaque tokens and secret box"`
 
 ---
 
-### Task 5: API infrastructure for SP1 — request context, AuditService, QueueService, providers module, extended test app
+### Task 5: API infrastructure for SP1 — request context, AuditService, QueueService, providers module, DbModule (Prisma logs → pino), metrics middleware, type-aware lint, extended test app
 
 **Files:**
-- Modify: `apps/api/src/common/request-context.ts`, `apps/api/src/config/env.ts`, `apps/api/src/app.module.ts`, `apps/api/test/helpers/app.ts`
-- Create: `apps/api/src/audit/{audit.module,audit.service}.ts`, `apps/api/src/queue/{queue.module,queue.service}.ts`, `apps/api/src/providers/providers.module.ts`, `apps/api/test/helpers/factories.ts`
-- Test: `apps/api/src/audit/audit.service.spec.ts`, `apps/api/test/infra.e2e-spec.ts`
+- Modify: `apps/api/src/common/request-context.ts`, `apps/api/src/config/env.ts` (+ `env.spec.ts`), `apps/api/src/app.module.ts`, `apps/api/src/observability/observability.module.ts`, `apps/api/test/helpers/app.ts`, `apps/api/test/observability.e2e-spec.ts`, `packages/config/eslint/nest.mjs`
+- Create: `apps/api/src/audit/{audit.module,audit.service}.ts`, `apps/api/src/queue/{queue.module,queue.service}.ts`, `apps/api/src/providers/providers.module.ts`, `apps/api/src/db/{db.module,prisma-logs}.ts`, `apps/api/src/observability/metrics.middleware.ts`, `apps/api/test/helpers/factories.ts`
+- Delete: `apps/api/src/observability/metrics.interceptor.ts`
+- Test: `apps/api/src/audit/audit.service.spec.ts`, `apps/api/src/db/prisma-logs.spec.ts`, `apps/api/src/config/env.spec.ts`, `apps/api/test/observability.e2e-spec.ts`, `apps/api/test/infra.e2e-spec.ts`
 
 **Interfaces:**
 - Produces:
-  - `RequestContext` store: `{ requestId; ip; userAgent; user?: AuthUser; session?: { id: string; familyId: string }; workspace?: { id; type: WorkspaceType; status: WorkspaceStatus }; membership?: { id; role: MembershipRole; canTeach: boolean; status: MembershipStatus }; permissionScope?: 'all' | 'own' }`; `type AuthUser = Pick<User, 'id' | 'email' | 'status' | 'platformRole' | 'locale' | 'timezone' | 'emailVerifiedAt' | 'phoneVerifiedAt' | 'totpEnabledAt' | 'firstName' | 'lastName'>`.
+  - `RequestStore` (SP0's interface in `request-context.ts`) gains: `user?: AuthUser; session?: { id: string; familyId: string }; workspace?: { id; type: WorkspaceType; status: WorkspaceStatus }; membership?: { id; role: MembershipRole; canTeach: boolean; status: MembershipStatus }; permissionScope?: 'all' | 'own'`; `type AuthUser = Pick<User, 'id' | 'email' | 'status' | 'platformRole' | 'locale' | 'timezone' | 'emailVerifiedAt' | 'phoneVerifiedAt' | 'totpEnabledAt' | 'firstName' | 'lastName'>`. `RequestContext.get()/run()` are unchanged; guards mutate the store returned by `get()`.
+  - `DbModule` (`@Global()`): provides `DB` token = `db` (`GuardedClient` from `@tt/db`); `onModuleInit` calls `onPrismaLog(forwardPrismaLogs(logger))` where `forwardPrismaLogs(logger: PinoLogger): PrismaLogHandler` (`prisma-logs.ts`) maps `warn` → `logger.warn({ target, source: 'prisma' }, message)` and `error` → `logger.error(...)`. Fixes SP0 FIX-LATER "prisma warn/error log events have no default listener".
+  - `MetricsMiddleware` (`NestMiddleware`, applied in `AppModule.configure` to `{*path}` right after `RequestIdMiddleware`): starts `httpRequestDuration` timer and samples on `res.once('close')` with `route = req.route?.path ? req.baseUrl + req.route.path : 'unknown'` resolved **at close time**; replaces `MetricsInterceptor` (removed from `ObservabilityModule`) so rejections before the handler — unknown routes, body parsing, Task 7's guards' 401/403 — are measured.
+  - env: `REDIS_URL: z.url().refine((u) => /^rediss?:$/.test(new URL(u).protocol), 'REDIS_URL must use redis: or rediss:')`.
+  - `packages/config/eslint/nest.mjs` (api + worker only): add `languageOptions: { parserOptions: { projectService: true } }` (each package runs `eslint .` from its own directory, so the project service finds its `tsconfig.json` without `tsconfigRootDir`) and the rules `'@typescript-eslint/no-floating-promises': 'error'`, `'@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }]`; `.mjs`/`.spec.ts` files stay covered by the package tsconfig or are added to `allowDefaultProject`. Both apps must lint clean before the async-heavy services of Tasks 6–17 land.
   - `AuditService.log(entry: { action: AuditAction; entityType: string; entityId?: string; workspaceId?: string; before?: Record<string, unknown>; after?: Record<string, unknown>; actorOverride?: { userId?: string; role: string } }): Promise<void>` — fills `actorUserId`, `actorRole` (`membership.role` if in a workspace, else `platformRole` or `'USER'`, `'SYSTEM'` for jobs), `ip`, `userAgent`, `requestId` from the context; strips keys matching `/hash|secret|password|token/i` from before/after; writes with `db.auditLog.create`; never throws to the caller (logs at error level). `AuditAction` is a string union listed in `audit.service.ts` (the actions named in Tasks 6–17).
-  - `QueueService.add(queue: QueueName, name: string, data: unknown, opts?: JobsOptions): Promise<void>` over `@nestjs/bullmq` queues registered for every `QUEUES` entry; `FakeQueueService` records `{ queue, name, data, opts }` in `jobs[]`.
-  - `ProvidersModule` exporting `EMAIL_PROVIDER` (SMTP from `SMTP_URL`/`EMAIL_FROM`) and `SMS_PROVIDER` (`LogSmsProvider` when `SMS_PROVIDER=log`).
-  - env additions: `JWT_SECRET` (min 32), `TOTP_ENCRYPTION_KEY` (base64, 32 bytes), `SMTP_URL`, `EMAIL_FROM`, `SMS_PROVIDER: z.enum(['log']).default('log')`, `HIBP_ENABLED` (default true), `COOKIE_SECURE` (default `NODE_ENV === 'production'`). `.env.example` updated with dev values (`JWT_SECRET=dev-secret-change-me-dev-secret-change-me`, a generated key for TOTP).
-  - `createTestApp()` now returns `{ app, http, db: PrismaClient /* system */, email: InMemoryEmailProvider, sms: InMemorySmsProvider, queue: FakeQueueService, pwned: FakePwnedClient }` with the four overrides applied by default; `beforeEach` in `test/setup.ts` calls `resetDatabase()` and clears the fakes.
+  - `AuditService.log(entry: { action: AuditAction; entityType: string; entityId?: string; workspaceId?: string; before?: Record<string, unknown>; after?: Record<string, unknown>; actorOverride?: { userId?: string; role: string } }): Promise<void>` — fills `actorUserId`, `actorRole` (`membership.role` if in a workspace, else `platformRole` or `'USER'`, `'SYSTEM'` for jobs), `ip`, `userAgent`, `requestId` from the context; strips keys matching `/hash|secret|password|token/i` from before/after; writes with `db.auditLog.create`; never throws to the caller (logs at error level). `AuditAction` is a string union listed in `audit.service.ts` (the actions named in Tasks 6–17).
+  - `QueueService.add(queue: QueueName, name: string, data: unknown, opts?: JobsOptions): Promise<void>` over `@nestjs/bullmq` queues registered for every `QUEUES` entry with `defaultJobOptions: DEFAULT_JOB_OPTIONS` (from `@tt/contracts`) and the connection parsed from `env.REDIS_URL`; `FakeQueueService` records `{ queue, name, data, opts }` in `jobs[]`.
+  - `ProvidersModule` exporting `EMAIL_PROVIDER` (SMTP from `SMTP_URL`/`EMAIL_FROM`) and `SMS_PROVIDER` (`LogSmsProvider` when `SMS_PROVIDER=console`).
+  - env additions (`EnvSchema`): `JWT_SECRET: z.string().min(32)`, `TOTP_ENCRYPTION_KEY: z.string().refine(b64 decodes to exactly 32 bytes)`, `SMTP_URL: z.url()`, `EMAIL_FROM: z.string().min(3)`, `SMS_PROVIDER: z.enum(['console']).default('console')`, `HIBP_ENABLED: z.stringbool().default(true)`, `COOKIE_SECURE: z.stringbool().default(NODE_ENV === 'production')` (zod 4 `stringbool` parses `'true'/'false'`). All seven are **already listed** in `turbo.json` `test.env`, CI `env` and `.env.example` (dev values: `JWT_SECRET=dev-only-jwt-secret-change-me-0123456789abcdef`, `TOTP_ENCRYPTION_KEY=ZGV2LW9ubHktdG90cC1rZXktMzItYnl0ZXMtbG9uZyE=` = 32 bytes, `SMS_PROVIDER=console`, `HIBP_ENABLED=false`, `COOKIE_SECURE=false`) — do not re-add; extend all three places only if you introduce another variable.
+  - `createTestApp(opts?)` keeps SP0's options (`overrides`, `controllers`) and return fields (`app`, `http`, `logs`) and adds `db: PrismaClient /* systemPrisma() on tt_api_test */, email: InMemoryEmailProvider, sms: InMemorySmsProvider, queue: FakeQueueService, pwned: FakePwnedClient, reset(): Promise<void>` with the four overrides applied by default (`opts.overrides` runs after them and may replace any); `reset()` = `resetDatabase(db)` + `clear()` on `email`/`sms`/`queue`/`pwned`/`logs`. Specs call `beforeEach(() => ctx.reset())`; `test/setup.ts` is unchanged (SP0's specs need no DB reset). `type TestContext = Awaited<ReturnType<typeof createTestApp>>`.
   - Factories (`test/helpers/factories.ts`, write through `systemPrisma()`): `createUser(o?: Partial<{ email; password; firstName; lastName; locale; timezone; emailVerified: boolean; phoneVerified: boolean; platformRole; status; totpSecret }>): Promise<User & { password: string }>` (default verified email, password `'correct horse battery staple'`), `createPersonalWorkspace(owner: User, o?): Promise<Workspace>` (OWNER membership + settings defaults), `createOrganization(o: { owner: User; admins?: User[]; teachers?: User[]; students?: User[]; allowPersonalWorkspaces?: boolean }): Promise<{ workspace: Workspace; memberships: Membership[] }>`, `grantConsents(user, types = ['TERMS','PRIVACY'])`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -299,17 +385,32 @@ it('secret box round-trips and rejects tampering', () => { const b = new SecretB
 ```ts
 // audit.service.spec.ts — AuditService with a mocked db; RequestContext.run({...user, ip:'1.2.3.4', userAgent:'UA', requestId:'r1'}, () => audit.log({ action:'member.role_changed', entityType:'Membership', entityId:m, workspaceId:w, before:{ role:'TEACHER', passwordHash:'x' }, after:{ role:'ADMIN' } }))
 expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ actorUserId: user.id, actorRole: 'OWNER', ip: '1.2.3.4', userAgent: 'UA', requestId: 'r1', before: { role: 'TEACHER' } }) });
+// prisma-logs.spec.ts
+it('forwards prisma warn/error events to pino with source and target', () => {
+  const logger = { warn: vi.fn(), error: vi.fn() }; const h = forwardPrismaLogs(logger as never);
+  h('warn', { message: 'slow query', target: 'quaint::pooled', timestamp: new Date() }); h('error', { message: 'P1001', timestamp: new Date() });
+  expect(logger.warn).toHaveBeenCalledWith({ source: 'prisma', target: 'quaint::pooled' }, 'slow query'); expect(logger.error).toHaveBeenCalledWith({ source: 'prisma', target: undefined }, 'P1001');
+});
+// env.spec.ts (+)
+it('rejects REDIS_URL that is not redis:/rediss:', () => { for (const bad of ['http://localhost:6379', 'postgresql://x']) expect(() => EnvSchema.parse({ ...valid, REDIS_URL: bad })).toThrow(/redis:/); expect(EnvSchema.parse({ ...valid, REDIS_URL: 'rediss://h:6380/2' }).REDIS_URL).toBe('rediss://h:6380/2'); });
+// observability.e2e-spec.ts (+) — a test-only controller mounted via createTestApp({ controllers: [GuardedProbeController] }) whose guard throws new ApiError(401, 'UNAUTHENTICATED', 'nope')
+it('requests rejected by a guard or by routing are measured', async () => {
+  await http.get('/api/v1/__test/guarded').expect(401); await http.get('/api/v1/nope').expect(404);
+  const metrics = (await http.get('/metrics').expect(200)).text;
+  expect(metrics).toMatch(/http_request_duration_seconds_count\{[^}]*route="\/api\/v1\/__test\/guarded"[^}]*status="401"/); expect(metrics).toMatch(/route="unknown"[^}]*status="404"/);
+});
 // infra.e2e-spec.ts
 it('test app boots with fakes and factories create a verified user and an organization', async () => {
   const { email, queue, db } = ctx; const owner = await createUser(); const { workspace, memberships } = await createOrganization({ owner, teachers: [await createUser()], students: [await createUser(), await createUser()] });
   expect(memberships).toHaveLength(4); expect(workspace.type).toBe('ORGANIZATION'); expect(email.sent).toEqual([]); expect(queue.jobs).toEqual([]);
+  expect(new URL(process.env.DATABASE_URL!).pathname).toMatch(/_api_test$/); // per-package / per-worktree DB, never tt
 });
 ```
 
 - [ ] **Step 2: Run to verify failure** — `pnpm --filter @tt/api test` — Expected: FAIL.
-- [ ] **Step 3: Implement** — `AuditModule`, `QueueModule`, `ProvidersModule` are `@Global()`.
-- [ ] **Step 4: Run to verify pass** — Expected: PASS (SP0 tests still green).
-- [ ] **Step 5: Commit** — `git add apps/api .env.example && git commit -m "feat(api): request context, audit service, queue service, providers module and test factories"`
+- [ ] **Step 3: Implement** — `AuditModule`, `QueueModule`, `ProvidersModule`, `DbModule` are `@Global()`; delete `metrics.interceptor.ts`; add the two lint rules and fix every finding in `apps/api` and `apps/worker` (expected: a handful of un-awaited `app.close()`/`logger.flush()` calls in specs — fix them with `await` or `void`, never by disabling the rule).
+- [ ] **Step 4: Run to verify pass** — `pnpm turbo run lint typecheck test --filter=@tt/api --filter=@tt/worker --filter=@tt/config --concurrency=2` — Expected: PASS (SP0 tests still green; lint clean under the type-aware rules).
+- [ ] **Step 5: Commit** — `git add apps/api apps/worker packages/config && git commit -m "feat(api): request context, audit service, queue service, providers module, prisma logs to pino, metrics middleware, type-aware lint and test factories"`
 
 ---
 
@@ -370,7 +471,7 @@ it('verify-email marks the user verified once; second use and expired tokens are
 });
 ```
 
-- [ ] **Step 2: Run to verify failure** — `pnpm --filter @tt/api test -- register` — Expected: FAIL.
+- [ ] **Step 2: Run to verify failure** — `pnpm --filter @tt/api exec vitest run test/auth/register` — Expected: FAIL.
 - [ ] **Step 3: Implement** — `AuthModule` imports `AuditModule`, `ProvidersModule`; the password policy uses `HibpClient` when `HIBP_ENABLED` else `FakePwnedClient([])` (tests inject their own).
 - [ ] **Step 4: Run to verify pass** — Expected: PASS.
 - [ ] **Step 5: Commit** — `git commit -am "feat(auth): teacher registration with personal workspace, consents and email verification"`
@@ -390,7 +491,7 @@ it('verify-email marks the user verified once; second use and expired tokens are
   - `SessionService.createSession(user: User, meta: { ip; userAgent; remember: boolean }): Promise<{ session: UserSession; accessToken: string; refreshToken: string }>` — refresh token = `${session.id}.${raw}` stored as `refreshTokenHash = sha256(raw)`, `familyId = session.id`, `deviceLabel` derived from the user-agent (browser + OS), `expiresAt = now + 30 d`; `rotate(refreshToken, meta): Promise<same | 'REUSE'>` — looks up by `sid`; hash match → new raw + hash, `lastSeenAt`; mismatch or revoked → revoke the whole family, email `security.token_reuse`, audit `auth.refresh_reuse_detected`, return `'REUSE'`; `revoke(sessionId)`, `revokeAll(userId, except?: sessionId)`; `listActive(userId): Promise<SessionSummary[]>` (`{ id, deviceLabel, ip, createdAt, lastSeenAt, current: boolean }`).
   - `AuthService.login({ email, password, remember }, meta): Promise<{ status: 'OK'; user; tokens } | { status: 'TWO_FACTOR_REQUIRED'; challengeToken: string }>` — unknown email or bad password → `401 INVALID_CREDENTIALS` (same timing: always run argon2 verify against a dummy hash when the user is missing); suspended → `403 ACCOUNT_SUSPENDED`; audits `auth.login` / `auth.login_failed` (entityId = user id if known, else `email` sha256 in `after`); new device (no non-revoked session with the same `deviceLabel`) → email `security.new_device`; sets `lastLoginAt`. The 2FA branch is wired in Task 10 (Task 7 returns `'OK'` always).
   - Cookies: `tt_access` (path `/`, maxAge 15 min) and `tt_refresh` (path `/api/v1/auth`, maxAge 30 d when `remember`, session cookie otherwise), both `httpOnly`, `sameSite: 'lax'`, `secure: env.COOKIE_SECURE`. `Authorization: Bearer <access>` is accepted too.
-  - `JwtAuthGuard` (global; skipped by `@Public()`): reads cookie or bearer, verifies `typ: 'access'`, loads `UserSession` (must be unrevoked and unexpired) **and** `User` in one query, puts `user`/`session` in `RequestContext`; failures → `401 UNAUTHENTICATED` / `401 SESSION_REVOKED`.
+  - `JwtAuthGuard` (global; skipped by `@Public()`): reads cookie or bearer, verifies `typ: 'access'`, loads `UserSession` (must be unrevoked and unexpired) **and** `User` in one query, puts `user`/`session` in `RequestContext`; failures → `throw new ApiError(401, 'UNAUTHENTICATED', …)` / `new ApiError(401, 'SESSION_REVOKED', …)` (a bare `UnauthorizedException` would lose the `SESSION_REVOKED` code — the filter maps by status). Same rule for every 403 below (`ACCOUNT_SUSPENDED`, `EMAIL_NOT_VERIFIED`, `CONSENT_REQUIRED`, `TWO_FACTOR_SETUP_REQUIRED`). Guard rejections are visible in `/metrics` through Task 5's middleware.
   - `AccountGatesGuard` (global; skipped by `@Public()` and `@AllowUnverified()`), in order: `user.status === 'SUSPENDED'` → `403 ACCOUNT_SUSPENDED`; `emailVerifiedAt == null` → `403 EMAIL_NOT_VERIFIED`; pending consents (Task 11) → `403 CONSENT_REQUIRED` with `details.pending`; 2FA setup required (Task 10) → `403 TWO_FACTOR_SETUP_REQUIRED`. Tasks 10/11 plug their checks into this guard.
   - Endpoints: `POST /auth/login { email, password, remember? }` (public) → `200 { status: 'OK', user }` + cookies; `POST /auth/refresh` (public, reads `tt_refresh`) → `200` + new cookies, `401 SESSION_REVOKED` on reuse; `POST /auth/logout` (`@AllowUnverified`) → revokes current session, clears cookies; `GET /auth/sessions` → `SessionSummary[]`; `DELETE /auth/sessions/{id}`; `DELETE /auth/sessions` (all, including current → clears cookies; audit `auth.sessions_revoked`).
   - Test helper `loginAs(ctx, user, opts?: { remember?: boolean }): Promise<{ cookie: string; sessionId: string; accessToken: string }>` (creates a session directly through `SessionService`, returns a `Cookie` header value) and `as(http, cookie)` returning an agent with the cookie preset.
@@ -449,12 +550,12 @@ it('a 2fa-typed token is rejected as access token (401)', ...); // sign with Jwt
 - Test: `apps/api/src/auth/login-throttle.service.spec.ts`, `apps/api/test/auth/throttle.e2e-spec.ts`
 
 **Interfaces:**
-- Produces: `LoginThrottleService` (Redis): `check(email, ip): Promise<{ allowed: true } | { allowed: false; code: 'RATE_LIMITED' | 'ACCOUNT_LOCKED'; retryAfterS: number }>`, `recordFailure(email, ip, user?: User): Promise<void>`, `reset(email, ip)`. Keys: `login:fail:{sha256(email)}:{ip}` (window 60 s; from the 6th attempt `retryAfterS = min(60, 2 ** (n - 5))`), `login:fail:{sha256(email)}` (window 15 min; at 10 → `login:lock:{sha256(email)}` TTL 15 min, email `security.account_locked { minutes: 15 }` once, audit `auth.account_locked`). `AuthService.login` calls `check` first → `429` with the code, `details: { retryAfterS }` and `Retry-After` header. `RateLimitModule`: `@nestjs/throttler` with Redis storage, two named throttlers — `user` (600/60 s, tracker = user id, applies when authenticated) and `anon` (60/60 s, tracker = client ip, applies when not) — excluded on `/health/*` and `/metrics`; exceeding → `429 RATE_LIMITED`.
+- Produces: `LoginThrottleService` (injects SP0's `REDIS` ioredis token from `apps/api/src/redis/redis.module.ts`): `check(email, ip): Promise<{ allowed: true } | { allowed: false; code: 'RATE_LIMITED' | 'ACCOUNT_LOCKED'; retryAfterS: number }>`, `recordFailure(email, ip, user?: User): Promise<void>`, `reset(email, ip)`. Keys: `login:fail:{sha256(email)}:{ip}` (window 60 s; from the 6th attempt `retryAfterS = min(60, 2 ** (n - 5))`), `login:fail:{sha256(email)}` (window 15 min; at 10 → `login:lock:{sha256(email)}` TTL 15 min, email `security.account_locked { minutes: 15 }` once, audit `auth.account_locked`). `AuthService.login` calls `check` first → `429` with the code, `details: { retryAfterS }` and `Retry-After` header. `RateLimitModule`: `@nestjs/throttler` with Redis storage, two named throttlers — `user` (600/60 s, tracker = user id, applies when authenticated) and `anon` (60/60 s, tracker = client ip, applies when not) — excluded on `/health/*` and `/metrics`; exceeding → `429 RATE_LIMITED`.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
-// login-throttle.service.spec.ts (ioredis against the dev Redis, keys prefixed per test)
+// login-throttle.service.spec.ts (ioredis on process.env.REDIS_URL — the package's test index set by applyTestEnv('api'), never DB 0 — keys prefixed per test and flushed in afterEach)
 it('allows 5 failures per minute then backs off exponentially', async () => {
   for (let i = 0; i < 5; i++) await t.recordFailure('a@x.io', '1.1.1.1');
   expect(await t.check('a@x.io', '1.1.1.1')).toEqual({ allowed: false, code: 'RATE_LIMITED', retryAfterS: 1 });
@@ -477,7 +578,7 @@ it('anonymous ip is limited to 60 requests per minute (61st → 429 RATE_LIMITED
 ```
 
 - [ ] **Step 2: Run to verify failure** — Expected: FAIL.
-- [ ] **Step 3: Implement** — use Redis `MULTI` with `INCR` + `EXPIRE NX`; Nest `trust proxy` already set in SP0 so `X-Forwarded-For` is honoured in tests.
+- [ ] **Step 3: Implement** — use Redis `MULTI` with `INCR` + `EXPIRE NX`; `app.set('trust proxy', env.TRUST_PROXY_HOPS)` (default 1) is already in `configureApp`, so the rightmost `X-Forwarded-For` entry is `req.ip` in tests. Both throttlers throw `new ApiError(429, 'RATE_LIMITED' | 'ACCOUNT_LOCKED', …, { retryAfterS })` and set `Retry-After`.
 - [ ] **Step 4: Run to verify pass** — Expected: PASS.
 - [ ] **Step 5: Commit** — `git commit -am "feat(auth): login throttling with exponential backoff, 15-minute lockout and global rate limits"`
 
@@ -543,9 +644,9 @@ it('email change requires both confirmations; email updates only after the secon
 **Interfaces:**
 - Produces:
   - `requiresTwoFactor(user: { id; platformRole }): Promise<boolean>` — true if `SUPER_ADMIN` or `crossTenantDb().membership.findFirst({ where: { userId, status: 'ACTIVE', role: { in: ['OWNER','ADMIN'] }, workspace: { type: 'ORGANIZATION' } } })` exists. `AccountGatesGuard` step 4: required and `totpEnabledAt == null` → `403 TWO_FACTOR_SETUP_REQUIRED` (routes tagged `@AllowUnverified()` are exempt: `/auth/2fa/*`, `/auth/logout`, `GET /me`).
-  - `TwoFactorService`: `beginSetup(user): Promise<{ secret: string; otpauthUrl: string }>` (otplib secret, issuer `Plateforme cours`, label = email; stores `totpSecretEnc = secretBox.seal(secret)`, keeps `totpEnabledAt` null; `409 TWO_FACTOR_ALREADY_ENABLED` if enabled); `confirmSetup(user, code): Promise<{ recoveryCodes: string[] }>` (window ±1; sets `totpEnabledAt`, 10 codes `xxxxx-xxxxx` from base32 alphabet stored as argon2 hashes; email `security.2fa_enabled`; audit `auth.2fa_enabled`); `verifyLogin(challengeToken, code)` / `verifyRecovery(challengeToken, recoveryCode)` → both validate the challenge (`typ: '2fa'`, `jti` unused → mark used in Redis `2fa:used:{jti}` TTL 5 min), bad code → `401 TWO_FACTOR_INVALID` (counts as a login failure in `LoginThrottleService`), success → `SessionService.createSession`; recovery consumes the matched hash, emails `security.recovery_code_used { remaining }`; `disable(user, code)` → `403 TWO_FACTOR_MANDATORY` when `requiresTwoFactor`, else clears secret + codes, email `security.2fa_disabled`, audit.
+  - `TwoFactorService`: `beginSetup(user): Promise<{ secret: string; otpauthUrl: string }>` (otplib secret, issuer `Plateforme cours`, label = email; stores `totpSecretEnc = secretBox.seal(secret)`, keeps `totpEnabledAt` null; `409 TWO_FACTOR_ALREADY_ENABLED` if enabled); `confirmSetup(user, otpCode): Promise<{ recoveryCodes: string[] }>` (window ±1; sets `totpEnabledAt`, 10 codes `xxxxx-xxxxx` from base32 alphabet stored as argon2 hashes; email `security.2fa_enabled`; audit `auth.2fa_enabled`); `verifyLogin(challengeToken, otpCode)` / `verifyRecovery(challengeToken, recoveryCode)` → both validate the challenge (`typ: '2fa'`, `jti` unused → mark used in Redis `2fa:used:{jti}` TTL 5 min), bad code → `401 TWO_FACTOR_INVALID` (counts as a login failure in `LoginThrottleService`), success → `SessionService.createSession`; recovery consumes the matched hash, emails `security.recovery_code_used { remaining }`; `disable(user, otpCode)` → `403 TWO_FACTOR_MANDATORY` when `requiresTwoFactor`, else clears secret + codes, email `security.2fa_disabled`, audit.
   - `AuthService.login` now returns `{ status: 'TWO_FACTOR_REQUIRED', challengeToken }` (no cookies) when `totpEnabledAt` is set.
-  - Endpoints (all `@AllowUnverified()`; `verify`/`recovery` additionally `@Public()` when a `challengeToken` is in the body): `POST /auth/2fa/setup` → `{ secret, otpauthUrl }`; `POST /auth/2fa/verify { code }` (authenticated, pending) → `{ recoveryCodes }`; `POST /auth/2fa/verify { challengeToken, code, remember? }` → `200 { status: 'OK', user }` + cookies; `POST /auth/2fa/recovery { challengeToken, recoveryCode, remember? }` → same; `POST /auth/2fa/disable { code }` → `204`.
+  - Endpoints (all `@AllowUnverified()`; `verify`/`recovery` additionally `@Public()` when a `challengeToken` is in the body): `POST /auth/2fa/setup` → `{ secret, otpauthUrl }`; `POST /auth/2fa/verify { otpCode }` (authenticated, pending) → `{ recoveryCodes }`; `POST /auth/2fa/verify { challengeToken, otpCode, remember? }` → `200 { status: 'OK', user }` + cookies; `POST /auth/2fa/recovery { challengeToken, recoveryCode, remember? }` → same; `POST /auth/2fa/disable { otpCode }` → `204`. (Field names per the Global Constraints redaction rule — `code` is never a request field.)
   - `MeUser` gains `twoFactor: { enabled: boolean; required: boolean }` (Task 11 serialises it).
 
 - [ ] **Step 1: Write the failing tests**
@@ -555,11 +656,11 @@ it('email change requires both confirmations; email updates only after the secon
 it('setup → verify enables TOTP, returns 10 recovery codes once, then login requires a challenge', async () => {
   const u = await createUser(); const s = await loginAs(ctx, u);
   const { secret } = (await as(http, s.cookie).post('/api/v1/auth/2fa/setup').expect(200)).body;
-  const { recoveryCodes } = (await as(http, s.cookie).post('/api/v1/auth/2fa/verify').send({ code: authenticator.generate(secret) }).expect(200)).body;
+  const { recoveryCodes } = (await as(http, s.cookie).post('/api/v1/auth/2fa/verify').send({ otpCode: authenticator.generate(secret) }).expect(200)).body;
   expect(recoveryCodes).toHaveLength(10); expect(recoveryCodes[0]).toMatch(/^[a-z2-7]{5}-[a-z2-7]{5}$/);
   const login = await http.post('/api/v1/auth/login').send({ email: u.email, password: u.password }).expect(200);
   expect(login.body.status).toBe('TWO_FACTOR_REQUIRED'); expect(login.headers['set-cookie']).toBeUndefined();
-  const ok = await http.post('/api/v1/auth/2fa/verify').send({ challengeToken: login.body.challengeToken, code: authenticator.generate(secret) }).expect(200);
+  const ok = await http.post('/api/v1/auth/2fa/verify').send({ challengeToken: login.body.challengeToken, otpCode: authenticator.generate(secret) }).expect(200);
   expect(ok.headers['set-cookie'].join()).toMatch(/tt_access=/);
 });
 it('challenge token cannot be used as access token, cannot be replayed, and recovery codes are single-use', async () => {
@@ -571,9 +672,9 @@ it('AC-AUTH-05: an ADMIN of an organisation without 2FA is blocked everywhere ex
   await as(http, s.cookie).get(`/api/v1/workspaces/${workspace.id}`).expect(403).expect(({ body }) => expect(body.code).toBe('TWO_FACTOR_SETUP_REQUIRED'));
   await as(http, s.cookie).get('/api/v1/me').expect(200).expect(({ body }) => expect(body.twoFactor).toEqual({ enabled: false, required: true }));
   const { secret } = (await as(http, s.cookie).post('/api/v1/auth/2fa/setup').expect(200)).body;
-  await as(http, s.cookie).post('/api/v1/auth/2fa/verify').send({ code: authenticator.generate(secret) }).expect(200);
+  await as(http, s.cookie).post('/api/v1/auth/2fa/verify').send({ otpCode: authenticator.generate(secret) }).expect(200);
   await as(http, s.cookie).get(`/api/v1/workspaces/${workspace.id}`).expect(200);
-  await as(http, s.cookie).post('/api/v1/auth/2fa/disable').send({ code: authenticator.generate(secret) }).expect(403).expect(({ body }) => expect(body.code).toBe('TWO_FACTOR_MANDATORY'));
+  await as(http, s.cookie).post('/api/v1/auth/2fa/disable').send({ otpCode: authenticator.generate(secret) }).expect(403).expect(({ body }) => expect(body.code).toBe('TWO_FACTOR_MANDATORY'));
 });
 it('a personal-workspace teacher may enable and later disable 2FA', ...);
 // two-factor.policy.spec.ts: SUPER_ADMIN → true; PERSONAL OWNER → false; ORGANIZATION TEACHER → false; ORGANIZATION ADMIN → true; REMOVED admin membership → false
@@ -647,8 +748,8 @@ it('revoking TERMS is 422 CONSENT_NOT_REVOCABLE; MARKETING can be granted then r
 
 **Interfaces:**
 - Produces:
-  - `POST /me/phone/request-otp { phoneE164 }` → validates with `libphonenumber-js` (`isValidPhoneNumber`, E.164 output), creates `PhoneOtp` (6 digits, `codeHash = argon2`, 10 min, replaces any pending), sends via `SMS_PROVIDER` `phone.otp` with `{ code }`; when `NODE_ENV !== 'production'` also emails `phone.otp_dev { code }` to the user (so Mailpit-driven e2e can read it — planner ruling, see spec gaps); 1 request/min/user → `429 RATE_LIMITED`; `202 {}`.
-  - `POST /me/phone/verify-otp { code }` → `attempts++`, > 5 → `410 OTP_EXPIRED`; expired → `410 OTP_EXPIRED`; mismatch → `422 OTP_INVALID`; success → `phoneE164`, `phoneVerifiedAt = now`, delete the OTP, audit `phone.verified`, `200 MeUser`. Changing the phone later = same flow (new OTP; `phoneVerifiedAt` reset only on success).
+  - `POST /me/phone/request-otp { phoneE164 }` → validates with `libphonenumber-js` (`isValidPhoneNumber`, E.164 output), creates `PhoneOtp` (6 digits, `codeHash = argon2`, 10 min, replaces any pending), sends via `SMS_PROVIDER` `phone.otp` with `{ otpCode }`; when `NODE_ENV !== 'production'` also emails `phone.otp_dev { otpCode }` to the user (so Mailpit-driven e2e can read it — planner ruling, see spec gaps); 1 request/min/user → `429 RATE_LIMITED`; `202 {}`.
+  - `POST /me/phone/verify-otp { otpCode }` → `attempts++`, > 5 → `410 OTP_EXPIRED`; expired → `410 OTP_EXPIRED`; mismatch → `422 OTP_INVALID`; success → `phoneE164`, `phoneVerifiedAt = now`, delete the OTP, audit `phone.verified`, `200 MeUser`. Changing the phone later = same flow (new OTP; `phoneVerifiedAt` reset only on success).
   - `VerificationService.status(user): Promise<{ emailVerified: boolean; phoneVerified: boolean; codeOfConductAccepted: boolean; missing: ('EMAIL' | 'PHONE' | 'CODE_OF_CONDUCT')[] }>` (CoC accepted = unrevoked consent at the current `CONSENT_VERSIONS.CODE_OF_CONDUCT`); `GET /me/verification` returns it.
   - `TeacherVerifiedGuard` + `@RequireVerifiedTeacher()`: when `missing.length > 0` → `403 TEACHER_NOT_VERIFIED` with `details: { missing }`. SP2 (`POST …/invitations`, `…/invite-links`), SP3 (`POST …/courses/{cid}/publish`) and SP6 (`POST …/room/open`) **must** decorate those routes with it; this plan applies it to nothing in production code and tests it on a test-only controller route `POST /api/v1/__test/teacher-only`.
 
@@ -659,9 +760,9 @@ it('revoking TERMS is 422 CONSENT_NOT_REVOCABLE; MARKETING can be granted then r
 it('request → verify sets phoneVerifiedAt; wrong code, expiry and 6th attempt are rejected', async () => {
   const u = await createUser(); const s = await loginAs(ctx, u);
   await as(http, s.cookie).post('/api/v1/me/phone/request-otp').send({ phoneE164: '+21655123456' }).expect(202);
-  const code = sms.last('+21655123456')!.params.code; expect(code).toMatch(/^\d{6}$/); expect(email.findByTemplate('phone.otp_dev', u.email)?.params.code).toBe(code);
-  await as(http, s.cookie).post('/api/v1/me/phone/verify-otp').send({ code: '000000' }).expect(422).expect(({ body }) => expect(body.code).toBe('OTP_INVALID'));
-  await as(http, s.cookie).post('/api/v1/me/phone/verify-otp').send({ code }).expect(200).expect(({ body }) => expect(body.phoneE164).toBe('+21655123456'));
+  const otpCode = sms.last('+21655123456')!.params.otpCode; expect(otpCode).toMatch(/^\d{6}$/); expect(email.findByTemplate('phone.otp_dev', u.email)?.params.otpCode).toBe(otpCode);
+  await as(http, s.cookie).post('/api/v1/me/phone/verify-otp').send({ otpCode: '000000' }).expect(422).expect(({ body }) => expect(body.code).toBe('OTP_INVALID'));
+  await as(http, s.cookie).post('/api/v1/me/phone/verify-otp').send({ otpCode }).expect(200).expect(({ body }) => expect(body.phoneE164).toBe('+21655123456'));
   expect((await db.user.findUniqueOrThrow({ where: { id: u.id } })).phoneVerifiedAt).toBeInstanceOf(Date);
 });
 it('rejects a non-E.164 or invalid number with 422 and a second request within a minute with 429', ...);
@@ -692,7 +793,7 @@ it('AC-SAFE-01 (guard): missing steps are listed; after OTP + code of conduct th
 **Interfaces:**
 - Produces:
   - `@tt/contracts`: `type Permission` — the §7 capability list as dotted keys: `workspace.settings.update`, `workspace.staff.manage`, `workspace.delete`, `workspace.transfer`, `workspace.audit.read`, `workspace.members.read`, `student.invite`, `student.assign`, `student.read`, `student.update`, `student.remove`, `abuse.report`, `abuse.handle`, `course.create`, `course.manage`, `course.delete`, `course.media.manage`, `enrollment.manage`, `course.reassign`, `course.read`, `pdf.download`, `progress.read`, `session.manage`, `room.open`, `room.join`, `room.moderate`, `calendar.read`, `session.history.read`, `attendance.read`, `attendance.override`, `report.write`, `report.read`, `report.private_notes.read`, `message.direct`, `dashboard.teacher`, `account.export`, `account.delete`. `type Grant = 'all' | 'own' | 'none'` (✅/👁 → `all`, 🔒 → `own`, ❌ → `none`; P1 cells → `none`). `MATRIX: Record<Permission, Record<'ADMIN' | 'TEACHER' | 'ASSISTANT' | 'STUDENT' | 'GUARDIAN', Grant>>` transcribed from §7 (the `OWNER/ADMIN (org)` column is `ADMIN`); `OWNER_ONLY: Permission[] = ['workspace.delete', 'workspace.transfer']`; `PERSONAL_OWNER_OVERRIDES` for the cells where §7 says "(espace personnel)": `workspace.settings.update: 'all'`, `workspace.audit.read: 'all'`, `student.remove: 'all'`, and `abuse.handle: 'none'` (a personal owner never instructs reports about himself). `grantFor(ctx: { role: MembershipRole; canTeach: boolean; workspaceType: WorkspaceType }, p: Permission): Grant` — rules: PERSONAL OWNER = max(TEACHER column, overrides); ORGANIZATION OWNER = ADMIN column plus `OWNER_ONLY`; ADMIN with `canTeach` = max(ADMIN, TEACHER) per cell; `course.create` and `dashboard.teacher` are `none` for ADMIN without `canTeach` (AC-WS-03); `max` orders `all > own > none`.
-  - `WorkspaceContextGuard` (global, only when the route has a `:wid` param): loads the workspace (`db.workspace`), then the membership with `tenantDb(wid)`; workspace missing, membership missing, or status `REMOVED`/`REJECTED`, or caller is `SUPER_ADMIN` without membership → `404 NOT_FOUND`; when the workspace exists and the caller is not an active member → audit `auth.forbidden_workspace` (`workspaceId`, actor) before the 404; membership in another non-ACTIVE status → `403 MEMBERSHIP_INACTIVE` `details: { status }`; workspace `SUSPENDED` or `DELETING` and method not in `GET/HEAD/OPTIONS` → `423 WORKSPACE_SUSPENDED` `details: { reason }`; otherwise stores `workspace` + `membership` in `RequestContext`.
+  - `WorkspaceContextGuard` (global, only when the route has a `:wid` param): loads the workspace (`db.workspace`), then the membership with `tenantDb(wid)`; workspace missing, membership missing, or status `REMOVED`/`REJECTED`, or caller is `SUPER_ADMIN` without membership → `404 NOT_FOUND` (`new ApiError(404, 'NOT_FOUND', 'Not found')` — the generic code is the intended one here); when the workspace exists and the caller is not an active member → audit `auth.forbidden_workspace` (`workspaceId`, actor) before the 404; membership in another non-ACTIVE status → `ApiError(403, 'MEMBERSHIP_INACTIVE', …, { status })`; workspace `SUSPENDED` or `DELETING` and method not in `GET/HEAD/OPTIONS` → `ApiError(423, 'WORKSPACE_SUSPENDED', …, { reason })` (423 is not in the filter's status map, so only `ApiError` yields this code); otherwise stores `workspace` + `membership` in `RequestContext`.
   - `PermissionGuard` with `@RequirePermission(p)`: `grantFor(...)` → `none` → `403 PERMISSION_DENIED`; `own` → `RequestContext.permissionScope = 'own'`; services call `assertOwn(ownerUserId)` (throws `403 PERMISSION_DENIED`) when scope is `own`.
   - Test-only controller `TenancyProbeController` under `/api/v1/workspaces/:wid/__probe` with `GET /` (`workspace.members.read`), `POST /` (`workspace.settings.update`), `POST /course` (`course.create`) — registered only by `createTestApp`.
 
@@ -870,8 +971,8 @@ it('entityType MESSAGE without a registered snapshotter is 422 ENTITY_TYPE_UNSUP
 ```
 
 - [ ] **Step 2: Run to verify failure** — Expected: FAIL.
-- [ ] **Step 3: Implement** (worker gets an `InMemoryEmailProvider` override in its test context the same way as the API).
-- [ ] **Step 4: Run to verify pass** — `pnpm --filter @tt/api test && pnpm --filter @tt/worker test` — Expected: PASS.
+- [ ] **Step 3: Implement** — the processor registers in `onModuleInit` through `ProcessorRegistry.registerProcessor(QUEUES.compliance, 'abuse.minor_safety_reminder', handler)` (SP0 pattern, `processors/ping.processor.ts`); the worker test boots `WorkerModule` with the `EMAIL_PROVIDER` token overridden by `InMemoryEmailProvider`, uses `systemPrisma()` on `tt_worker_test` and `obliterateAllQueues()` from `test/redis.ts` in `beforeEach`.
+- [ ] **Step 4: Run to verify pass** — `pnpm turbo run test --filter=@tt/api --filter=@tt/worker --concurrency=2` — Expected: PASS.
 - [ ] **Step 5: Commit** — `git commit -am "feat(abuse): abuse reports with frozen snapshots, admin queues, minor-safety escalation and 24h reminder job"`
 
 ---
@@ -931,7 +1032,7 @@ it('cannot suspend a super-admin (409); quota below usage is 422; /admin/health 
 - [ ] **Step 1: Write the failing spec** (as described; parametrised with `it.each`).
 - [ ] **Step 2: Run to verify failure** — Expected: FAIL until `listRoutes` exists; any route answering other than 404 is a bug to fix in its task's code, not an exemption.
 - [ ] **Step 3: Implement `listRoutes`** (walk `app.getHttpAdapter().getInstance()._router.stack` on Express 5 / use `app.getHttpServer()._events` fallback; keep method + path).
-- [ ] **Step 4: Run to verify pass** — `pnpm --filter @tt/api test -- isolation` — Expected: every route 404 in both cases.
+- [ ] **Step 4: Run to verify pass** — `pnpm --filter @tt/api exec vitest run test/isolation` — Expected: every route 404 in both cases.
 - [ ] **Step 5: Commit** — `git commit -am "test(api): generic tenant isolation suite over every workspace route"`
 
 ---
@@ -940,16 +1041,27 @@ it('cannot suspend a super-admin (409); quota below usage is 422; /admin/health 
 
 **Files:**
 - Create: `apps/web/src/lib/{session,auth-redirects}.ts`, `apps/web/src/components/{form,consent-gate,suspended-banner}.tsx`, `apps/web/src/app/[locale]/(auth)/layout.tsx`, `…/(auth)/{register,login,verify-email,forgot-password,reset-password,2fa,2fa/setup}/page.tsx`, `apps/web/src/app/[locale]/(app)/layout.tsx`, `…/(app)/app/page.tsx`, `apps/web/e2e/helpers/{mailpit,totp}.ts`, `apps/web/e2e/auth.spec.ts`
-- Modify: `apps/web/src/lib/api.ts` (error → translated message helper `apiErrorMessage(t, body)`), `packages/i18n/messages/*.json` (namespaces `auth`, `errors`), `apps/web/src/proxy.ts` (set `NEXT_LOCALE` from the `tt_locale` cookie that the login/register pages set to `user.locale`)
+- Modify: `apps/web/src/lib/api.ts` (error → translated message helper `apiErrorMessage(t, body)`), `packages/i18n/messages/*.json` (namespaces `auth`, `errors`; `nav.skipToContent`, `nav.primary`), `apps/web/src/proxy.ts` (set `NEXT_LOCALE` from the `tt_locale` cookie that the login/register pages set to `user.locale`), `packages/ui/src/app-shell.tsx` (+ `app-shell.test.tsx`; SP0 FIX-LATER a11y)
 
 **Interfaces:**
 - Produces:
-  - `getSession(): Promise<MeUser | null>` (server; `serverApi().GET('/me')`, null on 401); `(app)/layout.tsx` redirects: no session → `/{locale}/login?next=`, `emailVerifiedAt == null` → `/{locale}/verify-email`, `twoFactor.required && !enabled` → `/{locale}/2fa/setup`; `pendingConsents.length > 0` → renders `<ConsentGate>` modal (blocking, lists the versions to accept, calls `POST /me/consents/{type}` for each, then refreshes); `status === 'SUSPENDED'` is unreachable (API 401s) → login page shows `errors.ACCOUNT_SUSPENDED`.
+  - `AppShellProps` gains `labels: { skipToContent: string; primaryNav: string }` (already-translated, like `nav[].label`); the shell renders, as its first child, `<a href="#main" className="sr-only focus:not-sr-only …">{labels.skipToContent}</a>`, then `<nav aria-label={labels.primaryNav}>`, and `<main id="main" tabIndex={-1}>`. French copy: `nav.skipToContent = "Aller au contenu"`, `nav.primary = "Navigation principale"`. The `(app)/layout.tsx` and SP0's `[locale]/page.tsx` pass the labels.
+  - `getSession(): Promise<MeUser | null>` (server; `(await serverApi()).GET('/me')` — `serverApi()` is async and already forwards the cookie —, null on 401); `(app)/layout.tsx` redirects: no session → `/{locale}/login?next=`, `emailVerifiedAt == null` → `/{locale}/verify-email`, `twoFactor.required && !enabled` → `/{locale}/2fa/setup`; `pendingConsents.length > 0` → renders `<ConsentGate>` modal (blocking, lists the versions to accept, calls `POST /me/consents/{type}` for each, then refreshes); `status === 'SUSPENDED'` is unreachable (API 401s) → login page shows `errors.ACCOUNT_SUSPENDED`.
   - Pages (French copy from PRD): register with fields *Prénom, Nom, Email, Mot de passe, Langue* (pre-filled from the locale), *Fuseau horaire* (pre-filled from `Intl.DateTimeFormat().resolvedOptions().timeZone`, select with `Africa/Tunis`, `Africa/Algiers`, `Africa/Casablanca`, `Europe/Paris` on top then the IANA list — PRD §8.7.5), checkbox *J'accepte les CGU et la politique de confidentialité*; verify-email page: with `?token` calls `verify-email` then shows *Email vérifié* + link to the app; without token shows *Vérifiez votre email* and a *Renvoyer le lien* button; login with *Se souvenir de cet appareil* checkbox; on `TWO_FACTOR_REQUIRED` → `/2fa` page (6-digit code, link *Utiliser un code de secours*); `/2fa/setup`: QR (`qrcode` to data URL from `otpauthUrl`), secret in text, code input, then the 10 recovery codes with *Télécharger* (`.txt`) and a mandatory *J'ai enregistré mes codes* checkbox before *Continuer*; forgot: *Si un compte existe, un email a été envoyé* always; reset: new password, on `TOKEN_INVALID` → *Lien expiré* with a link to request a new one (AC-AUTH-06).
   - Error display: every API error code maps to `errors.<code>` (fallback `errors.INTERNAL_ERROR`); zod `details.issues` map to field errors; all form components from `@tt/ui` (`Field`, `TextInput`, `Select`, `Checkbox`, `Alert` added to `@tt/ui` here).
   - e2e helpers: `waitForEmail(to, templateHint): Promise<{ html: string; text: string; subject: string }>` polling Mailpit's API (`/api/v1/search?query=to:<to>`, then `/api/v1/message/<ID>`), `extractLink(html, pathContains)`, `totpCode(secret)` via otplib.
 
-- [ ] **Step 1: Write the failing e2e tests**
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+// packages/ui/src/app-shell.test.tsx (+, @testing-library/react + jsdom already configured in @tt/ui)
+it('exposes a named navigation landmark and a skip link to #main', () => {
+  render(<AppShell locale="fr" dir="ltr" nav={[]} labels={{ skipToContent: 'Aller au contenu', primaryNav: 'Navigation principale' }}>x</AppShell>);
+  expect(screen.getByRole('navigation', { name: 'Navigation principale' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Aller au contenu' })).toHaveAttribute('href', '#main');
+  expect(screen.getByRole('main')).toHaveAttribute('id', 'main');
+});
+```
 
 ```ts
 // apps/web/e2e/auth.spec.ts  (runs for projects chromium-fr and chromium-ar; locale from project metadata)
@@ -971,9 +1083,9 @@ test('forgot/reset: expired link shows "Lien expiré" and a request-new link', .
 test('consent gate blocks the app after a version bump until accepted', ...); // start the API for this test with CONSENT_VERSIONS override via env TEST_CONSENT_TERMS_VERSION read only when NODE_ENV!=='production'
 ```
 
-- [ ] **Step 2: Run to verify failure** — `pnpm --filter @tt/web e2e -- auth` — Expected: FAIL (pages missing).
-- [ ] **Step 3: Implement the pages, components and the two e2e projects** (`playwright.config.ts`: projects `chromium-fr`, `chromium-ar`, `mobile-fr` with `use.locale`; `webServer` additionally starts `pnpm --filter @tt/api dev` and `pnpm --filter @tt/worker dev`).
-- [ ] **Step 4: Run to verify pass** — Expected: PASS in fr and ar.
+- [ ] **Step 2: Run to verify failure** — `pnpm --filter @tt/ui test && pnpm --filter @tt/web exec playwright test auth` — Expected: FAIL (`labels` prop missing; pages missing).
+- [ ] **Step 3: Implement the pages, components and the two e2e projects** (`playwright.config.ts`: projects `chromium-fr`, `chromium-ar`, `mobile-fr` with `use.locale`; `webServer` additionally starts `pnpm --filter @tt/api dev` and `pnpm --filter @tt/worker dev` — turbo's `e2e` task now depends on `^build` (Task 0), so `@tt/db`/`@tt/contracts` dist exist when CI runs `pnpm turbo run e2e`).
+- [ ] **Step 4: Run to verify pass** — `pnpm turbo run test --filter=@tt/ui --filter=@tt/web --concurrency=2 && pnpm --filter @tt/web e2e` — Expected: PASS in fr and ar.
 - [ ] **Step 5: Commit** — `git commit -am "feat(web): registration, email verification, login with 2fa, password reset, consent gate and session plumbing"`
 
 ---
@@ -1065,7 +1177,7 @@ test('suspended workspace shows the banner and disables mutations', ...);
 
 **Files:**
 - Create: `apps/web/e2e/smoke.spec.ts`, `docs/runbooks/auth-and-tenancy.md`
-- Modify: `packages/contracts/openapi/openapi.json`, `packages/contracts/src/generated/api.d.ts` (regenerated), `.github/workflows/ci.yml` (e2e job: `pnpm --filter @tt/api cli create-super-admin …` before Playwright; secrets for `JWT_SECRET`/`TOTP_ENCRYPTION_KEY` as CI env), `docs/runbooks/local-dev.md`, `.env.example`
+- Modify: `packages/contracts/openapi/openapi.json`, `packages/contracts/src/generated/api.d.ts` (regenerated), `.github/workflows/ci.yml` (e2e job: `pnpm --filter @tt/api cli create-super-admin …` before Playwright; `JWT_SECRET`/`TOTP_ENCRYPTION_KEY` and the other SP1 variables are already CI-only dummies in the workflow `env` — no secrets to add), `docs/runbooks/local-dev.md`, `.env.example` (only if a task introduced a variable beyond the pre-added SP1 set; then `turbo.json` and CI `env` in the same commit)
 
 **Interfaces:**
 - Produces: `smoke.spec.ts` — one scenario per locale (fr, ar) on the mobile project: teacher registers → verifies → verifies phone (OTP from Mailpit) → accepts the code of conduct → creates an organisation → is forced through 2FA setup → invites nobody (SP2) but assigns roles to a seeded admin → super-admin (seeded by the CLI in `globalSetup`) suspends and reactivates the organisation → teacher sees and then loses the banner. Runbook: how to create the first super-admin, rotate `JWT_SECRET` (invalidates all sessions) and `TOTP_ENCRYPTION_KEY` (requires re-sealing secrets — document as a migration script to write when first needed), what each audit action means, how to unlock a locked account (delete the Redis `login:lock:*` key), how to read OTP codes in dev (Mailpit), the tenant-isolation suite and the exemptions rule.
@@ -1073,14 +1185,15 @@ test('suspended workspace shows the banner and disables mutations', ...);
 - [ ] **Step 1: Write the failing smoke test** (both locales, asserts `dir`, no raw keys on every visited page).
 - [ ] **Step 2: Run to verify failure** — Expected: FAIL only on the not-yet-wired `globalSetup` seeding.
 - [ ] **Step 3: Implement `globalSetup`, regenerate OpenAPI + client, update CI and runbooks.**
-- [ ] **Step 4: Run everything** — `pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm --filter @tt/web e2e` locally, then push: CI `check`, `windows-check`, `migrate-check`, `e2e` green; `git diff --exit-code packages/contracts` clean after regeneration.
+- [ ] **Step 4: Run everything** — `pnpm turbo run lint typecheck test build --concurrency=2 && pnpm --filter @tt/db migrate:check && pnpm turbo run e2e --concurrency=1` locally (run the test task twice to confirm the per-package databases do not interfere), then push: CI `check`, `windows-check`, `migrate-check`, `e2e` green; `git diff --exit-code packages/contracts` clean after regeneration; `grep -c '"TEST_DB_PREFIX"' turbo.json` = 1 (strict-env list intact).
 - [ ] **Step 5: Commit** — `git commit -am "test(e2e): fr/ar smoke for auth, verification, organisation and suspension; openapi regenerated; runbooks"`
 
 ---
 
-## Self-review notes (performed while writing)
+## Self-review notes (performed while writing; re-run on 2026-10-11 after reconciling with SP0 as merged)
 
+- **SP0 reconciliation (2026-10-11):** every consumed name was checked against `main` — `createPrismaClient(url?)`, `systemPrisma()`, `resetDatabase(client?)` with the `_test` guard, `ApiError(status, code, message, details?)`, `RequestContext.get()/run()` + `RequestStore`, `createTestApp({ overrides?, controllers? }) → { app, http, logs }`, `QUEUES`/`DEFAULT_JOB_OPTIONS`/`ERROR_CODES` (with `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`)/`REDACT_KEYS`/`redactPaths`/`createApiClient(baseUrl incl. /api/v1)`/`dirOf` in `@tt/contracts`, `ProcessorRegistry.registerProcessor`, `REDIS` token, `serverApi()` async with header forwarding, `TRUST_PROXY_HOPS`, `applyTestEnv`. Every `prisma migrate dev` invocation became the `migrate:dev -- --name <x> --create-only` / `pnpm db:migrate` / `pnpm db:migrate:test` triple; `tt_test` no longer appears. SP0 carry-overs are Task 0 (redaction keys + scoped paths, single-source `tt_<pkg>_test` derivation with `TEST_DB_PREFIX`/`TEST_REDIS_DB_BASE`, `e2e` → `^build`, `env.ts` comment, staging caveats) and FIX-LATER items landed in Task 2/5 (`onPrismaLog` → pino, `MetricsMiddleware`, `REDIS_URL` protocol, type-aware `no-floating-promises`), Task 4 (`argon2` in `onlyBuiltDependencies`), Task 19 (`AppShell` landmark + skip link). `SMS_PROVIDER` is `console` (the value already in `.env.example`/CI), mapped to `LogSmsProvider`. One-time-code fields are `otpCode`/`recoveryCode` everywhere (Tasks 3, 10, 12) so the `code` key could leave `REDACT_KEYS`.
 - **Spec coverage against PRD §18 SP1 DoD:** AC-AUTH-01/02 (Task 6), 03 (8), 04/07 (7), 05 (10, 19), 06 (9, 19); AC-WS-01/03/06 (13), 02/05 (15), 04/08 (14, 21), 07 (2); AC-GDPR-05 (2, 5), 06 (11, 19); AC-SAFE-01 at guard level (12 — consumers in SP2/3/6), 03 via `isEntityUnderReview` (16 — consumer SP8), 04 SP1 part (17 — session cancellation via `UserSuspendedEvent` in SP5/6), 05 (16); generic isolation suite on every tenant route (18); `allow_personal_workspaces` (14); super-admin console (17, 22); language/timezone preferences (11, 20); abuse report API + processing queue (16); phone OTP + code of conduct (12, 20); audit log (5, 14, 21); Prisma extension + RLS (2). Entities: all nine from §18 SP1 plus `TeacherProfile` table (endpoints deferred to SP3 because the profile needs avatar media).
-- **Type consistency:** `tenantDb`, `crossTenantDb`, `withTenantTx`, `AuditService.log`, `QueueService.add`, `createTestApp` → `{ app, http, db, email, sms, queue, pwned }`, `loginAs`/`as`, `createUser`/`createOrganization`/`createPersonalWorkspace`/`grantConsents`, `MembershipService.addMember`, `MEMBER_REMOVAL_BLOCKERS`, `SnapshotRegistry.register`, `requiresTwoFactor`, `VerificationService.status`, `grantFor`, `WorkspaceSettingsSchema`, `CONSENT_VERSIONS`, `MeUser` are spelled identically wherever referenced.
+- **Type consistency:** `tenantDb`, `crossTenantDb`, `withTenantTx`, `onPrismaLog`/`PrismaLogHandler`, `AuditService.log`, `QueueService.add`, `createTestApp` → `{ app, http, logs, db, email, sms, queue, pwned, reset }`, `loginAs`/`as`, `testDbName`/`testRedisDb`/`applyTestEnv`, `REDACT_SCOPED_PATHS`, `AppShellProps.labels`, `createUser`/`createOrganization`/`createPersonalWorkspace`/`grantConsents`, `MembershipService.addMember`, `MEMBER_REMOVAL_BLOCKERS`, `SnapshotRegistry.register`, `requiresTwoFactor`, `VerificationService.status`, `grantFor`, `WorkspaceSettingsSchema`, `CONSENT_VERSIONS`, `MeUser` are spelled identically wherever referenced.
 - **Review Focus:** the five lines each have a named test in Tasks 6/7 (email normalisation), 10 (2FA bypass), 6/11 (timezone/locale/birth date), 15/16/11 (cross-tenant aggregates and lookups), 3/19 (RTL and translations).
-- **Proportion:** 23 tasks; tests carry the spec's exact values; code steps are signatures and pinned values only.
+- **Proportion:** 24 tasks (0–23); tests carry the spec's exact values; code steps are signatures and pinned values only. Review Focus task numbers are unchanged by the insertion of Task 0.
