@@ -19,10 +19,12 @@ import { z } from 'zod';
 import { ApiError } from '../src/common/api-error';
 import { RequestContext } from '../src/common/request-context';
 import { createTestApp, type TestAgent } from './helpers/app';
+import { Public } from '../src/auth/decorators/public';
 
 class EchoDto extends createZodDto(z.object({ name: z.string().min(2) })) {}
 
 /** Test-only routes, mounted next to AppModule by this spec alone. */
+@Public()
 @Controller('__test')
 class TestController {
   @Get('boom')

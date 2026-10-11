@@ -154,6 +154,8 @@ model UserSession {
   deviceLabel      String    @map("device_label")
   ip               String    @db.Inet
   userAgent        String    @map("user_agent")
+  /// "Se souvenir de cet appareil": the refresh cookie is persistent (30 d) instead of a session cookie.
+  remember         Boolean   @default(false)
   lastSeenAt       DateTime  @map("last_seen_at") @db.Timestamptz
   expiresAt        DateTime  @map("expires_at") @db.Timestamptz
   revokedAt        DateTime? @map("revoked_at") @db.Timestamptz

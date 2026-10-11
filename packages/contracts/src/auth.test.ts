@@ -3,6 +3,7 @@ import {
   BirthDateSchema,
   canonicalTimeZone,
   isValidTimeZone,
+  LoginSchema,
   RegisterTeacherSchema,
   TimezoneSchema,
   VerifyEmailSchema,
@@ -121,5 +122,23 @@ describe('VerifyEmailSchema', () => {
     expect(VerifyEmailSchema.safeParse({ token: 'abc' }).success).toBe(true);
     expect(VerifyEmailSchema.safeParse({ token: '' }).success).toBe(false);
     expect(VerifyEmailSchema.safeParse({ token: 'x'.repeat(513) }).success).toBe(false);
+  });
+});
+
+describe('LoginSchema', () => {
+  it('normalises the email like registration and defaults remember to false', () => {
+    expect(LoginSchema.parse({ email: '  Ahmed@Example.COM ', password: 'x' })).toEqual({
+      email: 'ahmed@example.com',
+      password: 'x',
+      remember: false,
+    });
+  });
+
+  it('refuses a missing password, a malformed email and a non-boolean remember', () => {
+    expect(LoginSchema.safeParse({ email: 'a@example.com', password: '' }).success).toBe(false);
+    expect(LoginSchema.safeParse({ email: 'nope', password: 'x' }).success).toBe(false);
+    expect(
+      LoginSchema.safeParse({ email: 'a@example.com', password: 'x', remember: 'yes' }).success,
+    ).toBe(false);
   });
 });

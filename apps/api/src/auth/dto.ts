@@ -1,4 +1,4 @@
-import { RegisterTeacherSchema, VerifyEmailSchema } from '@tt/contracts';
+import { LoginSchema, RegisterTeacherSchema, VerifyEmailSchema } from '@tt/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { PASSWORD_MAX_LENGTH } from './crypto/password-policy';
@@ -22,3 +22,10 @@ export class RegisterTeacherDto extends createZodDto(
 ) {}
 
 export class VerifyEmailDto extends createZodDto(VerifyEmailSchema) {}
+
+/** Same cap as registration (bounds the argon2 work), plus "not empty". */
+export class LoginDto extends createZodDto(
+  LoginSchema.extend({
+    password: PasswordInputSchema.refine((p) => p.length > 0, 'Password required'),
+  }),
+) {}

@@ -22,8 +22,10 @@ import {
   createUser,
   grantConsents,
 } from './helpers/factories';
+import { Public } from '../src/auth/decorators/public';
 
 /** Mutates the request's store like a guard, yields, then reads it back. */
+@Public()
 @Controller('__test/context')
 class ContextProbeController {
   @Get(':name')
