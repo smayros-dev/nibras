@@ -6,8 +6,8 @@ import { VerificationService } from '../me/verification.service';
 import { REQUIRE_VERIFIED_TEACHER_KEY } from './decorators';
 
 /**
- * Global guard, last of the chain (after `AccountGatesGuard`; Task 13 inserts the workspace
- * context and permission guards before it). Does nothing unless the route (method or class) is
+ * Global guard, last of the chain (after `AccountGatesGuard`, `WorkspaceContextGuard` and
+ * `PermissionGuard`). Does nothing unless the route (method or class) is
  * `@RequireVerifiedTeacher()`; then any missing verification step (`VerificationService.status`)
  * → `403 TEACHER_NOT_VERIFIED` with `details: { missing }` (AC-SAFE-01). The user is the one
  * `JwtAuthGuard` loaded for this request; none → `401 UNAUTHENTICATED` (fails closed).

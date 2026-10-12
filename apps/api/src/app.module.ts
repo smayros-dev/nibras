@@ -19,7 +19,10 @@ import { ObservabilityModule } from './observability/observability.module';
 import { ProvidersModule } from './providers/providers.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
+import { PermissionGuard } from './tenancy/permission.guard';
 import { TeacherVerifiedGuard } from './tenancy/teacher-verified.guard';
+import { TenancyModule } from './tenancy/tenancy.module';
+import { WorkspaceContextGuard } from './tenancy/workspace-context.guard';
 
 @Module({
   imports: [
@@ -36,6 +39,8 @@ import { TeacherVerifiedGuard } from './tenancy/teacher-verified.guard';
     // VerificationService for the global TeacherVerifiedGuard.
     VerificationModule,
     MeModule,
+    // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
+    TenancyModule,
     RateLimitModule,
     HealthModule,
   ],
@@ -43,11 +48,15 @@ import { TeacherVerifiedGuard } from './tenancy/teacher-verified.guard';
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     // Global guards run in this order: rate limit (so failed authentications count too), session,
-    // the account gates, then the teacher-verified gate (only on `@RequireVerifiedTeacher()`
-    // routes). Task 13 inserts the workspace context and permission guards before the last one.
+    // the account gates, the workspace context (only on `:wid` routes: 404 for a non-member,
+    // 423 on a suspended workspace's mutations), the §7 permission check (only on
+    // `@RequirePermission()` routes), then the teacher-verified gate (only on
+    // `@RequireVerifiedTeacher()` routes).
     { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: AccountGatesGuard },
+    { provide: APP_GUARD, useExisting: WorkspaceContextGuard },
+    { provide: APP_GUARD, useExisting: PermissionGuard },
     { provide: APP_GUARD, useClass: TeacherVerifiedGuard },
   ],
 })
