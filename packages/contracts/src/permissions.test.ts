@@ -174,10 +174,11 @@ describe('§7 permission matrix', () => {
     ] as const) {
       expect(g('GUARDIAN', p), p).toBe('own');
     }
-    // Enrollment / condition qualifiers stay all; the unqualified guardian 👁 on attendance too.
+    // GUARDIAN attendance: bare 👁, child-scoped by controller ruling (fail closed).
+    expect(g('GUARDIAN', 'attendance.read')).toBe('own');
+    // Enrollment / condition qualifiers stay all.
     expect(g('STUDENT', 'course.read')).toBe('all'); // si inscrit et publié
     expect(g('STUDENT', 'pdf.download')).toBe('all'); // si allow_download
     expect(g('STUDENT', 'room.join')).toBe('all'); // si participant
-    expect(g('GUARDIAN', 'attendance.read')).toBe('all'); // 👁
   });
 });

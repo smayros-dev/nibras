@@ -167,8 +167,9 @@ export const MATRIX: Record<Permission, Row> = {
   'calendar.read':             row('all', 'own', 'own', 'own', 'own'),
   // Voir l'historique des sessions: ✅ | 🔒 | 🔒 | ✅ (le sien) → own | 👁 (ses enfants) → own
   'session.history.read':      row('all', 'own', 'own', 'own', 'own'),
-  // Voir / corriger la présence: ✅ / ✅ | 🔒 / 🔒 | 🔒 / 🔒 | 👁 (la sienne) → own | 👁 (unqualified → all)
-  'attendance.read':           row('all', 'own', 'own', 'own', 'all'),
+  // Voir / corriger la présence: ✅ / ✅ | 🔒 / 🔒 | 🔒 / 🔒 | 👁 (la sienne) → own | 👁 → own
+  // (GUARDIAN: bare 👁 resolved to own by controller ruling, like the neighbouring "ses enfants" cells)
+  'attendance.read':           row('all', 'own', 'own', 'own', 'own'),
   'attendance.override':       row('all', 'own', 'own', 'none', 'none'),
   // ── Compte rendu ─────────────────────────────────────────────────────────────────────────
   // Rédiger / modifier: ❌ | 🔒 | 🔒 (brouillon, P1) | ❌ | ❌
