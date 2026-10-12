@@ -23,6 +23,7 @@ import { PermissionGuard } from './tenancy/permission.guard';
 import { TeacherVerifiedGuard } from './tenancy/teacher-verified.guard';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { WorkspaceContextGuard } from './tenancy/workspace-context.guard';
+import { WorkspacesModule } from './workspaces/workspaces.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { WorkspaceContextGuard } from './tenancy/workspace-context.guard';
     // VerificationService for the global TeacherVerifiedGuard.
     VerificationModule,
     MeModule,
+    WorkspacesModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
     TenancyModule,
     RateLimitModule,

@@ -1,11 +1,18 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
-import type { ConsentRecord, MeUser, MyWorkspace, TeacherVerification } from '@tt/contracts';
+import type {
+  ConsentRecord,
+  MeUser,
+  MyWorkspace,
+  TeacherVerification,
+  WorkspaceDetail,
+} from '@tt/contracts';
 import { AllowUnverified } from '../auth/decorators/allow-unverified';
 import { CurrentUser } from '../auth/decorators/current-user';
 import { ChangePasswordDto, EmailChangeRequestDto } from '../auth/dto';
 import { EmailChangeService } from '../auth/email-change.service';
 import { PasswordResetService } from '../auth/password-reset.service';
 import { RequestContext, type AuthUser } from '../common/request-context';
+import { WorkspacesService } from '../workspaces/workspaces.service';
 import { ConsentService, consentMeta } from './consent.service';
 import {
   ConsentTypeParamDto,
@@ -32,6 +39,7 @@ export class MeController {
     private readonly emailChange: EmailChangeService,
     private readonly phone: PhoneService,
     private readonly verification: VerificationService,
+    private readonly workspaceService: WorkspacesService,
   ) {}
 
   /**
@@ -55,6 +63,18 @@ export class MeController {
   @Get('workspaces')
   workspaces(@CurrentUser() user: AuthUser): Promise<MyWorkspace[]> {
     return this.profile.workspaces(user.id);
+  }
+
+  /**
+   * `201`: the caller's PERSONAL workspace (`Espace de {prénom}`, 20 GiB), for a teacher who
+   * joined by invitation (D-O7, AC-WS-08). Already owns one → `409 PERSONAL_WORKSPACE_EXISTS`;
+   * an organisation where the caller is an ACTIVE TEACHER/ADMIN forbids personal workspaces →
+   * `403 PERSONAL_WORKSPACE_FORBIDDEN` with `details: { organizationId, organizationName }`.
+   */
+  @Post('personal-workspace')
+  @HttpCode(HttpStatus.CREATED)
+  createPersonalWorkspace(@CurrentUser() user: AuthUser): Promise<WorkspaceDetail> {
+    return this.workspaceService.createPersonalForInvitedTeacher(user);
   }
 
   /** Granted account-level consents, newest first. */

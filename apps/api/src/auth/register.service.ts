@@ -1,33 +1,17 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import {
-  CONSENT_VERSIONS,
-  defaultWorkspaceSettings,
-  REQUIRED_CONSENTS,
-  type RegisterTeacherInput,
-} from '@tt/contracts';
-import {
-  Prisma,
-  uuidv7,
-  withTenantTx,
-  type GuardedClient,
-  type User,
-  type Workspace,
-} from '@tt/db';
+import { CONSENT_VERSIONS, REQUIRED_CONSENTS, type RegisterTeacherInput } from '@tt/contracts';
+import { uuidv7, withTenantTx, type GuardedClient, type User, type Workspace } from '@tt/db';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
+import { uniqueViolationOn } from '../common/prisma-errors';
 import { DB } from '../db/db.module';
-import { slugify, uniqueSlug } from '../workspaces/slug';
+import { SLUG_ATTEMPTS, WorkspacesService } from '../workspaces/workspaces.service';
 import { hashPassword } from './crypto/password';
 import { PasswordPolicy } from './crypto/password-policy';
 import { EmailVerificationService } from './email-verification.service';
 import { TEACHER_REGISTERED, TeacherRegisteredEvent } from './events';
-
-/** D-P15: a personal workspace holds 20 GiB. */
-export const PERSONAL_STORAGE_QUOTA_BYTES = 20n * 1024n ** 3n;
-/** A slug collision (32^6 suffixes) retries the whole transaction with a fresh suffix. */
-const SLUG_ATTEMPTS = 3;
 
 /** Request metadata recorded on the consents. */
 export interface RegistrationMeta {
@@ -37,12 +21,6 @@ export interface RegistrationMeta {
 
 /** `inet` rejects ''; `0.0.0.0` marks an unknown address (Express always knows the socket's). */
 const UNKNOWN_IP = '0.0.0.0';
-
-function uniqueViolationOn(err: unknown, column: string): boolean {
-  if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2002') return false;
-  const target = (err.meta as { target?: unknown } | undefined)?.target;
-  return Array.isArray(target) ? target.includes(column) : String(target).includes(column);
-}
 
 const emailTaken = () =>
   new ApiError(HttpStatus.CONFLICT, 'EMAIL_TAKEN', 'An account already exists with this email');
@@ -58,6 +36,7 @@ export class RegisterService {
     private readonly policy: PasswordPolicy,
     private readonly verification: EmailVerificationService,
     private readonly audit: AuditService,
+    private readonly workspaces: WorkspacesService,
     private readonly events: EventEmitter2,
     private readonly logger: PinoLogger,
   ) {
@@ -88,7 +67,6 @@ export class RegisterService {
     if (existing) throw emailTaken();
     const passwordHash = await hashPassword(input.password);
     const now = new Date();
-    const workspaceName = `Espace de ${input.firstName}`;
     const ip = meta.ip || UNKNOWN_IP;
 
     let created: { user: User; workspace: Workspace; rawToken: string } | undefined;
@@ -107,28 +85,7 @@ export class RegisterService {
               status: 'ACTIVE',
             },
           });
-          const workspace = await tx.workspace.create({
-            data: {
-              id: workspaceId,
-              type: 'PERSONAL',
-              name: workspaceName,
-              slug: uniqueSlug(slugify(workspaceName)),
-              ownerUserId: user.id,
-              defaultTimezone: input.timezone,
-              defaultLocale: input.locale,
-              storageQuotaBytes: PERSONAL_STORAGE_QUOTA_BYTES,
-              settings: { ...defaultWorkspaceSettings(input.timezone) },
-            },
-          });
-          await tx.membership.create({
-            data: {
-              workspaceId,
-              userId: user.id,
-              role: 'OWNER',
-              status: 'ACTIVE',
-              joinedAt: now,
-            },
-          });
+          const workspace = await this.workspaces.createPersonal(user, { tx, workspaceId });
           await tx.consent.createMany({
             data: REQUIRED_CONSENTS.map((type) => ({
               userId: user.id,

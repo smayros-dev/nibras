@@ -5,9 +5,10 @@ import { MeController } from './me.controller';
 import { MeService } from './me.service';
 import { PhoneService } from './phone.service';
 import { VerificationModule } from './verification.module';
+import { WorkspacesModule } from '../workspaces/workspaces.module';
 
 @Module({
-  imports: [AuthModule, ConsentModule, VerificationModule],
+  imports: [AuthModule, ConsentModule, VerificationModule, WorkspacesModule],
   controllers: [MeController],
   providers: [MeService, PhoneService],
 })
