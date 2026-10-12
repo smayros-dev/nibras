@@ -484,6 +484,38 @@ export interface paths {
         patch: operations["WorkspacesController_update"];
         trace?: never;
     };
+    "/workspaces/{wid}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AssignmentsController_list"];
+        put?: never;
+        post: operations["AssignmentsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/assignments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["AssignmentsController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{wid}/audit-log": {
         parameters: {
             query?: never;
@@ -498,6 +530,38 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MembersController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/members/{uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MembersController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["MembersController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["MembersController_update"];
         trace?: never;
     };
     "/workspaces/{wid}/settings": {
@@ -556,6 +620,12 @@ export interface components {
             currentPassword: string;
             newPassword: string;
         };
+        CreateAssignmentDto: {
+            /** Format: uuid */
+            studentUserId: string;
+            /** Format: uuid */
+            teacherUserId: string;
+        };
         CreateOrganizationDto: {
             country?: string;
             name: string;
@@ -605,6 +675,10 @@ export interface components {
             password: string;
             timezone: string;
         };
+        /** @default {} */
+        RemoveMemberDto: {
+            reason?: string;
+        };
         ResetPasswordDto: {
             newPassword: string;
             token: string;
@@ -635,6 +709,11 @@ export interface components {
             /** @enum {string} */
             locale?: "fr" | "ar" | "en";
             timezone?: string;
+        };
+        UpdateMemberDto: {
+            canTeach?: boolean;
+            /** @enum {string} */
+            role?: "OWNER" | "ADMIN" | "TEACHER" | "ASSISTANT" | "STUDENT" | "GUARDIAN";
         };
         UpdateWorkspaceDto: {
             allowPersonalWorkspaces?: boolean;
@@ -1427,6 +1506,73 @@ export interface operations {
             };
         };
     };
+    AssignmentsController_list: {
+        parameters: {
+            query?: {
+                teacherUserId?: string;
+                studentUserId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AssignmentsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAssignmentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AssignmentsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AuditLogController_list: {
         parameters: {
             query?: {
@@ -1444,6 +1590,99 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MembersController_list: {
+        parameters: {
+            query?: {
+                role?: "OWNER" | "ADMIN" | "TEACHER" | "ASSISTANT" | "STUDENT" | "GUARDIAN";
+                status?: "ACTIVE" | "PENDING_APPROVAL" | "PENDING_GUARDIAN_CONSENT" | "SUSPENDED_NO_CONSENT" | "SUSPENDED_CONSENT_REVOKED" | "REMOVED" | "REJECTED";
+                q?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MembersController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MembersController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RemoveMemberDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MembersController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMemberDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

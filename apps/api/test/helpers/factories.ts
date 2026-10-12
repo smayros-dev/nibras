@@ -8,6 +8,7 @@ import {
   type MembershipRole,
   type MembershipStatus,
   type PlatformRole,
+  type TeacherStudentAssignment,
   type User,
   type UserStatus,
   type Workspace,
@@ -141,6 +142,8 @@ export interface AddMemberOptions {
   status: MembershipStatus;
   /** Default `false` (ADMIN who also teaches). */
   canTeach: boolean;
+  /** Default `null`. */
+  invitedByUserId: string;
 }
 
 /** A membership of `user` in `workspace` (ACTIVE, `canTeach = false` by default). */
@@ -159,8 +162,26 @@ export function addMember(
       role,
       status,
       canTeach: o.canTeach ?? false,
+      invitedByUserId: o.invitedByUserId ?? null,
       joinedAt: status === 'ACTIVE' ? now : null,
       ...(status === 'REMOVED' && { removedAt: now }),
+    },
+  });
+}
+
+/** A teacher ↔ student assignment (assigned by the teacher unless `assignedBy` is given). */
+export function assign(
+  workspace: Pick<Workspace, 'id'>,
+  teacher: Pick<User, 'id'>,
+  student: Pick<User, 'id'>,
+  assignedBy: Pick<User, 'id'> = teacher,
+): Promise<TeacherStudentAssignment> {
+  return systemPrisma().teacherStudentAssignment.create({
+    data: {
+      workspaceId: workspace.id,
+      teacherUserId: teacher.id,
+      studentUserId: student.id,
+      assignedByUserId: assignedBy.id,
     },
   });
 }
