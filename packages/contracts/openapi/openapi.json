@@ -18,6 +18,56 @@
         ],
         "type": "object"
       },
+      "CreateAbuseReportDto": {
+        "additionalProperties": false,
+        "properties": {
+          "attachments": {
+            "items": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
+          "category": {
+            "enum": [
+              "HARASSMENT",
+              "INAPPROPRIATE_CONTENT",
+              "IMPERSONATION",
+              "MINOR_SAFETY",
+              "OTHER"
+            ],
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 4000,
+            "minLength": 10,
+            "type": "string"
+          },
+          "entityId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "entityType": {
+            "enum": [
+              "USER",
+              "MESSAGE",
+              "SESSION",
+              "COURSE"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "description",
+          "entityType",
+          "entityId"
+        ],
+        "type": "object"
+      },
       "CreateAssignmentDto": {
         "additionalProperties": false,
         "properties": {
@@ -331,6 +381,33 @@
         ],
         "type": "object"
       },
+      "UpdateAbuseReportDto": {
+        "additionalProperties": false,
+        "properties": {
+          "assignedToUserId": {
+            "format": "uuid",
+            "nullable": true,
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "resolution": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "OPEN",
+              "IN_REVIEW",
+              "RESOLVED",
+              "DISMISSED"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "UpdateMeDto": {
         "additionalProperties": false,
         "properties": {
@@ -488,6 +565,159 @@
   },
   "openapi": "3.0.0",
   "paths": {
+    "/abuse-reports": {
+      "post": {
+        "operationId": "AccountAbuseReportsController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAbuseReportDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AccountAbuseReports"
+        ]
+      }
+    },
+    "/admin/abuse-reports": {
+      "get": {
+        "operationId": "AdminAbuseReportsController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "OPEN",
+                "IN_REVIEW",
+                "RESOLVED",
+                "DISMISSED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "enum": [
+                "HARASSMENT",
+                "INAPPROPRIATE_CONTENT",
+                "IMPERSONATION",
+                "MINOR_SAFETY",
+                "OTHER"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspaceId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AdminAbuseReports"
+        ]
+      }
+    },
+    "/admin/abuse-reports/{id}": {
+      "get": {
+        "operationId": "AdminAbuseReportsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AdminAbuseReports"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminAbuseReportsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAbuseReportDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AdminAbuseReports"
+        ]
+      }
+    },
     "/auth/2fa/disable": {
       "post": {
         "operationId": "AuthController_disableTwoFactor",
@@ -1037,6 +1267,42 @@
         ]
       }
     },
+    "/me/abuse-reports": {
+      "get": {
+        "operationId": "AccountAbuseReportsController_listMine",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AccountAbuseReports"
+        ]
+      }
+    },
     "/me/consents": {
       "get": {
         "operationId": "MeController_listConsents",
@@ -1353,6 +1619,180 @@
         },
         "tags": [
           "Workspaces"
+        ]
+      }
+    },
+    "/workspaces/{wid}/abuse-reports": {
+      "get": {
+        "operationId": "WorkspaceAbuseReportsController_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "OPEN",
+                "IN_REVIEW",
+                "RESOLVED",
+                "DISMISSED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "enum": [
+                "HARASSMENT",
+                "INAPPROPRIATE_CONTENT",
+                "IMPERSONATION",
+                "MINOR_SAFETY",
+                "OTHER"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkspaceAbuseReports"
+        ]
+      },
+      "post": {
+        "operationId": "WorkspaceAbuseReportsController_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAbuseReportDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkspaceAbuseReports"
+        ]
+      }
+    },
+    "/workspaces/{wid}/abuse-reports/{id}": {
+      "get": {
+        "operationId": "WorkspaceAbuseReportsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkspaceAbuseReports"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkspaceAbuseReportsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAbuseReportDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkspaceAbuseReports"
         ]
       }
     },

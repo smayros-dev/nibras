@@ -14,11 +14,13 @@ import type { Logger } from 'pino';
 import { loadEnv, WORKER_ENV, type WorkerEnv } from './env';
 import { HealthServer } from './health-server';
 import { createLogger, PinoNestLogger, WORKER_LOGGER } from './logger';
+import { AbuseProcessor } from './processors/abuse.processor';
 import { PingProcessor } from './processors/ping.processor';
+import { createEmailProvider, EMAIL_PROVIDER } from './providers';
 import { ProcessorRegistry, QueueRegistry } from './queues';
+import { WORKER_DB } from './worker-db';
 
-/** Prisma client on `DATABASE_URL_SYSTEM` (`app_system`, BYPASSRLS, PRD §13.3). */
-export const WORKER_DB = Symbol('WORKER_DB');
+export { WORKER_DB } from './worker-db';
 
 @Module({})
 export class WorkerModule implements OnApplicationShutdown {
@@ -31,12 +33,14 @@ export class WorkerModule implements OnApplicationShutdown {
         { provide: WORKER_ENV, useValue: env },
         { provide: WORKER_LOGGER, useValue: logger },
         { provide: WORKER_DB, useFactory: () => createPrismaClient(env.DATABASE_URL_SYSTEM) },
+        { provide: EMAIL_PROVIDER, useFactory: () => createEmailProvider(env) },
         ProcessorRegistry,
         QueueRegistry,
         HealthServer,
         PingProcessor,
+        AbuseProcessor,
       ],
-      exports: [WORKER_DB, WORKER_LOGGER, ProcessorRegistry, QueueRegistry],
+      exports: [WORKER_DB, WORKER_LOGGER, EMAIL_PROVIDER, ProcessorRegistry, QueueRegistry],
     };
   }
 

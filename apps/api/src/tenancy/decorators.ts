@@ -9,6 +9,7 @@ import type { Permission } from '@tt/contracts';
 export const REQUIRE_VERIFIED_TEACHER_KEY = 'tenancy:require-verified-teacher';
 export const REQUIRE_PERMISSION_KEY = 'tenancy:require-permission';
 export const CROSS_TENANT_KEY = 'tenancy:cross-tenant';
+export const SUPER_ADMIN_ONLY_KEY = 'tenancy:super-admin-only';
 
 /**
  * The caller must be a verified teacher (D-O6, AC-SAFE-01): email verified, phone verified by SMS
@@ -38,3 +39,10 @@ export const RequirePermission = (p: Permission): MethodDecorator & ClassDecorat
  */
 export const CrossTenant = (): MethodDecorator & ClassDecorator =>
   SetMetadata(CROSS_TENANT_KEY, true);
+
+/**
+ * Super-admin console route (`/admin/…`): the caller's `platformRole` must be `SUPER_ADMIN`,
+ * else `SuperAdminGuard` answers `403 PERMISSION_DENIED`. Such routes have no `:wid`.
+ */
+export const SuperAdminOnly = (): MethodDecorator & ClassDecorator =>
+  SetMetadata(SUPER_ADMIN_ONLY_KEY, true);

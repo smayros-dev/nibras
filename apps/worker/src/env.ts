@@ -9,6 +9,11 @@ const EnvSchema = z.object({
   /** Health server port; `0` picks a free port (tests). */
   WORKER_PORT: z.coerce.number().int().min(0).max(65_535).default(3002),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  /** Outbound email (same values as the API). */
+  SMTP_URL: z.url(),
+  EMAIL_FROM: z.string().min(3),
+  /** Base URL of the web app, for links in emails. */
+  WEB_ORIGIN: z.url(),
 });
 
 export type WorkerEnv = z.infer<typeof EnvSchema>;
