@@ -1,6 +1,34 @@
+import { LOCALES } from '@tt/contracts';
 import { describe, expect, it } from 'vitest';
 import { InMemorySmsProvider } from './in-memory';
 import { LogSmsProvider, maskPhone, type SmsLogger } from './log';
+import { renderSms, SMS_TEMPLATE_KEYS } from './templates';
+
+describe('renderSms', () => {
+  it('renders every SMS template in every locale with the code and no raw key or placeholder', () => {
+    for (const key of SMS_TEMPLATE_KEYS)
+      for (const locale of LOCALES) {
+        const text = renderSms(key, locale, { otpCode: '482913' });
+        expect(text, `${locale}:${key}`).toContain('482913');
+        expect(text, `${locale}:${key}`).not.toMatch(/\{\w+\}/);
+        expect(text, `${locale}:${key}`).not.toMatch(/\b(?:sms|phone)\.[a-z_]+/);
+        // One GSM/UCS-2 segment is 70 characters in Arabic; stay within two.
+        expect(text.length, `${locale}:${key}`).toBeLessThanOrEqual(140);
+      }
+  });
+
+  it('is localised: French, Arabic (code isolated from the RTL text), English', () => {
+    expect(renderSms('phone.otp', 'fr', { otpCode: '482913' })).toMatch(/code/i);
+    const ar = renderSms('phone.otp', 'ar', { otpCode: '482913' });
+    expect(ar).toMatch(/[؀-ۿ]/);
+    expect(ar).toContain('\u2068482913\u2069');
+    expect(renderSms('phone.otp', 'en', { otpCode: '482913' })).toMatch(/code/i);
+  });
+
+  it('throws on a missing code instead of sending a broken SMS', () => {
+    expect(() => renderSms('phone.otp', 'fr', {} as { otpCode: string })).toThrow();
+  });
+});
 
 function recordingLogger() {
   const calls: { level: 'info' | 'debug'; obj: Record<string, unknown>; msg?: string }[] = [];

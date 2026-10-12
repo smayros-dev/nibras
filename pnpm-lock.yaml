@@ -305,6 +305,9 @@ importers:
 
   packages/contracts:
     dependencies:
+      libphonenumber-js:
+        specifier: ^1.13.15
+        version: 1.13.15
       openapi-fetch:
         specifier: ^0.17.0
         version: 0.17.0

@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
-import type { ConsentRecord, MeUser, MyWorkspace } from '@tt/contracts';
+import type { ConsentRecord, MeUser, MyWorkspace, TeacherVerification } from '@tt/contracts';
 import { AllowUnverified } from '../auth/decorators/allow-unverified';
 import { CurrentUser } from '../auth/decorators/current-user';
 import { ChangePasswordDto, EmailChangeRequestDto } from '../auth/dto';
@@ -7,12 +7,21 @@ import { EmailChangeService } from '../auth/email-change.service';
 import { PasswordResetService } from '../auth/password-reset.service';
 import { RequestContext, type AuthUser } from '../common/request-context';
 import { ConsentService, consentMeta } from './consent.service';
-import { ConsentTypeParamDto, GrantConsentDto, UpdateMeDto } from './dto';
+import {
+  ConsentTypeParamDto,
+  GrantConsentDto,
+  PhoneOtpRequestDto,
+  PhoneOtpVerifyDto,
+  UpdateMeDto,
+} from './dto';
 import { MeService } from './me.service';
+import { PhoneService } from './phone.service';
+import { VerificationService } from './verification.service';
 
 /**
- * The signed-in user's own aggregates (`/me`, PRD §15.13): profile, consents, workspaces, and the
- * signed-in halves of password change and email change (Task 9).
+ * The signed-in user's own aggregates (`/me`, PRD §15.13): profile, consents, workspaces, the
+ * signed-in halves of password change and email change (Task 9), phone verification and the
+ * teacher verification status (Task 12).
  */
 @Controller('me')
 export class MeController {
@@ -21,6 +30,8 @@ export class MeController {
     private readonly consents: ConsentService,
     private readonly passwords: PasswordResetService,
     private readonly emailChange: EmailChangeService,
+    private readonly phone: PhoneService,
+    private readonly verification: VerificationService,
   ) {}
 
   /**
@@ -109,5 +120,45 @@ export class MeController {
   ): Promise<Record<string, never>> {
     await this.emailChange.request(user, body);
     return {};
+  }
+
+  /**
+   * `202 {}`: a 6-digit code goes by SMS to `phoneE164` (E.164, valid for its country, else
+   * `422 VALIDATION_FAILED`), replacing any pending one; outside production it is also emailed.
+   * One request per minute per user (`429 RATE_LIMITED`, `Retry-After`).
+   */
+  @Post('phone/request-otp')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async requestPhoneOtp(
+    @CurrentUser() user: AuthUser,
+    @Body() body: PhoneOtpRequestDto,
+  ): Promise<Record<string, never>> {
+    await this.phone.request(user, body.phoneE164);
+    return {};
+  }
+
+  /**
+   * `200 MeUser` with the verified `phoneE164`/`phoneVerifiedAt`. Wrong code →
+   * `422 OTP_INVALID`; no pending code, expired, or past 5 attempts → `410 OTP_EXPIRED`.
+   */
+  @Post('phone/verify-otp')
+  @HttpCode(HttpStatus.OK)
+  async verifyPhoneOtp(
+    @CurrentUser() user: AuthUser,
+    @Body() body: PhoneOtpVerifyDto,
+  ): Promise<MeUser> {
+    await this.phone.verify(user, body.otpCode);
+    return this.profile.me(user.id);
+  }
+
+  /**
+   * Teacher verification status (D-O6): which of EMAIL, PHONE, CODE_OF_CONDUCT are still
+   * `missing` (the same list `403 TEACHER_NOT_VERIFIED` carries). Reachable before email
+   * verification and pending consents, so the verification page can show every step.
+   */
+  @AllowUnverified()
+  @Get('verification')
+  verificationStatus(@CurrentUser() user: AuthUser): Promise<TeacherVerification> {
+    return this.verification.status(user);
   }
 }

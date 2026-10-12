@@ -13,5 +13,6 @@ export {
 } from './email/smtp';
 export { InMemoryEmailProvider } from './email/in-memory';
 export * from './sms/types';
+export { renderSms } from './sms/templates';
 export { LogSmsProvider, maskPhone, type SmsLogger } from './sms/log';
 export { InMemorySmsProvider } from './sms/in-memory';

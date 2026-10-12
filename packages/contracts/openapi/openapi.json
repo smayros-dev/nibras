@@ -100,6 +100,30 @@
         ],
         "type": "object"
       },
+      "PhoneOtpRequestDto": {
+        "properties": {
+          "phoneE164": {
+            "pattern": "^\\+[1-9]\\d{1,14}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phoneE164"
+        ],
+        "type": "object"
+      },
+      "PhoneOtpVerifyDto": {
+        "properties": {
+          "otpCode": {
+            "pattern": "^\\d{6}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "otpCode"
+        ],
+        "type": "object"
+      },
       "RegisterTeacherDto": {
         "properties": {
           "acceptPrivacy": {
@@ -961,6 +985,68 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/phone/request-otp": {
+      "post": {
+        "operationId": "MeController_requestPhoneOtp",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneOtpRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/phone/verify-otp": {
+      "post": {
+        "operationId": "MeController_verifyPhoneOtp",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneOtpVerifyDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/verification": {
+      "get": {
+        "operationId": "MeController_verificationStatus",
+        "parameters": [],
         "responses": {
           "200": {
             "description": ""
