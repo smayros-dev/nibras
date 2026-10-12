@@ -13,6 +13,7 @@ import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
 import { ConsentModule } from './me/consent.module';
 import { MeModule } from './me/me.module';
+import { MembersModule } from './members/members.module';
 import { VerificationModule } from './me/verification.module';
 import { MetricsMiddleware } from './observability/metrics.middleware';
 import { ObservabilityModule } from './observability/observability.module';
@@ -41,6 +42,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     VerificationModule,
     MeModule,
     WorkspacesModule,
+    MembersModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
     TenancyModule,
     RateLimitModule,

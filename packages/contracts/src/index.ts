@@ -9,4 +9,5 @@ export * from './auth';
 export * from './me';
 export * from './workspace-settings';
 export * from './workspaces';
+export * from './members';
 export * from './permissions';
