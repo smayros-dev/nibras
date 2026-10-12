@@ -144,7 +144,9 @@ describe('/me/consents: versioned consents and the consents gate (AC-GDPR-06)', 
     const s = await loginAs(ctx, u);
     const results = await Promise.all(
       [1, 2, 3].map(() =>
-        as(http, s.cookie).post('/api/v1/me/consents/TERMS').send({ version: CONSENT_VERSIONS.TERMS }),
+        as(http, s.cookie)
+          .post('/api/v1/me/consents/TERMS')
+          .send({ version: CONSENT_VERSIONS.TERMS }),
       ),
     );
     expect(results.map((r) => r.status)).toEqual([201, 201, 201]);
@@ -162,9 +164,9 @@ describe('/me/consents: versioned consents and the consents gate (AC-GDPR-06)', 
       .post('/api/v1/me/consents/PRIVACY/revoke')
       .expect(422)
       .expect(({ body }) => expect(body.code).toBe('CONSENT_NOT_REVOCABLE'));
-    expect(
-      await ctx.db.consent.count({ where: { userId: u.id, revokedAt: { not: null } } }),
-    ).toBe(0);
+    expect(await ctx.db.consent.count({ where: { userId: u.id, revokedAt: { not: null } } })).toBe(
+      0,
+    );
 
     await as(http, s.cookie)
       .post('/api/v1/me/consents/MARKETING')
@@ -201,9 +203,9 @@ describe('/me/consents: versioned consents and the consents gate (AC-GDPR-06)', 
       before: { type: 'MARKETING', version: 'marketing-2026-10', revokedAt: null },
     });
     const after = await as(http, s.cookie).get('/api/v1/me/consents').expect(200);
-    expect(
-      after.body.find((c: { type: string }) => c.type === 'MARKETING').revokedAt,
-    ).toEqual(marketing.revokedAt!.toISOString());
+    expect(after.body.find((c: { type: string }) => c.type === 'MARKETING').revokedAt).toEqual(
+      marketing.revokedAt!.toISOString(),
+    );
     // Revoking marketing never gates the account.
     await as(http, s.cookie).get('/api/v1/auth/sessions').expect(200);
   });
