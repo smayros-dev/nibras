@@ -138,7 +138,7 @@ describe('teacher registration and email verification', () => {
       .get('/api/v1/me')
       .set('Cookie', `tt_access=${cookieValue(res, 'tt_access')}`)
       .expect(200);
-    expect(me.body.user).toMatchObject({ id: user.id, emailVerifiedAt: null });
+    expect(me.body).toMatchObject({ id: user.id, emailVerifiedAt: null });
   });
 
   it('POST /auth/resend-verification with the registration session: new link, then 429 within a minute', async () => {

@@ -22,6 +22,7 @@ import type { Request, Response } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
 import { RequestContext, type AuthUser } from '../common/request-context';
+import { ConsentService } from '../me/consent.service';
 import { AuthService, type LoginResult } from './auth.service';
 import {
   accessTokenOf,
@@ -76,21 +77,6 @@ function setCookies(res: Response, tokens: SessionTokens): void {
   });
 }
 
-/** Sets the cookies of a completed sign-in and answers `{ status: 'OK', user }`. */
-async function signedIn(
-  res: Response,
-  result: Extract<LoginResult, { status: 'OK' }>,
-): Promise<LoginResponse> {
-  setCookies(res, result.tokens);
-  return {
-    status: 'OK',
-    user: toMeUser(result.user, {
-      twoFactorRequired: await requiresTwoFactor(result.user),
-      pendingConsents: [],
-    }),
-  };
-}
-
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -101,7 +87,24 @@ export class AuthController {
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
     private readonly twoFactor: TwoFactorService,
+    private readonly consents: ConsentService,
   ) {}
+
+  /**
+   * Sets the cookies of a completed sign-in and answers `{ status: 'OK', user }` (with the
+   * consents still to accept, so the client shows the consent gate right away).
+   */
+  private async signedIn(
+    res: Response,
+    result: Extract<LoginResult, { status: 'OK' }>,
+  ): Promise<LoginResponse> {
+    setCookies(res, result.tokens);
+    const [twoFactorRequired, pendingConsents] = await Promise.all([
+      requiresTwoFactor(result.user),
+      this.consents.pending(result.user.id),
+    ]);
+    return { status: 'OK', user: toMeUser(result.user, { twoFactorRequired, pendingConsents }) };
+  }
 
   /** `201 { user }` and the auth cookies of a fresh (not remembered) session. */
   @Public()
@@ -144,7 +147,7 @@ export class AuthController {
   ): Promise<LoginResponse> {
     const result = await this.auth.login(body, requestMeta());
     if (result.status === 'TWO_FACTOR_REQUIRED') return result;
-    return signedIn(res, result);
+    return this.signedIn(res, result);
   }
 
   /** Starts a TOTP enrolment: `200 { secret, otpauthUrl }` (2FA stays off until verified). */
@@ -176,7 +179,7 @@ export class AuthController {
       ...requestMeta(),
       remember: body.remember,
     });
-    return signedIn(res, result);
+    return this.signedIn(res, result);
   }
 
   /** Completes a `TWO_FACTOR_REQUIRED` login with a recovery code (consumed). */
@@ -191,7 +194,7 @@ export class AuthController {
       ...requestMeta(),
       remember: body.remember,
     });
-    return signedIn(res, result);
+    return this.signedIn(res, result);
   }
 
   /** `204`; `403 TWO_FACTOR_MANDATORY` for a role that requires 2FA. */

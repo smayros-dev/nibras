@@ -6,4 +6,5 @@ export * from './queues';
 export * from './client';
 export * from './redact';
 export * from './auth';
+export * from './me';
 export * from './workspace-settings';

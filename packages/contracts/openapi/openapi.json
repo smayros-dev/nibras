@@ -64,6 +64,19 @@
         ],
         "type": "object"
       },
+      "GrantConsentDto": {
+        "properties": {
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
       "LoginDto": {
         "properties": {
           "email": {
@@ -224,6 +237,36 @@
         "required": [
           "otpCode"
         ],
+        "type": "object"
+      },
+      "UpdateMeDto": {
+        "additionalProperties": false,
+        "properties": {
+          "birthDate": {
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "locale": {
+            "enum": [
+              "fr",
+              "ar",
+              "en"
+            ],
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "VerifyEmailDto": {
@@ -774,6 +817,110 @@
         "tags": [
           "Me"
         ]
+      },
+      "patch": {
+        "operationId": "MeController_update",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/consents": {
+      "get": {
+        "operationId": "MeController_listConsents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/consents/{type}": {
+      "post": {
+        "operationId": "MeController_grantConsent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "TERMS",
+                "PRIVACY",
+                "CODE_OF_CONDUCT",
+                "MARKETING"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantConsentDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/consents/{type}/revoke": {
+      "post": {
+        "operationId": "MeController_revokeConsent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "TERMS",
+                "PRIVACY",
+                "CODE_OF_CONDUCT",
+                "MARKETING"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
       }
     },
     "/me/email-change": {
@@ -814,6 +961,20 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/me/workspaces": {
+      "get": {
+        "operationId": "MeController_workspaces",
+        "parameters": [],
         "responses": {
           "200": {
             "description": ""

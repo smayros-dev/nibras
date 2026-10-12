@@ -374,7 +374,7 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
       .get('/api/v1/me')
       .set('Authorization', `Bearer ${s.accessToken}`)
       .expect(200);
-    expect(res.body.user).toMatchObject({ id: u.id, email: u.email });
+    expect(res.body).toMatchObject({ id: u.id, email: u.email });
   });
 
   it('a 2fa-typed token is rejected as access token (401)', async () => {

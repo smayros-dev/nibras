@@ -87,7 +87,7 @@ describe('JwtAuthGuard + AccountGatesGuard', () => {
     await client.get('/api/v1/__gates/exempt').expect(200, { id: u.id });
     await client.get('/api/v1/__gates-exempt-class').expect(200, { id: u.id });
     const me = await client.get('/api/v1/me').expect(200);
-    expect(me.body.user).toMatchObject({ id: u.id, emailVerifiedAt: null });
+    expect(me.body).toMatchObject({ id: u.id, emailVerifiedAt: null });
     await client.post('/api/v1/auth/resend-verification').expect(200, { ok: true });
     expect(ctx.email.findByTemplate('auth.verify_email', u.email)).toHaveLength(1);
     await client.post('/api/v1/auth/logout').expect(204);

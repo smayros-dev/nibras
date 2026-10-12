@@ -2,6 +2,7 @@ import { HttpStatus, Injectable, type CanActivate, type ExecutionContext } from 
 import { Reflector } from '@nestjs/core';
 import { ApiError } from '../../common/api-error';
 import { RequestContext } from '../../common/request-context';
+import { ConsentService } from '../../me/consent.service';
 import { ALLOW_UNVERIFIED_KEY } from '../decorators/allow-unverified';
 import { isPublicRequest } from '../decorators/public';
 import { requiresTwoFactor } from '../two-factor.policy';
@@ -13,9 +14,11 @@ import { requiresTwoFactor } from '../two-factor.policy';
  *    `@AllowUnverified()` ones (PRD §8.1.6 / AC-SAFE-04: a suspension disconnects immediately;
  *    `JwtAuthGuard` already refuses DELETING/DELETED with `401 SESSION_REVOKED`);
  * then, unless the route (method or class) is `@AllowUnverified()` (`GET /me`,
- * resend-verification, `/auth/2fa/*`):
+ * resend-verification, `/auth/2fa/*`, `POST /me/consents/{type}`):
  * 2. `emailVerifiedAt == null` → `403 EMAIL_NOT_VERIFIED`;
- * 3. pending consents → `403 CONSENT_REQUIRED` with `details.pending` (Task 11);
+ * 3. a required consent (`REQUIRED_CONSENTS`) not accepted at its current `CONSENT_VERSIONS`
+ *    → `403 CONSENT_REQUIRED` with `details.pending` (AC-GDPR-06: a version bump applies at the
+ *    next request; one indexed consent query per request);
  * 4. 2FA required (`requiresTwoFactor`: SUPER_ADMIN, organisation OWNER/ADMIN) and
  *    `totpEnabledAt == null` → `403 TWO_FACTOR_SETUP_REQUIRED` (AC-AUTH-05). Only users without
  *    TOTP pay the membership query.
@@ -23,7 +26,10 @@ import { requiresTwoFactor } from '../two-factor.policy';
  */
 @Injectable()
 export class AccountGatesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly consents: ConsentService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const targets = [context.getHandler(), context.getClass()];
@@ -43,7 +49,15 @@ export class AccountGatesGuard implements CanActivate {
     if (user.emailVerifiedAt === null) {
       throw new ApiError(HttpStatus.FORBIDDEN, 'EMAIL_NOT_VERIFIED', 'Email address not verified');
     }
-    // Step 3 (Task 11): pending consents → 403 CONSENT_REQUIRED { pending }.
+    const pending = await this.consents.pending(user.id);
+    if (pending.length > 0) {
+      throw new ApiError(
+        HttpStatus.FORBIDDEN,
+        'CONSENT_REQUIRED',
+        'Updated terms must be accepted',
+        { pending },
+      );
+    }
     if (user.totpEnabledAt === null && (await requiresTwoFactor(user))) {
       throw new ApiError(
         HttpStatus.FORBIDDEN,

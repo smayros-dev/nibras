@@ -59,9 +59,17 @@ export interface CreateUserOptions {
   status: UserStatus;
   /** Base32 TOTP seed: stored sealed with `TOTP_ENCRYPTION_KEY`, 2FA enabled. */
   totpSecret: string;
+  /**
+   * Account-level consents granted at their current versions. Default `['TERMS', 'PRIVACY']`
+   * (what registration grants), so the user clears the consents gate; `[]` for none.
+   */
+  consents: CurrentConsentType[];
 }
 
-/** A user with a verified email and the password `'correct horse battery staple'` by default. */
+/**
+ * A user with a verified email, TERMS + PRIVACY accepted at their current versions and the
+ * password `'correct horse battery staple'` by default.
+ */
 export async function createUser(
   o: Partial<CreateUserOptions> = {},
 ): Promise<User & { password: string }> {
@@ -85,6 +93,7 @@ export async function createUser(
       }),
     },
   });
+  await grantConsents(user, o.consents ?? ['TERMS', 'PRIVACY']);
   return { ...user, password };
 }
 
@@ -167,14 +176,31 @@ export async function createOrganization(o: {
   return { workspace, memberships };
 }
 
-/** Account-level consents granted at their current `CONSENT_VERSIONS`. */
+/**
+ * Account-level consents granted at their current `CONSENT_VERSIONS`. Idempotent like
+ * `POST /me/consents/{type}`: a type already granted (unrevoked) at its current version is
+ * skipped, so `grantConsents(await createUser())` leaves one row per type.
+ */
 export async function grantConsents(
-  user: User,
+  user: Pick<User, 'id'>,
   types: CurrentConsentType[] = ['TERMS', 'PRIVACY'],
 ): Promise<void> {
+  if (types.length === 0) return;
+  const held = await systemPrisma().consent.findMany({
+    where: {
+      userId: user.id,
+      workspaceId: null,
+      granted: true,
+      revokedAt: null,
+      OR: types.map((type) => ({ type, version: CONSENT_VERSIONS[type] })),
+    },
+    select: { type: true },
+  });
+  const missing = types.filter((type) => !held.some((c) => c.type === type));
+  if (missing.length === 0) return;
   const now = new Date();
   await systemPrisma().consent.createMany({
-    data: types.map((type) => ({
+    data: missing.map((type) => ({
       userId: user.id,
       type,
       version: CONSENT_VERSIONS[type],

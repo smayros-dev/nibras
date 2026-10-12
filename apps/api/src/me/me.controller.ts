@@ -1,0 +1,113 @@
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
+import type { ConsentRecord, MeUser, MyWorkspace } from '@tt/contracts';
+import { AllowUnverified } from '../auth/decorators/allow-unverified';
+import { CurrentUser } from '../auth/decorators/current-user';
+import { ChangePasswordDto, EmailChangeRequestDto } from '../auth/dto';
+import { EmailChangeService } from '../auth/email-change.service';
+import { PasswordResetService } from '../auth/password-reset.service';
+import { RequestContext, type AuthUser } from '../common/request-context';
+import { ConsentService, consentMeta } from './consent.service';
+import { ConsentTypeParamDto, GrantConsentDto, UpdateMeDto } from './dto';
+import { MeService } from './me.service';
+
+/**
+ * The signed-in user's own aggregates (`/me`, PRD §15.13): profile, consents, workspaces, and the
+ * signed-in halves of password change and email change (Task 9).
+ */
+@Controller('me')
+export class MeController {
+  constructor(
+    private readonly profile: MeService,
+    private readonly consents: ConsentService,
+    private readonly passwords: PasswordResetService,
+    private readonly emailChange: EmailChangeService,
+  ) {}
+
+  /**
+   * The profile, reachable before email verification, pending consents or a mandatory 2FA setup
+   * (`pendingConsents` and `twoFactor` tell the client which gate to show).
+   */
+  @AllowUnverified()
+  @Get()
+  me(@CurrentUser() user: AuthUser): Promise<MeUser> {
+    return this.profile.me(user.id);
+  }
+
+  /** Name, locale, time zone, birth date; invalid values → `422 VALIDATION_FAILED`. */
+  @Patch()
+  @HttpCode(HttpStatus.OK)
+  update(@CurrentUser() user: AuthUser, @Body() body: UpdateMeDto): Promise<MeUser> {
+    return this.profile.update(user.id, body);
+  }
+
+  /** Memberships across workspaces (REMOVED / REJECTED excluded), by workspace name. */
+  @Get('workspaces')
+  workspaces(@CurrentUser() user: AuthUser): Promise<MyWorkspace[]> {
+    return this.profile.workspaces(user.id);
+  }
+
+  /** Granted account-level consents, newest first. */
+  @Get('consents')
+  listConsents(@CurrentUser() user: AuthUser): Promise<ConsentRecord[]> {
+    return this.consents.list(user.id);
+  }
+
+  /**
+   * `201`: accepts the current version of a consent (idempotent). Exempt from the account gates:
+   * it is how a user blocked by `403 CONSENT_REQUIRED` gets through. Another version →
+   * `422 CONSENT_VERSION_MISMATCH` (`details.expected`).
+   */
+  @AllowUnverified()
+  @Post('consents/:type')
+  @HttpCode(HttpStatus.CREATED)
+  async grantConsent(
+    @CurrentUser() user: AuthUser,
+    @Param() params: ConsentTypeParamDto,
+    @Body() body: GrantConsentDto,
+  ): Promise<void> {
+    await this.consents.grant(user, params.type, body.version, consentMeta());
+  }
+
+  /** `204`; only MARKETING may be withdrawn (`422 CONSENT_NOT_REVOCABLE` otherwise). */
+  @Post('consents/:type/revoke')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async revokeConsent(
+    @CurrentUser() user: AuthUser,
+    @Param() params: ConsentTypeParamDto,
+  ): Promise<void> {
+    await this.consents.revoke(user, params.type);
+  }
+
+  /**
+   * Wrong current password → `401 INVALID_CREDENTIALS`, too many → `429 RATE_LIMITED`
+   * (`details.retryAfterS`, `Retry-After`); every OTHER session is revoked.
+   */
+  @Patch('password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body() body: ChangePasswordDto,
+  ): Promise<{ ok: true }> {
+    await this.passwords.change(
+      user,
+      RequestContext.get()?.session?.id,
+      body.currentPassword,
+      body.newPassword,
+    );
+    return { ok: true };
+  }
+
+  /**
+   * `202 {}`: a confirmation link goes to the current and to the new address. Rate limits →
+   * `429 RATE_LIMITED` with `Retry-After`.
+   */
+  @Post('email-change')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async requestEmailChange(
+    @CurrentUser() user: AuthUser,
+    @Body() body: EmailChangeRequestDto,
+  ): Promise<Record<string, never>> {
+    await this.emailChange.request(user, body);
+    return {};
+  }
+}
