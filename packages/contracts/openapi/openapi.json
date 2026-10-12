@@ -18,6 +18,28 @@
         ],
         "type": "object"
       },
+      "CreateOrganizationDto": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "pattern": "^[A-Za-z]{2}$",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "timezone"
+        ],
+        "type": "object"
+      },
       "EmailChangeConfirmDto": {
         "properties": {
           "token": {
@@ -207,6 +229,20 @@
         ],
         "type": "object"
       },
+      "TransferOwnershipDto": {
+        "additionalProperties": false,
+        "properties": {
+          "toUserId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "toUserId"
+        ],
+        "type": "object"
+      },
       "TwoFactorDisableDto": {
         "properties": {
           "otpCode": {
@@ -293,6 +329,36 @@
         },
         "type": "object"
       },
+      "UpdateWorkspaceDto": {
+        "additionalProperties": false,
+        "properties": {
+          "allowPersonalWorkspaces": {
+            "type": "boolean"
+          },
+          "country": {
+            "nullable": true,
+            "pattern": "^[A-Za-z]{2}$",
+            "type": "string"
+          },
+          "defaultLocale": {
+            "enum": [
+              "fr",
+              "ar",
+              "en"
+            ],
+            "type": "string"
+          },
+          "defaultTimezone": {
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "VerifyEmailDto": {
         "properties": {
           "token": {
@@ -304,6 +370,60 @@
         "required": [
           "token"
         ],
+        "type": "object"
+      },
+      "WorkspaceSettingsPatchDto": {
+        "additionalProperties": false,
+        "properties": {
+          "default_pdf_download": {
+            "type": "boolean"
+          },
+          "default_reminder_offsets_min": {
+            "items": {
+              "maximum": 10080,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 5,
+            "type": "array"
+          },
+          "default_sequential_lessons": {
+            "type": "boolean"
+          },
+          "default_timezone": {
+            "type": "string"
+          },
+          "empty_room_grace_min": {
+            "maximum": 30,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "late_threshold_min": {
+            "maximum": 60,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "partial_ratio": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "present_ratio": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "student_join_window_min": {
+            "maximum": 60,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "teacher_join_window_min": {
+            "maximum": 60,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
         "type": "object"
       }
     }
@@ -995,6 +1115,20 @@
         ]
       }
     },
+    "/me/personal-workspace": {
+      "post": {
+        "operationId": "MeController_createPersonalWorkspace",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Me"
+        ]
+      }
+    },
     "/me/phone/request-otp": {
       "post": {
         "operationId": "MeController_requestPhoneOtp",
@@ -1068,6 +1202,299 @@
         },
         "tags": [
           "Me"
+        ]
+      }
+    },
+    "/workspaces": {
+      "post": {
+        "operationId": "WorkspacesController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganizationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspaces"
+        ]
+      }
+    },
+    "/workspaces/{wid}": {
+      "delete": {
+        "operationId": "WorkspacesController_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspaces"
+        ]
+      },
+      "get": {
+        "operationId": "WorkspacesController_detail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspaces"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkspacesController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkspaceDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspaces"
+        ]
+      }
+    },
+    "/workspaces/{wid}/audit-log": {
+      "get": {
+        "operationId": "AuditLogController_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actorUserId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AuditLog"
+        ]
+      }
+    },
+    "/workspaces/{wid}/settings": {
+      "get": {
+        "operationId": "WorkspacesController_getSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspaces"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkspacesController_updateSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceSettingsPatchDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspaces"
+        ]
+      }
+    },
+    "/workspaces/{wid}/storage": {
+      "get": {
+        "operationId": "WorkspacesController_storage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspaces"
+        ]
+      }
+    },
+    "/workspaces/{wid}/transfer-ownership": {
+      "post": {
+        "operationId": "WorkspacesController_transferOwnership",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferOwnershipDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workspaces"
         ]
       }
     }

@@ -3,6 +3,7 @@ import { AuditModule } from '../audit/audit.module';
 import { PWNED_CLIENT, ProvidersModule } from '../providers/providers.module';
 import { env } from '../config/env';
 import { ConsentModule } from '../me/consent.module';
+import { WorkspacesModule } from '../workspaces/workspaces.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import type { PwnedPasswordClient } from './crypto/hibp';
@@ -19,7 +20,8 @@ import { SessionService } from './session.service';
 import { TwoFactorService } from './two-factor.service';
 
 @Module({
-  imports: [AuditModule, ProvidersModule, ConsentModule],
+  // WorkspacesService: registration creates the PERSONAL workspace.
+  imports: [AuditModule, ProvidersModule, ConsentModule, WorkspacesModule],
   controllers: [AuthController, PasswordController],
   providers: [
     // HIBP when `HIBP_ENABLED`, else the no-op client (`createPwnedClient`); tests inject a fake.

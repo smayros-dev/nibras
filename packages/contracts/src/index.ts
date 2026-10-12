@@ -8,4 +8,5 @@ export * from './redact';
 export * from './auth';
 export * from './me';
 export * from './workspace-settings';
+export * from './workspaces';
 export * from './permissions';
