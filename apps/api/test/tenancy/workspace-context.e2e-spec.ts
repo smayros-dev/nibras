@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import type { PrismaClient } from '@tt/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { RequestContext } from '../../src/common/request-context';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
 import { as, loginAs } from '../helpers/auth';
 import { createOrganization, createPersonalWorkspace, createUser } from '../helpers/factories';
@@ -11,13 +13,39 @@ const S = 'JBSWY3DPEHPK3PXP';
 
 const probe = (wid: string) => `/api/v1/workspaces/${wid}/__probe`;
 
+/** A `:wid` route outside `/workspaces/:wid` (like Task 17's `/admin/workspaces/:wid/…`). */
+@Controller('admin-probe/workspaces/:wid')
+class AdminProbeController {
+  @Get()
+  read(): { workspaceId: string | undefined } {
+    return { workspaceId: RequestContext.get()?.workspace?.id };
+  }
+
+  @Post()
+  @HttpCode(HttpStatus.OK)
+  write(): { workspaceId: string | undefined } {
+    return { workspaceId: RequestContext.get()?.workspace?.id };
+  }
+}
+
+/** `:wid` declared on the handler, controller path with slashes: still a tenant route. */
+@Controller('/workspaces/')
+class SplitPathProbeController {
+  @Get('/:wid/__split/')
+  read(): { workspaceId: string | undefined } {
+    return { workspaceId: RequestContext.get()?.workspace?.id };
+  }
+}
+
 describe('tenancy: WorkspaceContextGuard and PermissionGuard (AC-WS-01, AC-WS-03, AC-WS-06)', () => {
   let ctx: TestContext;
   let http: TestAgent;
   let db: PrismaClient;
 
   beforeAll(async () => {
-    ctx = await createTestApp({ controllers: [TenancyProbeController] });
+    ctx = await createTestApp({
+      controllers: [TenancyProbeController, AdminProbeController, SplitPathProbeController],
+    });
     ({ http, db } = ctx);
   });
   afterAll(async () => {
@@ -245,5 +273,30 @@ describe('tenancy: WorkspaceContextGuard and PermissionGuard (AC-WS-01, AC-WS-03
       .get(probe(B.workspace.id))
       .expect(403)
       .expect(({ body }) => expect(body.code).toBe('TWO_FACTOR_SETUP_REQUIRED'));
+  });
+
+  it('only routes declared under workspaces/:wid are tenant routes (not /admin-probe/workspaces/:wid)', async () => {
+    const superAdmin = await createUser({ platformRole: 'SUPER_ADMIN', totpSecret: S });
+    const A = await createOrganization({
+      owner: await createUser({ totpSecret: S }),
+      status: 'SUSPENDED',
+    });
+    const s = await loginAs(ctx, superAdmin);
+    const adminProbe = `/api/v1/admin-probe/workspaces/${A.workspace.id}`;
+
+    // No membership, suspended workspace: neither 404 nor 423, and no workspace context.
+    await as(http, s.cookie)
+      .get(adminProbe)
+      .expect(200)
+      .expect(({ body }) => expect(body).toEqual({}));
+    await as(http, s.cookie).post(adminProbe).expect(200);
+    expect(await db.auditLog.count({ where: { action: 'auth.forbidden_workspace' } })).toBe(0);
+
+    // `:wid` on the handler under a slash-wrapped `workspaces` controller is still guarded.
+    await as(http, s.cookie)
+      .get(`/api/v1/workspaces/${A.workspace.id}/__split`)
+      .expect(404)
+      .expect(({ body }) => expect(body.code).toBe('NOT_FOUND'));
+    expect(await forbiddenAudits(superAdmin.id, A.workspace.id)).toHaveLength(1);
   });
 });

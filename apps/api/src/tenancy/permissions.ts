@@ -26,6 +26,10 @@ export function permissionDenied(): ApiError {
  * resource must belong to the caller (`ownerUserId` = course owner, assigned teacher, session
  * host…), else `403 PERMISSION_DENIED`. Scope `all` passes. Fails closed: without a scope (the
  * route has no `@RequirePermission`) the resource must be the caller's too.
+ *
+ * A GUARDIAN's `own` cells ("ses enfants") fail closed here: only the guardian's own user id
+ * passes, so no child's data is reachable until SP2 adds guardian ↔ child links and the services
+ * check them explicitly.
  */
 export function assertOwn(ownerUserId: string | null | undefined): void {
   const store = RequestContext.get();

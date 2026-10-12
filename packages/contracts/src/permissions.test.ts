@@ -82,6 +82,7 @@ describe('§7 permission matrix', () => {
     expect(PERSONAL_OWNER_OVERRIDES).toEqual({
       'workspace.settings.update': 'all',
       'workspace.audit.read': 'all',
+      'workspace.members.read': 'all',
       'student.remove': 'all',
       'abuse.handle': 'none',
     });
@@ -106,6 +107,10 @@ describe('§7 permission matrix', () => {
     expect(g('OWNER', 'course.manage', 'PERSONAL')).toBe('own');
     expect(g('OWNER', 'student.remove', 'PERSONAL')).toBe('all');
     expect(g('OWNER', 'workspace.audit.read', 'PERSONAL')).toBe('all');
+    // Not a §7 row: a personal owner sees every member; an org TEACHER only his own students.
+    expect(g('OWNER', 'workspace.members.read', 'PERSONAL')).toBe('all');
+    expect(g('TEACHER', 'workspace.members.read')).toBe('own');
+    expect(g('TEACHER', 'workspace.members.read', 'PERSONAL')).toBe('own');
     expect(g('OWNER', 'workspace.staff.manage', 'PERSONAL')).toBe('none');
     expect(g('OWNER', 'student.assign', 'PERSONAL')).toBe('none');
     // §7 "OWNER seul" sits in the TEACHER (or personal OWNER) column too.
@@ -123,7 +128,9 @@ describe('§7 permission matrix', () => {
     expect(g('ADMIN', 'room.moderate', 'ORGANIZATION', true)).toBe('own');
     expect(g('ADMIN', 'course.manage', 'ORGANIZATION', true)).toBe('all');
     expect(g('ADMIN', 'dashboard.teacher')).toBe('none');
-    expect(g('ADMIN', 'dashboard.teacher', 'ORGANIZATION', true)).toBe('all');
+    // "✅ (le sien si can_teach)" → own; max(own, TEACHER own) stays own.
+    expect(g('ADMIN', 'dashboard.teacher', 'ORGANIZATION', true)).toBe('own');
+    expect(g('OWNER', 'dashboard.teacher', 'ORGANIZATION', true)).toBe('own');
     expect(g('ADMIN', 'report.private_notes.read')).toBe('none');
   });
 
@@ -134,7 +141,6 @@ describe('§7 permission matrix', () => {
     expect(g('GUARDIAN', 'message.direct')).toBe('none'); // ✅ (…, P1)
     expect(g('STUDENT', 'session.manage')).toBe('none'); // ❌ (réserver : P1)
     expect(g('STUDENT', 'room.join')).toBe('all');
-    expect(g('GUARDIAN', 'progress.read')).toBe('all');
     expect(g('GUARDIAN', 'course.read')).toBe('none');
     expect(g('TEACHER', 'report.private_notes.read')).toBe('own');
     expect(g('STUDENT', 'attendance.override')).toBe('none');
@@ -143,5 +149,35 @@ describe('§7 permission matrix', () => {
       expect(g(role, 'account.delete')).toBe('all');
       expect(g(role, 'abuse.report')).toBe('all');
     }
+  });
+
+  it('maps self/child-qualified cells ("le sien", "la sienne", "ses enfants") to own', () => {
+    // STUDENT "le sien" / "la sienne".
+    for (const p of [
+      'student.read',
+      'student.update',
+      'progress.read',
+      'calendar.read',
+      'session.history.read',
+      'attendance.read',
+      'report.read',
+    ] as const) {
+      expect(g('STUDENT', p), p).toBe('own');
+    }
+    // GUARDIAN "ses enfants".
+    for (const p of [
+      'student.read',
+      'progress.read',
+      'calendar.read',
+      'session.history.read',
+      'report.read',
+    ] as const) {
+      expect(g('GUARDIAN', p), p).toBe('own');
+    }
+    // Enrollment / condition qualifiers stay all; the unqualified guardian 👁 on attendance too.
+    expect(g('STUDENT', 'course.read')).toBe('all'); // si inscrit et publié
+    expect(g('STUDENT', 'pdf.download')).toBe('all'); // si allow_download
+    expect(g('STUDENT', 'room.join')).toBe('all'); // si participant
+    expect(g('GUARDIAN', 'attendance.read')).toBe('all'); // 👁
   });
 });

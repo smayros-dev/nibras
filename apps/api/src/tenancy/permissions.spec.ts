@@ -55,6 +55,35 @@ describe('assertOwn', () => {
   });
 });
 
+describe('self/child-qualified §7 cells', () => {
+  const memberStore = (role: 'STUDENT' | 'GUARDIAN', p: 'student.read' | 'report.read') => {
+    const s = store({
+      workspace: { id: OTHER_ID, type: 'ORGANIZATION', status: 'ACTIVE' },
+      membership: { id: OTHER_ID, role, canTeach: false, status: 'ACTIVE' },
+    });
+    // What PermissionGuard does for `@RequirePermission(p)`.
+    RequestContext.run(s, () => {
+      const grant = currentGrant(p);
+      expect(grant).toBe('own');
+      s.permissionScope = grant as 'own';
+    });
+    return s;
+  };
+
+  it('a STUDENT (scope own on student.read) passes for himself only', () => {
+    RequestContext.run(memberStore('STUDENT', 'student.read'), () => {
+      expect(() => assertOwn(USER_ID)).not.toThrow();
+      denied(() => assertOwn(OTHER_ID));
+    });
+  });
+
+  it('a GUARDIAN (scope own on report.read) fails closed for any other user until SP2 links children', () => {
+    RequestContext.run(memberStore('GUARDIAN', 'report.read'), () => {
+      denied(() => assertOwn(OTHER_ID));
+    });
+  });
+});
+
 describe('currentGrant', () => {
   it('reads the membership and workspace type from the request context', () => {
     const ctx = store({

@@ -5,6 +5,7 @@ import {
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common';
+import { PATH_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 import { tenantDb, type GuardedClient } from '@tt/db';
 import type { Request } from 'express';
@@ -21,9 +22,34 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Methods a SUSPENDED / DELETING workspace still serves (AC-WS-06: reads stay possible). */
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+const WORKSPACE_ROUTE = new RegExp(`^workspaces/:${WORKSPACE_PARAM}(/|$)`);
+
+function pathsOf(
+  reflector: Reflector,
+  target: ReturnType<ExecutionContext['getHandler']>,
+): string[] {
+  const path = reflector.get<string | string[] | undefined>(PATH_METADATA, target);
+  const list = path === undefined ? [''] : Array.isArray(path) ? path : [path];
+  return list.map((p) => p.replace(/^\/+|\/+$/g, ''));
+}
+
+/**
+ * Whether the matched route is a tenant route: its declared path (controller path + handler
+ * path, from Nest's route metadata, below the global `api/v1` prefix) starts with
+ * `workspaces/:wid`. Other routes carrying a `:wid` param (super-admin console
+ * `/admin/workspaces/:wid/…`) are not tenant routes: no membership is required there.
+ */
+export function isWorkspaceRoute(reflector: Reflector, context: ExecutionContext): boolean {
+  const controllerPaths = pathsOf(reflector, context.getClass());
+  const handlerPaths = pathsOf(reflector, context.getHandler());
+  return controllerPaths.some((c) =>
+    handlerPaths.some((h) => WORKSPACE_ROUTE.test([c, h].filter(Boolean).join('/'))),
+  );
+}
+
 /**
  * Global guard #3 (after `JwtAuthGuard` and `AccountGatesGuard`). Does nothing unless the route
- * has a `:wid` param; then:
+ * is declared under `workspaces/:wid` (`isWorkspaceRoute`); then:
  * 1. loads the workspace (`db.workspace`) and the caller's membership (`tenantDb(wid)`, so RLS
  *    applies too);
  * 2. no such workspace (or a malformed id) → `404 NOT_FOUND`; the workspace exists but the caller
@@ -46,6 +72,7 @@ export class WorkspaceContextGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true;
+    if (!isWorkspaceRoute(this.reflector, context)) return true;
     const req = context.switchToHttp().getRequest<Request>();
     const params = req.params as Record<string, string | undefined> | undefined;
     const wid = params?.[WORKSPACE_PARAM];

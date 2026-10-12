@@ -5,13 +5,20 @@
  *
  * Symbols: ✅ and 👁 → `all`, 🔒 → `own` (own resources only: courses he owns, students assigned
  * to him, sessions he hosts, children linked to him), ❌ → `none`; a cell tagged (P1)/(P2) → `none`
- * (not available at MVP). Qualifiers on a ✅/👁 cell ("le sien", "ses enfants", "si inscrit",
- * "si `allow_download`", "si participant") are business conditions the owning service still
- * enforces on the rows: the matrix only says the capability exists for the role.
+ * (not available at MVP). A ✅/👁 cell whose text limits it to the caller's own data ("le sien",
+ * "la sienne", "ses enfants", ADMIN "le sien si `can_teach`") → `own`: the §7 legend defines 🔒 as
+ * "ses propres ressources … enfants qui lui sont liés". Other qualifiers ("si inscrit",
+ * "si `allow_download`", "si participant", "ses professeurs") stay `all`: they are business
+ * conditions the owning service enforces on the rows.
+ *
+ * GUARDIAN `own` fails closed today: `assertOwn(ownerUserId)` only passes for the guardian's own
+ * user id, so a guardian reaches no child's data until SP2 adds guardian ↔ child links (and the
+ * services check them).
  *
  * Rows outside §7's literal capability list: `workspace.members.read` (member directory, used by
  * `GET /workspaces/{wid}/members`) follows the staff and student-profile rows: ADMIN `all`,
- * TEACHER/ASSISTANT `own` (their assigned students), STUDENT/GUARDIAN `none`.
+ * TEACHER/ASSISTANT `own` (their assigned students), STUDENT/GUARDIAN `none`; a PERSONAL owner
+ * gets `all` (every student of his workspace is his).
  */
 
 export const MEMBERSHIP_ROLES = [
@@ -118,10 +125,10 @@ export const MATRIX: Record<Permission, Row> = {
   'student.invite':            row('all', 'all', 'none', 'none', 'none'),
   // Affecter un étudiant à un professeur (org): ✅ | ❌ | ❌ | ❌ | ❌
   'student.assign':            row('all', 'none', 'none', 'none', 'none'),
-  // Voir le profil pédagogique: ✅ | 🔒 | 🔒 | 👁 (le sien) | 👁 (ses enfants)
-  'student.read':              row('all', 'own', 'own', 'all', 'all'),
-  // Modifier les informations: ✅ | 🔒 | ❌ | ✅ (le sien, hors email vérifié) | ❌
-  'student.update':            row('all', 'own', 'none', 'all', 'none'),
+  // Voir le profil pédagogique: ✅ | 🔒 | 🔒 | 👁 (le sien) → own | 👁 (ses enfants) → own
+  'student.read':              row('all', 'own', 'own', 'own', 'own'),
+  // Modifier les informations: ✅ | 🔒 | ❌ | ✅ (le sien, hors email vérifié) → own | ❌
+  'student.update':            row('all', 'own', 'none', 'own', 'none'),
   // Retirer un étudiant: ✅ (admins/owner) | ✅ (personnel, OWNER) / ❌ (org) | ❌ | ❌ | ❌
   'student.remove':            row('all', 'none', 'none', 'none', 'none'),
   // Signaler un abus: ✅ ×5
@@ -145,8 +152,8 @@ export const MATRIX: Record<Permission, Row> = {
   'course.read':               row('all', 'own', 'own', 'all', 'none'),
   // Télécharger un PDF: ✅ | 🔒 | 🔒 | ✅ si allow_download | ❌
   'pdf.download':              row('all', 'own', 'own', 'all', 'none'),
-  // Voir la progression: ✅ | 🔒 | 🔒 | ✅ (la sienne) | 👁 (ses enfants)
-  'progress.read':             row('all', 'own', 'own', 'all', 'all'),
+  // Voir la progression: ✅ | 🔒 | 🔒 | ✅ (la sienne) → own | 👁 (ses enfants) → own
+  'progress.read':             row('all', 'own', 'own', 'own', 'own'),
   // ── Sessions ─────────────────────────────────────────────────────────────────────────────
   // Programmer / modifier / annuler: ✅ | 🔒 | ❌ | ❌ (réserver : P1) | ❌
   'session.manage':            row('all', 'own', 'none', 'none', 'none'),
@@ -156,26 +163,26 @@ export const MATRIX: Record<Permission, Row> = {
   'room.join':                 row('none', 'own', 'own', 'all', 'none'),
   // Couper le micro / retirer un participant: ❌ | 🔒 | 🔒 | ❌ | ❌
   'room.moderate':             row('none', 'own', 'own', 'none', 'none'),
-  // Voir le calendrier: ✅ (toute l'org) | 🔒 | 🔒 | ✅ (le sien) | 👁 (ses enfants)
-  'calendar.read':             row('all', 'own', 'own', 'all', 'all'),
-  // Voir l'historique des sessions: ✅ | 🔒 | 🔒 | ✅ (le sien) | 👁 (ses enfants)
-  'session.history.read':      row('all', 'own', 'own', 'all', 'all'),
-  // Voir / corriger la présence: ✅ / ✅ | 🔒 / 🔒 | 🔒 / 🔒 | 👁 (la sienne) | 👁
-  'attendance.read':           row('all', 'own', 'own', 'all', 'all'),
+  // Voir le calendrier: ✅ (toute l'org) | 🔒 | 🔒 | ✅ (le sien) → own | 👁 (ses enfants) → own
+  'calendar.read':             row('all', 'own', 'own', 'own', 'own'),
+  // Voir l'historique des sessions: ✅ | 🔒 | 🔒 | ✅ (le sien) → own | 👁 (ses enfants) → own
+  'session.history.read':      row('all', 'own', 'own', 'own', 'own'),
+  // Voir / corriger la présence: ✅ / ✅ | 🔒 / 🔒 | 🔒 / 🔒 | 👁 (la sienne) → own | 👁 (unqualified → all)
+  'attendance.read':           row('all', 'own', 'own', 'own', 'all'),
   'attendance.override':       row('all', 'own', 'own', 'none', 'none'),
   // ── Compte rendu ─────────────────────────────────────────────────────────────────────────
   // Rédiger / modifier: ❌ | 🔒 | 🔒 (brouillon, P1) | ❌ | ❌
   'report.write':              row('none', 'own', 'none', 'none', 'none'),
-  // Voir (partie visible étudiant): 👁 | 🔒 | 🔒 | ✅ (le sien) | 👁 (ses enfants)
-  'report.read':               row('all', 'own', 'own', 'all', 'all'),
+  // Voir (partie visible étudiant): 👁 | 🔒 | 🔒 | ✅ (le sien) → own | 👁 (ses enfants) → own
+  'report.read':               row('all', 'own', 'own', 'own', 'own'),
   // Voir la note privée du professeur: ❌ | 🔒 | ❌ | ❌ | ❌
   'report.private_notes.read': row('none', 'own', 'none', 'none', 'none'),
   // ── Messagerie ───────────────────────────────────────────────────────────────────────────
   // Message 1:1: ✅ | 🔒 | 🔒 | ✅ (ses professeurs) | ✅ (professeurs de ses enfants, P1)
   'message.direct':            row('all', 'own', 'own', 'all', 'none'),
   // ── Analytics ────────────────────────────────────────────────────────────────────────────
-  // Dashboard professeur: ✅ (le sien si can_teach) | 🔒 | 🔒 | ❌ | ❌ — can_teach rule in grantFor
-  'dashboard.teacher':         row('all', 'own', 'own', 'none', 'none'),
+  // Dashboard professeur: ✅ (le sien si can_teach) → own | 🔒 | 🔒 | ❌ | ❌ — can_teach rule in grantFor
+  'dashboard.teacher':         row('own', 'own', 'own', 'none', 'none'),
   // ── Compte ───────────────────────────────────────────────────────────────────────────────
   // Exporter ses données personnelles: ✅ ×5 (mineur : via tuteur ou lui-même)
   'account.export':            row('all', 'all', 'all', 'all', 'all'),
@@ -187,12 +194,14 @@ export const MATRIX: Record<Permission, Row> = {
 export const OWNER_ONLY: Permission[] = ['workspace.delete', 'workspace.transfer'];
 
 /**
- * The cells where §7 says "(espace personnel)", for the OWNER of a PERSONAL workspace, and
- * `abuse.handle`: a personal owner never handles reports about himself (super-admin does).
+ * The cells where §7 says "(espace personnel)", for the OWNER of a PERSONAL workspace;
+ * `abuse.handle`: a personal owner never handles reports about himself (super-admin does);
+ * `workspace.members.read` (not a §7 row): every student of a personal workspace is the owner's.
  */
 export const PERSONAL_OWNER_OVERRIDES: Partial<Record<Permission, Grant>> = {
   'workspace.settings.update': 'all',
   'workspace.audit.read': 'all',
+  'workspace.members.read': 'all',
   'student.remove': 'all',
   'abuse.handle': 'none',
 };
