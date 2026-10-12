@@ -12,6 +12,8 @@ export const REDACT_KEYS = [
   'accessToken',
   'refreshToken',
   'totpSecret',
+  'otpauthUrl',
+  'challengeToken',
   'recoveryCodes',
   'otp',
   'otpCode',

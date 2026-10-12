@@ -38,6 +38,23 @@ export class ReauthLimiter {
     await this.redis.del(attemptsKey(userId));
   }
 
+  /**
+   * Same rule for the TOTP code re-checked by signed-in 2FA routes (setup confirmation, disable):
+   * {@link REAUTH_MAX_FAILURES} wrong codes per window, so a stolen session cannot brute-force the
+   * 6 digits. Separate count from the passwords.
+   */
+  async attemptOtp(userId: string): Promise<void> {
+    const { count, ttl } = await hitWindow(this.redis, otpAttemptsKey(userId), REAUTH_WINDOW_S);
+    if (count > REAUTH_MAX_FAILURES) {
+      throw rateLimited(ttl, 'Too many wrong codes, try again later');
+    }
+  }
+
+  /** The code was right: the count starts over. */
+  async otpSucceeded(userId: string): Promise<void> {
+    await this.redis.del(otpAttemptsKey(userId));
+  }
+
   /** Counts an email-change request; beyond {@link EMAIL_CHANGE_MAX_REQUESTS} → `429`. */
   async takeEmailChangeSlot(userId: string): Promise<void> {
     const { count, ttl } = await hitWindow(
@@ -53,4 +70,8 @@ export class ReauthLimiter {
 
 function attemptsKey(userId: string): string {
   return `auth:reauth-attempts:${userId}`;
+}
+
+function otpAttemptsKey(userId: string): string {
+  return `auth:2fa-attempts:${userId}`;
 }

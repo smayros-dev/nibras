@@ -9,9 +9,11 @@ import { ChangePasswordDto, EmailChangeRequestDto } from './dto';
 import { EmailChangeService } from './email-change.service';
 import { toMeUser } from './me-user';
 import { PasswordResetService } from './password-reset.service';
+import { requiresTwoFactor } from './two-factor.policy';
 
 /**
- * Placeholder `GET /me` (Task 7): `{ user }`, reachable before email verification. Task 11
+ * Placeholder `GET /me` (Task 7): `{ user }`, reachable before email verification and before a
+ * mandatory 2FA is set up (`twoFactor.required`, Task 10). Task 11
  * replaces it with the `me` module (profile, consents, computed `twoFactor.required` and
  * `pendingConsents`) and moves the password and email-change routes (Task 9) there.
  */
@@ -27,7 +29,8 @@ export class MeController {
   @Get()
   async me(@CurrentUser() current: AuthUser): Promise<{ user: MeUser }> {
     const user = await this.db.user.findUniqueOrThrow({ where: { id: current.id } });
-    return { user: toMeUser(user, { twoFactorRequired: false, pendingConsents: [] }) };
+    const twoFactorRequired = await requiresTwoFactor(user);
+    return { user: toMeUser(user, { twoFactorRequired, pendingConsents: [] }) };
   }
 
   /**

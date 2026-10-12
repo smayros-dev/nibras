@@ -6,6 +6,9 @@ import {
   LoginSchema,
   RegisterTeacherSchema,
   ResetPasswordSchema,
+  TwoFactorDisableSchema,
+  TwoFactorRecoverySchema,
+  TwoFactorVerifySchema,
   VerifyEmailSchema,
 } from '@tt/contracts';
 import { createZodDto } from 'nestjs-zod';
@@ -60,3 +63,9 @@ export class EmailChangeRequestDto extends createZodDto(
 ) {}
 
 export class EmailChangeConfirmDto extends createZodDto(EmailChangeConfirmSchema) {}
+
+export class TwoFactorVerifyDto extends createZodDto(TwoFactorVerifySchema) {}
+
+export class TwoFactorRecoveryDto extends createZodDto(TwoFactorRecoverySchema) {}
+
+export class TwoFactorDisableDto extends createZodDto(TwoFactorDisableSchema) {}

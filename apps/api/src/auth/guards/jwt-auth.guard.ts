@@ -12,7 +12,7 @@ import { ApiError } from '../../common/api-error';
 import { RequestContext, type AuthUser } from '../../common/request-context';
 import { DB } from '../../db/db.module';
 import { accessTokenOf } from '../cookies';
-import { IS_PUBLIC_KEY } from '../decorators/public';
+import { isPublicRequest } from '../decorators/public';
 import { JwtService, type AccessPayload } from '../jwt.service';
 import { credentialsOutdated, sessionRevoked } from '../session.service';
 
@@ -35,7 +35,8 @@ const unauthenticated = () =>
   new ApiError(HttpStatus.UNAUTHORIZED, 'UNAUTHENTICATED', 'Authentication required');
 
 /**
- * Global guard #1 (skipped by `@Public()`): a valid `typ: 'access'` JWT from
+ * Global guard #1 (skipped by `@Public()`, and by `@PublicWithChallenge()` when the body has a
+ * `challengeToken`): a valid `typ: 'access'` JWT from
  * `Authorization: Bearer` or the `tt_access` cookie (else `401 UNAUTHENTICATED`), whose session
  * is read with its user in ONE query on every request, so a revocation or a deleted account takes
  * effect immediately rather than when the 15-minute token expires: missing, revoked or expired
@@ -51,11 +52,7 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (isPublic) return true;
+    if (isPublicRequest(this.reflector, context)) return true;
 
     const token = accessTokenOf(context.switchToHttp().getRequest<Request>());
     if (!token) throw unauthenticated();

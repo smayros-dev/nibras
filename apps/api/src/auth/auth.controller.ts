@@ -11,12 +11,18 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import type { LoginResponse, MeUser, SessionSummary } from '@tt/contracts';
+import type {
+  LoginResponse,
+  MeUser,
+  SessionSummary,
+  TwoFactorRecoveryCodes,
+  TwoFactorSetupResponse,
+} from '@tt/contracts';
 import type { Request, Response } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
 import { RequestContext, type AuthUser } from '../common/request-context';
-import { AuthService } from './auth.service';
+import { AuthService, type LoginResult } from './auth.service';
 import {
   accessTokenOf,
   clearAuthCookies,
@@ -25,9 +31,16 @@ import {
   setAuthCookies,
 } from './cookies';
 import { AllowUnverified } from './decorators/allow-unverified';
-import { CurrentUser } from './decorators/current-user';
-import { Public } from './decorators/public';
-import { LoginDto, RegisterTeacherDto, VerifyEmailDto } from './dto';
+import { CurrentUser, currentUser } from './decorators/current-user';
+import { Public, PublicWithChallenge } from './decorators/public';
+import {
+  LoginDto,
+  RegisterTeacherDto,
+  TwoFactorDisableDto,
+  TwoFactorRecoveryDto,
+  TwoFactorVerifyDto,
+  VerifyEmailDto,
+} from './dto';
 import { EmailVerificationService } from './email-verification.service';
 import { JwtService } from './jwt.service';
 import { toMeUser } from './me-user';
@@ -38,6 +51,8 @@ import {
   type SessionMeta,
   type SessionTokens,
 } from './session.service';
+import { TwoFactorService } from './two-factor.service';
+import { requiresTwoFactor } from './two-factor.policy';
 
 /** The request's address and user-agent (`RequestIdMiddleware`). */
 function requestMeta(): SessionMeta {
@@ -61,6 +76,21 @@ function setCookies(res: Response, tokens: SessionTokens): void {
   });
 }
 
+/** Sets the cookies of a completed sign-in and answers `{ status: 'OK', user }`. */
+async function signedIn(
+  res: Response,
+  result: Extract<LoginResult, { status: 'OK' }>,
+): Promise<LoginResponse> {
+  setCookies(res, result.tokens);
+  return {
+    status: 'OK',
+    user: toMeUser(result.user, {
+      twoFactorRequired: await requiresTwoFactor(result.user),
+      pendingConsents: [],
+    }),
+  };
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -70,6 +100,7 @@ export class AuthController {
     private readonly sessions: SessionService,
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
+    private readonly twoFactor: TwoFactorService,
   ) {}
 
   /** `201 { user }` and the auth cookies of a fresh (not remembered) session. */
@@ -113,11 +144,65 @@ export class AuthController {
   ): Promise<LoginResponse> {
     const result = await this.auth.login(body, requestMeta());
     if (result.status === 'TWO_FACTOR_REQUIRED') return result;
-    setCookies(res, result.tokens);
-    return {
-      status: 'OK',
-      user: toMeUser(result.user, { twoFactorRequired: false, pendingConsents: [] }),
-    };
+    return signedIn(res, result);
+  }
+
+  /** Starts a TOTP enrolment: `200 { secret, otpauthUrl }` (2FA stays off until verified). */
+  @AllowUnverified()
+  @Post('2fa/setup')
+  @HttpCode(HttpStatus.OK)
+  setupTwoFactor(@CurrentUser() user: AuthUser): Promise<TwoFactorSetupResponse> {
+    return this.twoFactor.beginSetup(user);
+  }
+
+  /**
+   * With a `challengeToken` (public): completes a `TWO_FACTOR_REQUIRED` login,
+   * `200 { status: 'OK', user }` + cookies. Without (signed in): confirms the pending enrolment,
+   * `200 { recoveryCodes }`. Wrong code → `401 TWO_FACTOR_INVALID`; bad, expired or used
+   * challenge → `401 TOKEN_INVALID`.
+   */
+  @AllowUnverified()
+  @PublicWithChallenge()
+  @Post('2fa/verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyTwoFactor(
+    @Body() body: TwoFactorVerifyDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponse | TwoFactorRecoveryCodes> {
+    if (body.challengeToken === undefined) {
+      return this.twoFactor.confirmSetup(currentUser(), body.otpCode);
+    }
+    const result = await this.twoFactor.verifyLogin(body.challengeToken, body.otpCode, {
+      ...requestMeta(),
+      remember: body.remember,
+    });
+    return signedIn(res, result);
+  }
+
+  /** Completes a `TWO_FACTOR_REQUIRED` login with a recovery code (consumed). */
+  @Public()
+  @Post('2fa/recovery')
+  @HttpCode(HttpStatus.OK)
+  async recoverTwoFactor(
+    @Body() body: TwoFactorRecoveryDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponse> {
+    const result = await this.twoFactor.verifyRecovery(body.challengeToken, body.recoveryCode, {
+      ...requestMeta(),
+      remember: body.remember,
+    });
+    return signedIn(res, result);
+  }
+
+  /** `204`; `403 TWO_FACTOR_MANDATORY` for a role that requires 2FA. */
+  @AllowUnverified()
+  @Post('2fa/disable')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async disableTwoFactor(
+    @CurrentUser() user: AuthUser,
+    @Body() body: TwoFactorDisableDto,
+  ): Promise<void> {
+    await this.twoFactor.disable(user, body.otpCode);
   }
 
   /**

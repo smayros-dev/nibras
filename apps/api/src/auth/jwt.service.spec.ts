@@ -19,16 +19,16 @@ describe('JwtService', () => {
   });
 
   it('signs 2fa challenges of 5 minutes carrying a jti', async () => {
-    const token = await jwt.signChallenge({ sub: 'u1', jti: 'j1' });
+    const token = await jwt.signChallenge({ sub: 'u1', jti: 'j1', cv: 3 });
     const claims = decodeJwt(token);
-    expect(claims).toMatchObject({ sub: 'u1', jti: 'j1', typ: '2fa' });
+    expect(claims).toMatchObject({ sub: 'u1', jti: 'j1', cv: 3, typ: '2fa' });
     expect(claims.exp! - claims.iat!).toBe(5 * 60);
-    await expect(jwt.verify(token, '2fa')).resolves.toMatchObject({ sub: 'u1', jti: 'j1' });
+    await expect(jwt.verify(token, '2fa')).resolves.toMatchObject({ sub: 'u1', jti: 'j1', cv: 3 });
   });
 
   it('never accepts one typ for the other', async () => {
     const access = await jwt.signAccess({ sub: 'u1', sid: 's1' });
-    const challenge = await jwt.signChallenge({ sub: 'u1', jti: 'j1' });
+    const challenge = await jwt.signChallenge({ sub: 'u1', jti: 'j1', cv: 3 });
     await expect(jwt.verify(challenge, 'access')).rejects.toThrow();
     await expect(jwt.verify(access, '2fa')).rejects.toThrow();
   });
