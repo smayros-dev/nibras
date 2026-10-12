@@ -79,9 +79,11 @@ export class PhoneService {
    * `PhoneE164Schema`). At most one request per user per minute (`429 RATE_LIMITED`, counted
    * atomically in Redis like the other per-user limits). Replaces any pending code with a fresh
    * 6-digit one valid 10 minutes, sends it by SMS (`phone.otp`) in the user's locale and, outside
-   * production (`NODE_ENV !== 'production'`), also emails it (`phone.otp_dev`) so the console SMS
-   * provider's code can be read from Mailpit. A delivery failure is logged and swallowed: the
-   * user asks again after the minute.
+   * the production tier (`APP_ENV !== 'production'`), also emails it (`phone.otp_dev`) so the
+   * console SMS provider's code can be read from Mailpit (dev) or the inbox (staging). Keyed on
+   * `APP_ENV`, not `NODE_ENV`: staging images run `NODE_ENV=production` with the console SMS
+   * provider, which `APP_ENV=production` forbids (env.ts). A delivery failure is logged and
+   * swallowed: the user asks again after the minute.
    */
   async request(user: Pick<AuthUser, 'id' | 'email' | 'locale'>, phoneE164: string): Promise<void> {
     const { count, ttl } = await hitWindow(
@@ -113,7 +115,7 @@ export class PhoneService {
         params: { otpCode },
       }),
     );
-    if (env.NODE_ENV !== 'production') {
+    if (env.APP_ENV !== 'production') {
       await this.deliver(user.id, 'email', () =>
         this.email.send({
           to: user.email,

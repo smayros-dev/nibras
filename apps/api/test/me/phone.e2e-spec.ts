@@ -9,7 +9,10 @@ import { createUser } from '../helpers/factories';
 describe('/me/phone: SMS one-time code verification (D-O6)', () => {
   let ctx: TestContext;
   let http: TestAgent;
-  const nodeEnv = env.NODE_ENV;
+  const { NODE_ENV: nodeEnv, APP_ENV: appEnv } = env;
+  /** Patches the parsed env the service reads at call time (restored after each test). */
+  const setEnv = (patch: { NODE_ENV?: string; APP_ENV?: string }) =>
+    Object.assign(env as { NODE_ENV: string; APP_ENV: string }, patch);
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -20,7 +23,7 @@ describe('/me/phone: SMS one-time code verification (D-O6)', () => {
   });
   beforeEach(() => ctx.reset());
   afterEach(() => {
-    (env as { NODE_ENV: string }).NODE_ENV = nodeEnv;
+    setEnv({ NODE_ENV: nodeEnv, APP_ENV: appEnv });
   });
 
   /** Lifts the 1 request/min limit of `userId` (stands in for waiting a minute). */
@@ -253,16 +256,28 @@ describe('/me/phone: SMS one-time code verification (D-O6)', () => {
     }
   });
 
-  it('the development email copy of the code is not sent when NODE_ENV=production', async () => {
+  it('the development email copy of the code is not sent when APP_ENV=production', async () => {
     const u = await createUser({ locale: 'ar' });
     const s = await loginAs(ctx, u);
-    (env as { NODE_ENV: string }).NODE_ENV = 'production';
+    setEnv({ NODE_ENV: 'production', APP_ENV: 'production' });
     await as(http, s.cookie)
       .post('/api/v1/me/phone/request-otp')
       .send({ phoneE164: '+21655123456' })
       .expect(202);
     expect(ctx.sms.last('+21655123456')).toMatchObject({ templateKey: 'phone.otp', locale: 'ar' });
     expect(ctx.email.findByTemplate('phone.otp_dev')).toHaveLength(0);
+  });
+
+  it('staging (NODE_ENV=production, APP_ENV=staging) still emails the code, so phones can be verified', async () => {
+    const u = await createUser();
+    const s = await loginAs(ctx, u);
+    setEnv({ NODE_ENV: 'production', APP_ENV: 'staging' });
+    await as(http, s.cookie)
+      .post('/api/v1/me/phone/request-otp')
+      .send({ phoneE164: '+21655123456' })
+      .expect(202);
+    const otpCode = ctx.sms.last('+21655123456')!.params.otpCode;
+    expect(ctx.email.findByTemplate('phone.otp_dev', u.email)[0]?.params.otpCode).toBe(otpCode);
   });
 
   it('requires a signed-in user with a verified email', async () => {
