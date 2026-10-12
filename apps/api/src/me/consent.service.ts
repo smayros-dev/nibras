@@ -61,6 +61,18 @@ export class ConsentService {
     return REQUIRED_CONSENTS.filter((type) => !held.some((c) => c.type === type));
   }
 
+  /**
+   * Whether the user holds a granted, unrevoked `type` consent at its current version (e.g.
+   * CODE_OF_CONDUCT for teacher verification: a version bump un-accepts it at the next request).
+   */
+  async accepted(userId: string, type: CurrentConsentType): Promise<boolean> {
+    const held = await this.db.consent.findFirst({
+      where: { userId, type, version: currentVersion(type), granted: true, revokedAt: null },
+      select: { id: true },
+    });
+    return held !== null;
+  }
+
   /** Granted rows, newest first; `current` = at today's version. */
   async list(userId: string): Promise<ConsentRecord[]> {
     const rows = await this.db.consent.findMany({

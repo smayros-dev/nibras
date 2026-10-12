@@ -13,11 +13,13 @@ import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
 import { ConsentModule } from './me/consent.module';
 import { MeModule } from './me/me.module';
+import { VerificationModule } from './me/verification.module';
 import { MetricsMiddleware } from './observability/metrics.middleware';
 import { ObservabilityModule } from './observability/observability.module';
 import { ProvidersModule } from './providers/providers.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
+import { TeacherVerifiedGuard } from './tenancy/teacher-verified.guard';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { RedisModule } from './redis/redis.module';
     AuthModule,
     // ConsentService for the global AccountGatesGuard (consents gate).
     ConsentModule,
+    // VerificationService for the global TeacherVerifiedGuard.
+    VerificationModule,
     MeModule,
     RateLimitModule,
     HealthModule,
@@ -39,11 +43,12 @@ import { RedisModule } from './redis/redis.module';
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     // Global guards run in this order: rate limit (so failed authentications count too), session,
-    // then the account gates. Later tasks append the workspace context, permission and
-    // teacher-verified guards after these.
+    // the account gates, then the teacher-verified gate (only on `@RequireVerifiedTeacher()`
+    // routes). Task 13 inserts the workspace context and permission guards before the last one.
     { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: AccountGatesGuard },
+    { provide: APP_GUARD, useClass: TeacherVerifiedGuard },
   ],
 })
 export class AppModule implements NestModule {

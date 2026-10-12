@@ -36,7 +36,7 @@ export function formatMessage(
   params: Record<string, string | number> = {},
 ): string {
   const source = lookup(locale, path);
-  if (source === undefined) throw new Error(`Missing email message ${locale}:${path}`);
+  if (source === undefined) throw new Error(`Missing message ${locale}:${path}`);
   return String(new IntlMessageFormat(source, intlTag(locale)).format(params));
 }
 

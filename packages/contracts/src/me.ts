@@ -1,5 +1,6 @@
+import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js';
 import { z } from 'zod';
-import { BirthDateSchema, TimezoneSchema } from './auth';
+import { BirthDateSchema, OtpCodeSchema, TimezoneSchema } from './auth';
 import { CurrentConsentTypes } from './consents';
 import { LocaleSchema } from './locale';
 
@@ -70,3 +71,53 @@ export const MyWorkspaceSchema = z.object({
 });
 
 export type MyWorkspace = z.infer<typeof MyWorkspaceSchema>;
+
+/** E.164 shape: `+`, a country code not starting with 0, at most 15 digits, nothing else. */
+const E164 = /^\+[1-9]\d{1,14}$/;
+
+/**
+ * A phone number as `/me/phone/request-otp` takes it: already in E.164 (no spaces, no national
+ * `0` prefix) and valid for its country per `libphonenumber-js` (`isValidPhoneNumber`); the
+ * output is libphonenumber's E.164 form. Anything else is `422 VALIDATION_FAILED`.
+ */
+export const PhoneE164Schema = z
+  .string()
+  .trim()
+  .regex(E164, 'Expected an E.164 phone number, e.g. +21655123456')
+  .refine((v) => isValidPhoneNumber(v), 'Invalid phone number')
+  .transform((v) => parsePhoneNumberWithError(v).number);
+
+/**
+ * `POST /me/phone/request-otp`: `202 {}`; a 6-digit code goes by SMS to `phoneE164` (and, outside
+ * production, by email). 1 request per minute per user (`429 RATE_LIMITED`).
+ */
+export const PhoneOtpRequestSchema = z.object({ phoneE164: PhoneE164Schema });
+
+export type PhoneOtpRequestInput = z.infer<typeof PhoneOtpRequestSchema>;
+
+/**
+ * `POST /me/phone/verify-otp`: `200 MeUser`; wrong code `422 OTP_INVALID`; expired, unknown or
+ * past 5 attempts `410 OTP_EXPIRED`.
+ */
+export const PhoneOtpVerifySchema = z.object({ otpCode: OtpCodeSchema });
+
+export type PhoneOtpVerifyInput = z.infer<typeof PhoneOtpVerifySchema>;
+
+/** A step a teacher must complete before inviting, publishing or opening a room (D-O6). */
+export const TeacherVerificationSteps = ['EMAIL', 'PHONE', 'CODE_OF_CONDUCT'] as const;
+
+export type TeacherVerificationStep = (typeof TeacherVerificationSteps)[number];
+
+/**
+ * `GET /me/verification`, and `details.missing` of `403 TEACHER_NOT_VERIFIED`: the code of
+ * conduct counts only when accepted (unrevoked) at its current `CONSENT_VERSIONS` version.
+ * `missing` follows the order of `TeacherVerificationSteps`.
+ */
+export const TeacherVerificationSchema = z.object({
+  emailVerified: z.boolean(),
+  phoneVerified: z.boolean(),
+  codeOfConductAccepted: z.boolean(),
+  missing: z.array(z.enum(TeacherVerificationSteps)),
+});
+
+export type TeacherVerification = z.infer<typeof TeacherVerificationSchema>;

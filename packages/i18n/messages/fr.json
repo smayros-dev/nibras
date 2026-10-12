@@ -178,5 +178,10 @@
         "body": "Bonjour {firstName},\n\nVotre compte a été réactivé. Vous pouvez de nouveau vous connecter et utiliser la plateforme."
       }
     }
+  },
+  "sms": {
+    "phone": {
+      "otp": "{appName} : votre code de vérification est {otpCode}. Valable 10 minutes. Ne le communiquez à personne."
+    }
   }
 }

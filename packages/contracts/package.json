@@ -30,6 +30,7 @@
     "generate": "openapi-typescript ./openapi/openapi.json -o ./src/generated/api.d.ts"
   },
   "dependencies": {
+    "libphonenumber-js": "^1.13.15",
     "openapi-fetch": "^0.17.0",
     "zod": "^4.6.5"
   },
