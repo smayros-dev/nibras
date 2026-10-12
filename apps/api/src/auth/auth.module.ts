@@ -16,6 +16,7 @@ import { PasswordResetService } from './password-reset.service';
 import { ReauthLimiter } from './reauth-limiter';
 import { RegisterService } from './register.service';
 import { SessionService } from './session.service';
+import { TwoFactorService } from './two-factor.service';
 
 @Module({
   imports: [AuditModule, ProvidersModule],
@@ -36,6 +37,7 @@ import { SessionService } from './session.service';
     ReauthLimiter,
     PasswordResetService,
     EmailChangeService,
+    TwoFactorService,
   ],
   exports: [PasswordPolicy, EmailVerificationService, RegisterService, JwtService, SessionService],
 })

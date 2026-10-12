@@ -170,6 +170,62 @@
         ],
         "type": "object"
       },
+      "TwoFactorDisableDto": {
+        "properties": {
+          "otpCode": {
+            "pattern": "^\\d{6}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "otpCode"
+        ],
+        "type": "object"
+      },
+      "TwoFactorRecoveryDto": {
+        "properties": {
+          "challengeToken": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "recoveryCode": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "remember": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "challengeToken",
+          "recoveryCode"
+        ],
+        "type": "object"
+      },
+      "TwoFactorVerifyDto": {
+        "properties": {
+          "challengeToken": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "otpCode": {
+            "pattern": "^\\d{6}$",
+            "type": "string"
+          },
+          "remember": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "otpCode"
+        ],
+        "type": "object"
+      },
       "VerifyEmailDto": {
         "properties": {
           "token": {
@@ -193,6 +249,92 @@
   },
   "openapi": "3.0.0",
   "paths": {
+    "/auth/2fa/disable": {
+      "post": {
+        "operationId": "AuthController_disableTwoFactor",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorDisableDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/2fa/recovery": {
+      "post": {
+        "operationId": "AuthController_recoverTwoFactor",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorRecoveryDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/2fa/setup": {
+      "post": {
+        "operationId": "AuthController_setupTwoFactor",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/2fa/verify": {
+      "post": {
+        "operationId": "AuthController_verifyTwoFactor",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorVerifyDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/auth/email-change/confirm": {
       "post": {
         "operationId": "PasswordController_confirmEmailChange",

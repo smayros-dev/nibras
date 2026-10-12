@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { HttpStatus, Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import type { LoginInput } from '@tt/contracts';
 import type { GuardedClient, User } from '@tt/db';
@@ -11,6 +11,7 @@ import { EMAIL_PROVIDER } from '../providers/providers.module';
 import { hashPassword, verifyPassword } from './crypto/password';
 import { emailHmac } from './crypto/email-hmac';
 import { deviceLabel } from './device-label';
+import { JwtService } from './jwt.service';
 import { LoginThrottleService } from './login-throttle.service';
 import { SessionService, type SessionMeta, type SessionTokens } from './session.service';
 
@@ -19,7 +20,7 @@ export type LoginResult =
   | { status: 'TWO_FACTOR_REQUIRED'; challengeToken: string };
 
 /** Statuses that may never sign in; answered exactly like a wrong password. */
-const GONE_STATUSES = new Set<User['status']>(['DELETING', 'DELETED']);
+export const GONE_STATUSES = new Set<User['status']>(['DELETING', 'DELETED']);
 
 const invalidCredentials = () =>
   new ApiError(HttpStatus.UNAUTHORIZED, 'INVALID_CREDENTIALS', 'Invalid email or password');
@@ -44,6 +45,7 @@ export class AuthService implements OnModuleInit {
     private readonly audit: AuditService,
     private readonly logger: PinoLogger,
     private readonly throttle: LoginThrottleService,
+    private readonly jwt: JwtService,
   ) {
     logger.setContext(AuthService.name);
   }
@@ -67,6 +69,11 @@ export class AuthService implements OnModuleInit {
    * `Retry-After`), identically for unknown emails; Redis down → `503 SERVICE_UNAVAILABLE` (fail
    * closed, before argon2). Each `INVALID_CREDENTIALS` counts as a failure; a successful sign-in
    * resets this ip+email pair.
+   *
+   * TOTP enabled (`totpEnabledAt` set): the right password only yields
+   * `{ status: 'TWO_FACTOR_REQUIRED', challengeToken }` (5 minutes, single use, bound to the
+   * credentials version read with the hash); no session, no cookies. `TwoFactorService` completes
+   * the sign-in with {@link completeLogin}.
    */
   async login(input: LoginInput, meta: SessionMeta): Promise<LoginResult> {
     const gate = await this.throttle.check(input.email, meta.ip);
@@ -80,14 +87,38 @@ export class AuthService implements OnModuleInit {
     }
 
     const user = await this.verifyCredentials(input, meta.ip);
-    // Task 10: `totpEnabledAt` set → `{ status: 'TWO_FACTOR_REQUIRED', challengeToken }`.
-    const label = deviceLabel(meta.userAgent);
-    const knownDevice = await this.sessions.hasActiveDevice(user.id, label);
+    if (user.totpEnabledAt !== null) {
+      const challengeToken = await this.jwt.signChallenge({
+        sub: user.id,
+        jti: randomUUID(),
+        cv: user.credentialsVersion,
+      });
+      return { status: 'TWO_FACTOR_REQUIRED', challengeToken };
+    }
     // The version comes from the same row read as the verified hash (`verifyCredentials`).
-    const tokens = await this.sessions.createSession(user, {
-      ...meta,
+    return this.completeLogin(user, meta, {
       remember: input.remember,
       credentialsVersion: user.credentialsVersion,
+    });
+  }
+
+  /**
+   * The end of a successful sign-in (password, or password + second factor): a new session bound
+   * to `credentialsVersion`, `lastLoginAt`, `auth.login` (with `secondFactor` when one was
+   * used) and `security.new_device` when the user has no active session on a device with the
+   * same label.
+   */
+  async completeLogin(
+    user: User,
+    meta: SessionMeta,
+    opts: { remember: boolean; credentialsVersion: number; secondFactor?: 'totp' | 'recovery' },
+  ): Promise<Extract<LoginResult, { status: 'OK' }>> {
+    const label = deviceLabel(meta.userAgent);
+    const knownDevice = await this.sessions.hasActiveDevice(user.id, label);
+    const tokens = await this.sessions.createSession(user, {
+      ...meta,
+      remember: opts.remember,
+      credentialsVersion: opts.credentialsVersion,
     });
     const signedIn = await this.db.user.update({
       where: { id: user.id },
@@ -104,7 +135,8 @@ export class AuthService implements OnModuleInit {
       after: {
         sessionId: tokens.session.id,
         deviceLabel: tokens.session.deviceLabel,
-        remember: input.remember,
+        remember: opts.remember,
+        ...(opts.secondFactor && { secondFactor: opts.secondFactor }),
       },
     });
     if (!knownDevice) await this.sendNewDeviceEmail(user, tokens.session.deviceLabel, meta.ip);
@@ -143,7 +175,7 @@ export class AuthService implements OnModuleInit {
   }
 
   /** Actor role `ANONYMOUS` (the request is unauthenticated); an unknown email as a keyed HMAC. */
-  private auditFailure(user: User | null, email: string, reason: string): Promise<void> {
+  auditFailure(user: User | null, email: string, reason: string): Promise<void> {
     return this.audit.log({
       action: 'auth.login_failed',
       entityType: 'User',

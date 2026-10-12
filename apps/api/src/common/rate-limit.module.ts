@@ -15,7 +15,7 @@ import type { Request } from 'express';
 import type Redis from 'ioredis';
 import { UNPREFIXED_ROUTES } from '../app.setup';
 import { accessTokenOf } from '../auth/cookies';
-import { IS_PUBLIC_KEY } from '../auth/decorators/public';
+import { isPublicRequest } from '../auth/decorators/public';
 import { JwtService } from '../auth/jwt.service';
 import { REDIS } from '../redis/redis.module';
 import { ApiError } from './api-error';
@@ -73,8 +73,8 @@ type IdentifiedRequest = Request & { [IDENTITY]?: Promise<Identity> };
  *   expiry only, no database read);
  * - `anon` (60/min, keyed on the client ip — `req.ip`, i.e. `trust proxy` = `TRUST_PROXY_HOPS`;
  *   IPv6 grouped per /64): requests without a valid token AND every `@Public()` route (login,
- *   register, password reset, verify-email, refresh, …) even with one, so a token never lifts the
- *   per-ip limit of the anonymous surface (both limits then apply).
+ *   register, password reset, verify-email, refresh, the 2FA login step, …) even with one, so a
+ *   token never lifts the per-ip limit of the anonymous surface (both limits then apply).
  * Counters are global per tracker (`throttle:{name}:{tracker}`), not per route. `/health/*` and
  * `/metrics` are never throttled. Over the limit → `429 RATE_LIMITED` with `details.retryAfterS`
  * and `Retry-After` (set by the exception filter).
@@ -108,10 +108,7 @@ export class RateLimitGuard extends ThrottlerGuard {
   protected override async handleRequest(props: ThrottlerRequest): Promise<boolean> {
     const { context, throttler } = props;
     const who = await this.identify(context.switchToHttp().getRequest<IdentifiedRequest>());
-    const isPublic = this.reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const isPublic = isPublicRequest(this.reflector, context);
     let tracker: string | null;
     if (throttler.name === 'user') tracker = who.userId;
     else tracker = who.userId === null || isPublic ? who.ip : null;

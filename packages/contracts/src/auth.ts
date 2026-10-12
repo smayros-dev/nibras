@@ -123,13 +123,69 @@ export const LoginSchema = z.object({
 
 export type LoginInput = z.infer<typeof LoginSchema>;
 
-/** `200` of `POST /auth/login`: cookies set on `OK`; `TWO_FACTOR_REQUIRED` arrives with Task 10. */
+/**
+ * `200` of `POST /auth/login`: cookies set on `OK`. `TWO_FACTOR_REQUIRED` (TOTP enabled): no
+ * cookies, the 5-minute `challengeToken` goes to `POST /auth/2fa/verify` or `/auth/2fa/recovery`.
+ */
 export const LoginResponseSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('OK'), user: MeUserSchema }),
   z.object({ status: z.literal('TWO_FACTOR_REQUIRED'), challengeToken: z.string() }),
 ]);
 
 export type LoginResponse = z.infer<typeof LoginResponseSchema>;
+
+/** A 6-digit TOTP code (surrounding spaces ignored). Never named `code` (log redaction rule). */
+export const OtpCodeSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, 'Expected a 6-digit code');
+
+/** A recovery code as typed: `xxxxx-xxxxx`, compared case-insensitively. */
+export const RecoveryCodeSchema = z.string().trim().toLowerCase().min(1).max(32);
+
+/** The login challenge of a `TWO_FACTOR_REQUIRED` login. */
+const ChallengeTokenSchema = z.string().min(1).max(2048);
+
+/** `200` of `POST /auth/2fa/setup`: the seed to scan or type (2FA stays off until confirmed). */
+export const TwoFactorSetupResponseSchema = z.object({
+  secret: z.string(),
+  otpauthUrl: z.string(),
+});
+
+export type TwoFactorSetupResponse = z.infer<typeof TwoFactorSetupResponseSchema>;
+
+/**
+ * `POST /auth/2fa/verify`, two modes:
+ * - signed in, setup pending, no `challengeToken` → confirms the setup: `200 { recoveryCodes }`;
+ * - `challengeToken` of a `TWO_FACTOR_REQUIRED` login → completes it: `200 { status: 'OK', user }`
+ *   and the auth cookies (`remember` as at login).
+ */
+export const TwoFactorVerifySchema = z.object({
+  otpCode: OtpCodeSchema,
+  challengeToken: ChallengeTokenSchema.optional(),
+  remember: z.boolean().optional().default(false),
+});
+
+export type TwoFactorVerifyInput = z.infer<typeof TwoFactorVerifySchema>;
+
+/** `200` of the setup confirmation: the 10 single-use recovery codes, shown this once only. */
+export const TwoFactorRecoveryCodesSchema = z.object({ recoveryCodes: z.array(z.string()) });
+
+export type TwoFactorRecoveryCodes = z.infer<typeof TwoFactorRecoveryCodesSchema>;
+
+/** `POST /auth/2fa/recovery`: completes a login with one recovery code (consumed). */
+export const TwoFactorRecoverySchema = z.object({
+  challengeToken: ChallengeTokenSchema,
+  recoveryCode: RecoveryCodeSchema,
+  remember: z.boolean().optional().default(false),
+});
+
+export type TwoFactorRecoveryInput = z.infer<typeof TwoFactorRecoverySchema>;
+
+/** `POST /auth/2fa/disable`: `204`; `403 TWO_FACTOR_MANDATORY` when the role requires 2FA. */
+export const TwoFactorDisableSchema = z.object({ otpCode: OtpCodeSchema });
+
+export type TwoFactorDisableInput = z.infer<typeof TwoFactorDisableSchema>;
 
 /** One active session of the signed-in user (`GET /auth/sessions`); dates are ISO strings. */
 export const SessionSummarySchema = z.object({

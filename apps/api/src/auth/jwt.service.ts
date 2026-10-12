@@ -23,8 +23,13 @@ export interface AccessPayload {
 export interface ChallengePayload {
   typ: '2fa';
   sub: string;
-  /** Single-use id of the challenge (Task 10 records consumed ones). */
+  /** Single-use id of the challenge (consumed ones are recorded in Redis). */
   jti: string;
+  /**
+   * User.credentialsVersion read with the verified password hash: a reset or change committed
+   * since makes the challenge invalid.
+   */
+  cv: number;
 }
 
 export type PayloadOf<T extends TokenTyp> = T extends 'access' ? AccessPayload : ChallengePayload;
@@ -58,8 +63,8 @@ export class JwtService {
     return this.sign({ sid: claims.sid }, claims.sub, 'access', ACCESS_TTL_S, randomUUID());
   }
 
-  signChallenge(claims: { sub: string; jti: string }): Promise<string> {
-    return this.sign({}, claims.sub, '2fa', CHALLENGE_TTL_S, claims.jti);
+  signChallenge(claims: { sub: string; jti: string; cv: number }): Promise<string> {
+    return this.sign({ cv: claims.cv }, claims.sub, '2fa', CHALLENGE_TTL_S, claims.jti);
   }
 
   /** The payload of a valid token of kind `expectedTyp`; throws {@link InvalidTokenError}. */
@@ -85,11 +90,14 @@ export class JwtService {
       return { typ: 'access', sub: payload.sub, sid: payload.sid } as PayloadOf<T>;
     }
     if (typeof payload.jti !== 'string') throw new InvalidTokenError('jti');
-    return { typ: '2fa', sub: payload.sub, jti: payload.jti } as PayloadOf<T>;
+    if (typeof payload.cv !== 'number' || !Number.isInteger(payload.cv)) {
+      throw new InvalidTokenError('cv');
+    }
+    return { typ: '2fa', sub: payload.sub, jti: payload.jti, cv: payload.cv } as PayloadOf<T>;
   }
 
   private sign(
-    claims: Record<string, string>,
+    claims: Record<string, string | number>,
     sub: string,
     typ: TokenTyp,
     ttlS: number,

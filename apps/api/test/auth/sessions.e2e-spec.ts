@@ -380,7 +380,9 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
   it('a 2fa-typed token is rejected as access token (401)', async () => {
     const u = await createUser();
     const s = await loginAs(ctx, u);
-    const challenge = await ctx.app.get(JwtService).signChallenge({ sub: u.id, jti: s.sessionId });
+    const challenge = await ctx.app
+      .get(JwtService)
+      .signChallenge({ sub: u.id, jti: s.sessionId, cv: 0 });
     await me(challenge)
       .expect(401)
       .expect(({ body }) => expect(body.code).toBe('UNAUTHENTICATED'));
