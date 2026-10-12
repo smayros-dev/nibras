@@ -11,6 +11,8 @@ import { RequestIdMiddleware } from './common/request-id.middleware';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
 import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
+import { ConsentModule } from './me/consent.module';
+import { MeModule } from './me/me.module';
 import { MetricsMiddleware } from './observability/metrics.middleware';
 import { ObservabilityModule } from './observability/observability.module';
 import { ProvidersModule } from './providers/providers.module';
@@ -27,6 +29,9 @@ import { RedisModule } from './redis/redis.module';
     AuditModule,
     EventEmitterModule.forRoot(),
     AuthModule,
+    // ConsentService for the global AccountGatesGuard (consents gate).
+    ConsentModule,
+    MeModule,
     RateLimitModule,
     HealthModule,
   ],

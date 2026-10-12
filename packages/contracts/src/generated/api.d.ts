@@ -289,6 +289,54 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        patch: operations["MeController_update"];
+        trace?: never;
+    };
+    "/me/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MeController_listConsents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/consents/{type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["MeController_grantConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/consents/{type}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["MeController_revokeConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -324,6 +372,22 @@ export interface paths {
         patch: operations["MeController_changePassword"];
         trace?: never;
     };
+    "/me/workspaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MeController_workspaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -343,6 +407,9 @@ export interface components {
         ForgotPasswordDto: {
             /** Format: email */
             email: string;
+        };
+        GrantConsentDto: {
+            version: string;
         };
         LoginDto: {
             /** Format: email */
@@ -385,6 +452,14 @@ export interface components {
             otpCode: string;
             /** @default false */
             remember: boolean;
+        };
+        UpdateMeDto: {
+            birthDate?: string;
+            firstName?: string;
+            lastName?: string;
+            /** @enum {string} */
+            locale?: "fr" | "ar" | "en";
+            timezone?: string;
         };
         VerifyEmailDto: {
             token: string;
@@ -860,6 +935,86 @@ export interface operations {
             };
         };
     };
+    MeController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MeController_listConsents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MeController_grantConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type: "TERMS" | "PRIVACY" | "CODE_OF_CONDUCT" | "MARKETING";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantConsentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MeController_revokeConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type: "TERMS" | "PRIVACY" | "CODE_OF_CONDUCT" | "MARKETING";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     MeController_requestEmailChange: {
         parameters: {
             query?: never;
@@ -893,6 +1048,23 @@ export interface operations {
                 "application/json": components["schemas"]["ChangePasswordDto"];
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MeController_workspaces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
