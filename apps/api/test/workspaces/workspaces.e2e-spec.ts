@@ -198,6 +198,20 @@ describe('workspaces: creation, D-O7 personal rule, details, delete, transfer, a
       .expect(201);
   });
 
+  it('a DELETING personal workspace still counts: delete then POST /me/personal-workspace → 409', async () => {
+    const owner = await createUser();
+    const s = await loginAs(ctx, owner);
+    const created = await as(http, s.cookie).post('/api/v1/me/personal-workspace').expect(201);
+    await as(http, s.cookie).delete(ws(created.body.id)).expect(204);
+    await as(http, s.cookie)
+      .post('/api/v1/me/personal-workspace')
+      .expect(409)
+      .expect(({ body }) => expect(body.code).toBe('PERSONAL_WORKSPACE_EXISTS'));
+    expect(await db.workspace.count({ where: { ownerUserId: owner.id, type: 'PERSONAL' } })).toBe(
+      1,
+    );
+  });
+
   it('GET /workspaces/{wid} returns the workspace and the caller role to any active member', async () => {
     const owner = await createUser({ totpSecret: S });
     const student = await createUser();

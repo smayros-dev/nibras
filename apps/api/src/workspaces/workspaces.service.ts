@@ -134,7 +134,8 @@ export class WorkspacesService {
 
   /**
    * `POST /me/personal-workspace` (AC-WS-08). `409 PERSONAL_WORKSPACE_EXISTS` when the user
-   * already owns a PERSONAL workspace (one being deleted does not count); `403
+   * already owns a PERSONAL workspace, whatever its status (a DELETING one still counts until
+   * SP11 purges it, so delete/recreate never yields a second one or a fresh quota); `403
    * PERSONAL_WORKSPACE_FORBIDDEN` with `{ organizationId, organizationName }` when an organisation
    * where the user holds an ACTIVE TEACHER/ADMIN membership has `allowPersonalWorkspaces = false`
    * (the oldest such membership); otherwise creates it and audits `workspace.created`. A
@@ -146,7 +147,7 @@ export class WorkspacesService {
       return withTenantTx(id, async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`personal-workspace:${user.id}`}, 0))`;
         const existing = await tx.workspace.findFirst({
-          where: { ownerUserId: user.id, type: 'PERSONAL', status: { not: 'DELETING' } },
+          where: { ownerUserId: user.id, type: 'PERSONAL' },
           select: { id: true },
         });
         if (existing) {
