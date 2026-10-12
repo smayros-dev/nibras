@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { AbuseReportsModule } from './abuse-reports/abuse-reports.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { AccountGatesGuard } from './auth/guards/account-gates.guard';
@@ -21,6 +22,7 @@ import { ProvidersModule } from './providers/providers.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
 import { PermissionGuard } from './tenancy/permission.guard';
+import { SuperAdminGuard } from './tenancy/super-admin.guard';
 import { TeacherVerifiedGuard } from './tenancy/teacher-verified.guard';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { WorkspaceContextGuard } from './tenancy/workspace-context.guard';
@@ -43,6 +45,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     MeModule,
     WorkspacesModule,
     MembersModule,
+    AbuseReportsModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
     TenancyModule,
     RateLimitModule,
@@ -52,13 +55,14 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     // Global guards run in this order: rate limit (so failed authentications count too), session,
-    // the account gates, the workspace context (only on `:wid` routes: 404 for a non-member,
+    // the account gates, the super-admin check (only on `@SuperAdminOnly()` routes), the workspace context (only on `:wid` routes: 404 for a non-member,
     // 423 on a suspended workspace's mutations), the §7 permission check (only on
     // `@RequirePermission()` routes), then the teacher-verified gate (only on
     // `@RequireVerifiedTeacher()` routes).
     { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: AccountGatesGuard },
+    { provide: APP_GUARD, useExisting: SuperAdminGuard },
     { provide: APP_GUARD, useExisting: WorkspaceContextGuard },
     { provide: APP_GUARD, useExisting: PermissionGuard },
     { provide: APP_GUARD, useClass: TeacherVerifiedGuard },

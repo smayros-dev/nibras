@@ -4,6 +4,54 @@
  */
 
 export interface paths {
+    "/abuse-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AccountAbuseReportsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/abuse-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AdminAbuseReportsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/abuse-reports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AdminAbuseReportsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["AdminAbuseReportsController_update"];
+        trace?: never;
+    };
     "/auth/2fa/disable": {
         parameters: {
             query?: never;
@@ -292,6 +340,22 @@ export interface paths {
         patch: operations["MeController_update"];
         trace?: never;
     };
+    "/me/abuse-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AccountAbuseReportsController_listMine"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/consents": {
         parameters: {
             query?: never;
@@ -484,6 +548,38 @@ export interface paths {
         patch: operations["WorkspacesController_update"];
         trace?: never;
     };
+    "/workspaces/{wid}/abuse-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkspaceAbuseReportsController_list"];
+        put?: never;
+        post: operations["WorkspaceAbuseReportsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/abuse-reports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkspaceAbuseReportsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkspaceAbuseReportsController_update"];
+        trace?: never;
+    };
     "/workspaces/{wid}/assignments": {
         parameters: {
             query?: never;
@@ -620,6 +716,16 @@ export interface components {
             currentPassword: string;
             newPassword: string;
         };
+        CreateAbuseReportDto: {
+            attachments?: string[];
+            /** @enum {string} */
+            category: "HARASSMENT" | "INAPPROPRIATE_CONTENT" | "IMPERSONATION" | "MINOR_SAFETY" | "OTHER";
+            description: string;
+            /** Format: uuid */
+            entityId: string;
+            /** @enum {string} */
+            entityType: "USER" | "MESSAGE" | "SESSION" | "COURSE";
+        };
         CreateAssignmentDto: {
             /** Format: uuid */
             studentUserId: string;
@@ -702,6 +808,13 @@ export interface components {
             /** @default false */
             remember: boolean;
         };
+        UpdateAbuseReportDto: {
+            /** Format: uuid */
+            assignedToUserId?: string | null;
+            resolution?: string | null;
+            /** @enum {string} */
+            status?: "OPEN" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
+        };
         UpdateMeDto: {
             birthDate?: string;
             firstName?: string;
@@ -747,6 +860,92 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    AccountAbuseReportsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAbuseReportDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminAbuseReportsController_list: {
+        parameters: {
+            query?: {
+                status?: "OPEN" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
+                category?: "HARASSMENT" | "INAPPROPRIATE_CONTENT" | "IMPERSONATION" | "MINOR_SAFETY" | "OTHER";
+                cursor?: string;
+                limit?: number;
+                workspaceId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminAbuseReportsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminAbuseReportsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAbuseReportDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AuthController_disableTwoFactor: {
         parameters: {
             query?: never;
@@ -1230,6 +1429,26 @@ export interface operations {
             };
         };
     };
+    AccountAbuseReportsController_listMine: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     MeController_listConsents: {
         parameters: {
             query?: never;
@@ -1495,6 +1714,97 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateWorkspaceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkspaceAbuseReportsController_list: {
+        parameters: {
+            query?: {
+                status?: "OPEN" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
+                category?: "HARASSMENT" | "INAPPROPRIATE_CONTENT" | "IMPERSONATION" | "MINOR_SAFETY" | "OTHER";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkspaceAbuseReportsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAbuseReportDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkspaceAbuseReportsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkspaceAbuseReportsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAbuseReportDto"];
             };
         };
         responses: {

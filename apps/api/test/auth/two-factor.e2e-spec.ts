@@ -252,9 +252,7 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
     await as(http, s.cookie)
       .get('/api/v1/me')
       .expect(200)
-      .expect(({ body }) =>
-        expect(body.twoFactor).toEqual({ enabled: false, required: true }),
-      );
+      .expect(({ body }) => expect(body.twoFactor).toEqual({ enabled: false, required: true }));
     const { secret } = (await as(http, s.cookie).post('/api/v1/auth/2fa/setup').expect(200)).body;
     // Still blocked while setup is pending.
     await as(http, s.cookie).get('/api/v1/auth/sessions').expect(403);
@@ -296,9 +294,7 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
     await as(http, s.cookie)
       .get('/api/v1/me')
       .expect(200)
-      .expect(({ body }) =>
-        expect(body.twoFactor).toEqual({ enabled: false, required: false }),
-      );
+      .expect(({ body }) => expect(body.twoFactor).toEqual({ enabled: false, required: false }));
     // Nothing to disable yet.
     await as(http, s.cookie)
       .post('/api/v1/auth/2fa/disable')
@@ -309,9 +305,7 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
     const { secret } = await enable(s.cookie);
     await as(http, s.cookie)
       .get('/api/v1/me')
-      .expect(({ body }) =>
-        expect(body.twoFactor).toEqual({ enabled: true, required: false }),
-      );
+      .expect(({ body }) => expect(body.twoFactor).toEqual({ enabled: true, required: false }));
     await as(http, s.cookie)
       .post('/api/v1/auth/2fa/disable')
       .send({ otpCode: wrongCode(secret) })
