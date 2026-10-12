@@ -402,26 +402,38 @@ export class AbuseReportsService implements OnModuleInit {
     throw validationFailed('assignedToUserId', 'The assignee cannot handle this report');
   }
 
-  /** `abuse.new_report` to the report's handlers (deduplicated; admin link wins for super-admins). */
+  /**
+   * `abuse.new_report` to the report's handlers (deduplicated; admin link wins for super-admins;
+   * never the reporter nor the reported user). The super-admins are added when the workspace is
+   * not an organisation, for `MINOR_SAFETY`, when the reported USER is one of the organisation's
+   * handlers (ACTIVE OWNER/ADMIN: he must not be the one instructing it), and whenever no
+   * organisation handler is left after the exclusions.
+   */
   private async notifyHandlers(report: AbuseReport, organization: boolean): Promise<void> {
     const excluded = new Set([report.reporterUserId]);
     if (report.entityType === 'USER') excluded.add(report.entityId);
     const recipients = new Map<string, { to: Recipient; link: string }>();
+    let escalate = !organization || report.category === 'MINOR_SAFETY';
 
     if (organization && report.workspaceId !== null) {
       const workspaceId = report.workspaceId;
       const staff = await tenantDb(workspaceId).membership.findMany({
-        where: { status: 'ACTIVE', role: { in: ['OWNER', 'ADMIN'] }, user: { status: 'ACTIVE' } },
-        select: { user: { select: RECIPIENT } },
+        where: { status: 'ACTIVE', role: { in: ['OWNER', 'ADMIN'] } },
+        select: { user: { select: { ...RECIPIENT, status: true } } },
       });
+      if (report.entityType === 'USER' && staff.some(({ user }) => user.id === report.entityId)) {
+        escalate = true;
+      }
       for (const { user } of staff) {
+        if (user.status !== 'ACTIVE' || excluded.has(user.id)) continue;
         recipients.set(user.id, {
-          to: user,
+          to: { id: user.id, email: user.email, locale: user.locale },
           link: workspaceReportLink(user.locale, workspaceId, report.id),
         });
       }
+      if (recipients.size === 0) escalate = true;
     }
-    if (!organization || report.category === 'MINOR_SAFETY') {
+    if (escalate) {
       const admins = await this.db.user.findMany({
         where: { platformRole: 'SUPER_ADMIN', status: 'ACTIVE' },
         select: RECIPIENT,

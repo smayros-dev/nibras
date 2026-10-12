@@ -174,6 +174,52 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
       .expect(403);
   });
 
+  it('HARASSMENT against the org owner who is its only admin escalates to the super-admins; the owner gets nothing', async () => {
+    const sa = await createUser({ platformRole: 'SUPER_ADMIN', totpSecret: S });
+    const owner = await createUser({ totpSecret: S });
+    const student = await createUser();
+    const { workspace } = await createOrganization({ owner, students: [student] });
+    await (
+      await agent(student)
+    )
+      .post(wsReports(workspace.id))
+      .send({
+        category: 'HARASSMENT',
+        description: DESCRIPTION,
+        entityType: 'USER',
+        entityId: owner.id,
+      })
+      .expect(201);
+    const [saMail] = ctx.email.findByTemplate('abuse.new_report', sa.email);
+    expect(saMail).toBeDefined();
+    expect(saMail!.params.link).toContain('/admin/abuse-reports/');
+    expect(ctx.email.sent.filter((m) => m.to === owner.email)).toHaveLength(0);
+    expect(ctx.email.findByTemplate('abuse.report_received', student.email)).toHaveLength(1);
+  });
+
+  it('HARASSMENT against an org admin escalates to the super-admins too; the other handlers are notified, the reported admin is not', async () => {
+    const sa = await createUser({ platformRole: 'SUPER_ADMIN', totpSecret: S });
+    const owner = await createUser({ totpSecret: S });
+    const admin = await createUser({ totpSecret: S });
+    const student = await createUser();
+    const { workspace } = await createOrganization({ owner, admins: [admin], students: [student] });
+    await (
+      await agent(student)
+    )
+      .post(wsReports(workspace.id))
+      .send({
+        category: 'HARASSMENT',
+        description: DESCRIPTION,
+        entityType: 'USER',
+        entityId: admin.id,
+      })
+      .expect(201);
+    expect(ctx.email.findByTemplate('abuse.new_report', sa.email)).toHaveLength(1);
+    expect(ctx.email.findByTemplate('abuse.new_report', owner.email)).toHaveLength(1);
+    expect(ctx.email.sent.filter((m) => m.to === admin.email)).toHaveLength(0);
+    expect(ctx.queue.jobs).toHaveLength(0);
+  });
+
   it('AC-SAFE-05: MINOR_SAFETY report handled by the org stays visible to the super-admin', async () => {
     const { sa, admin, teacher, student, workspace } = await orgFixture();
     const created = await (
