@@ -6,6 +6,7 @@ import {
   type Locale,
   type Membership,
   type MembershipRole,
+  type MembershipStatus,
   type PlatformRole,
   type User,
   type UserStatus,
@@ -101,6 +102,8 @@ export interface CreateWorkspaceOptions {
   name: string;
   slug: string;
   status: Workspace['status'];
+  /** Stored with `suspendedAt = now` when `status` is `SUSPENDED`. */
+  suspendedReason: string;
 }
 
 async function createWorkspace(
@@ -116,6 +119,11 @@ async function createWorkspace(
       name: o.name ?? name,
       slug: o.slug ?? `ws-${randomBase32(6)}-${randomBase32(6)}`,
       status: o.status ?? 'ACTIVE',
+      ...(o.status === 'SUSPENDED' && {
+        suspendedAt: new Date(),
+        suspendedReason: o.suspendedReason ?? null,
+      }),
+      ...(o.status === 'DELETING' && { deletedAt: new Date() }),
       ownerUserId: owner.id,
       defaultTimezone: owner.timezone,
       defaultLocale: owner.locale,
@@ -128,14 +136,31 @@ async function createWorkspace(
   });
 }
 
-function addMember(workspace: Workspace, user: User, role: MembershipRole): Promise<Membership> {
+export interface AddMemberOptions {
+  /** Default `ACTIVE`. */
+  status: MembershipStatus;
+  /** Default `false` (ADMIN who also teaches). */
+  canTeach: boolean;
+}
+
+/** A membership of `user` in `workspace` (ACTIVE, `canTeach = false` by default). */
+export function addMember(
+  workspace: Pick<Workspace, 'id'>,
+  user: Pick<User, 'id'>,
+  role: MembershipRole,
+  o: Partial<AddMemberOptions> = {},
+): Promise<Membership> {
+  const status = o.status ?? 'ACTIVE';
+  const now = new Date();
   return systemPrisma().membership.create({
     data: {
       workspaceId: workspace.id,
       userId: user.id,
       role,
-      status: 'ACTIVE',
-      joinedAt: new Date(),
+      status,
+      canTeach: o.canTeach ?? false,
+      joinedAt: status === 'ACTIVE' ? now : null,
+      ...(status === 'REMOVED' && { removedAt: now }),
     },
   });
 }
@@ -159,20 +184,30 @@ export async function createOrganization(o: {
   admins?: User[];
   teachers?: User[];
   students?: User[];
+  /** Any other membership (role, status, `canTeach`), created after the lists above. */
+  members?: ({ user: User; role: MembershipRole } & Partial<AddMemberOptions>)[];
   allowPersonalWorkspaces?: boolean;
   name?: string;
+  /** Default `ACTIVE`. */
+  status?: Workspace['status'];
+  suspendedReason?: string;
 }): Promise<{ workspace: Workspace; memberships: Membership[] }> {
   const workspace = await createWorkspace('ORGANIZATION', o.owner, o.name ?? 'Organisation test', {
     allowPersonalWorkspaces: o.allowPersonalWorkspaces,
+    status: o.status,
+    suspendedReason: o.suspendedReason,
   });
-  const members: [User, MembershipRole][] = [
-    [o.owner, 'OWNER'],
-    ...(o.admins ?? []).map((u): [User, MembershipRole] => [u, 'ADMIN']),
-    ...(o.teachers ?? []).map((u): [User, MembershipRole] => [u, 'TEACHER']),
-    ...(o.students ?? []).map((u): [User, MembershipRole] => [u, 'STUDENT']),
+  const members: ({ user: User; role: MembershipRole } & Partial<AddMemberOptions>)[] = [
+    { user: o.owner, role: 'OWNER' },
+    ...(o.admins ?? []).map((user) => ({ user, role: 'ADMIN' as const })),
+    ...(o.teachers ?? []).map((user) => ({ user, role: 'TEACHER' as const })),
+    ...(o.students ?? []).map((user) => ({ user, role: 'STUDENT' as const })),
+    ...(o.members ?? []),
   ];
   const memberships: Membership[] = [];
-  for (const [user, role] of members) memberships.push(await addMember(workspace, user, role));
+  for (const { user, role, ...opts } of members) {
+    memberships.push(await addMember(workspace, user, role, opts));
+  }
   return { workspace, memberships };
 }
 
