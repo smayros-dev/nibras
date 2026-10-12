@@ -20,6 +20,12 @@ export interface AddMemberInput {
   invitedByUserId?: string;
 }
 
+/** `addMember` in a caller's transaction: `audit()` writes `member.added`, after the commit. */
+export interface AddedMember {
+  membership: Membership;
+  audit: () => Promise<void>;
+}
+
 function alreadyMember(): ApiError {
   return new ApiError(HttpStatus.CONFLICT, 'ALREADY_MEMBER', 'Already a member of this workspace');
 }
@@ -39,23 +45,48 @@ export class MembershipService {
    * - otherwise a new row (`joinedAt` = now when ACTIVE);
    * - in a PERSONAL workspace a `STUDENT` also gets the `TeacherStudentAssignment(owner →
    *   student)` (§11.2), unless it already exists (kept from before a removal).
-   * Runs in `tx` when given (a `withTenantTx(input.workspaceId, …)` transaction: the tenant
-   * extension refuses rows of another workspace), else in its own tenant transaction. Audits
-   * `member.added`; with a caller's `tx` the audit row is written before that transaction
-   * commits (the audit trail lives on its own connection).
+   * The reactivation is a conditional update (`status = 'REMOVED'`): of two concurrent calls on
+   * one REMOVED row, the second waits for the first's row lock, matches nothing and gets `409
+   * ALREADY_MEMBER`.
+   *
+   * Audit `member.added` (written by `AuditService` on its own connection, so only once the
+   * membership is committed):
+   * - without `tx`: runs in its own tenant transaction, writes the audit row after the commit and
+   *   returns the `Membership`;
+   * - with `tx` (a `withTenantTx(input.workspaceId, …)` transaction; the tenant extension refuses
+   *   rows of another workspace): writes NO audit row and returns `{ membership, audit }`. The
+   *   caller (SP2 invitations) calls `audit()` after its transaction committed, never inside it,
+   *   so a rolled-back transaction leaves no phantom `member.added` row:
+   *
+   *       const added = await withTenantTx(wid, async (tx) => {
+   *         // … the caller's own writes …
+   *         return this.membership.addMember(input, tx);
+   *       });
+   *       await added.audit();
    */
-  async addMember(input: AddMemberInput, tx?: TenantTx): Promise<Membership> {
+  addMember(input: AddMemberInput): Promise<Membership>;
+  addMember(input: AddMemberInput, tx: TenantTx): Promise<AddedMember>;
+  async addMember(input: AddMemberInput, tx?: TenantTx): Promise<Membership | AddedMember> {
     if (input.role === 'OWNER') {
       throw new Error('addMember cannot create an OWNER membership');
     }
-    const { membership, reactivated } = tx
-      ? await this.insert(tx, input)
-      : await withTenantTx(input.workspaceId, (t) => this.insert(t, input));
-    await this.audit.log({
+    if (tx) {
+      const { membership, reactivated } = await this.insert(tx, input);
+      return { membership, audit: () => this.auditAdded(membership, reactivated) };
+    }
+    const { membership, reactivated } = await withTenantTx(input.workspaceId, (t) =>
+      this.insert(t, input),
+    );
+    await this.auditAdded(membership, reactivated);
+    return membership;
+  }
+
+  private auditAdded(membership: Membership, reactivated: boolean): Promise<void> {
+    return this.audit.log({
       action: 'member.added',
       entityType: 'Membership',
       entityId: membership.id,
-      workspaceId: input.workspaceId,
+      workspaceId: membership.workspaceId,
       after: {
         userId: membership.userId,
         role: membership.role,
@@ -64,7 +95,6 @@ export class MembershipService {
         reactivated,
       },
     });
-    return membership;
   }
 
   private async insert(
@@ -86,10 +116,13 @@ export class MembershipService {
     let reactivated = false;
     if (existing) {
       if (existing.status !== 'REMOVED') throw alreadyMember();
-      membership = await tx.membership.update({
-        where: { id: existing.id },
+      // Conditional: a concurrent reactivation committed first → nothing matches.
+      const { count } = await tx.membership.updateMany({
+        where: { id: existing.id, status: 'REMOVED' },
         data: { ...fields, removedAt: null, removalReason: null },
       });
+      if (count === 0) throw alreadyMember();
+      membership = await tx.membership.findFirstOrThrow({ where: { id: existing.id } });
       reactivated = true;
     } else {
       try {

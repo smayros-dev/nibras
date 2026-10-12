@@ -504,12 +504,21 @@ describe('members: scoped listing, role changes, removal (AC-WS-02, Review Focus
     const teacher = await createUser();
     const personal = await createPersonalWorkspace(teacher);
     const pupil = await createUser();
-    await withTenantTx(personal.id, (tx) =>
+    const inTx = await withTenantTx(personal.id, (tx) =>
       service.addMember(
         { workspaceId: personal.id, userId: pupil.id, role: 'STUDENT', status: 'ACTIVE' },
         tx,
       ),
     );
+    expect(inTx.membership).toMatchObject({ userId: pupil.id, status: 'ACTIVE' });
+    // With a caller's tx the audit row waits for the caller, who logs it after the commit.
+    const personalAdded = { action: 'member.added', workspaceId: personal.id };
+    expect(await db.auditLog.count({ where: personalAdded })).toBe(0);
+    await inTx.audit();
+    expect(await db.auditLog.findFirstOrThrow({ where: personalAdded })).toMatchObject({
+      entityId: inTx.membership.id,
+      after: expect.objectContaining({ reactivated: false }),
+    });
     const assignments = await db.teacherStudentAssignment.findMany({
       where: { workspaceId: personal.id },
     });
@@ -531,6 +540,60 @@ describe('members: scoped listing, role changes, removal (AC-WS-02, Review Focus
     expect(await db.teacherStudentAssignment.count({ where: { workspaceId: personal.id } })).toBe(
       1,
     );
+  });
+
+  it('concurrent reactivation of one REMOVED membership: one success, one 409 ALREADY_MEMBER, one audit row', async () => {
+    const service = ctx.app.get(MembershipService);
+    const owner = await createUser({ totpSecret: S });
+    const st = await createUser();
+    const { workspace, memberships } = await createOrganization({
+      owner,
+      members: [{ user: st, role: 'STUDENT', status: 'REMOVED' }],
+    });
+    const results = await Promise.allSettled(
+      (['STUDENT', 'GUARDIAN'] as const).map((role) =>
+        service.addMember({ workspaceId: workspace.id, userId: st.id, role, status: 'ACTIVE' }),
+      ),
+    );
+    const won = results.filter((r) => r.status === 'fulfilled');
+    const lost = results.filter((r) => r.status === 'rejected');
+    expect(won).toHaveLength(1);
+    expect(lost).toHaveLength(1);
+    expect((lost[0] as PromiseRejectedResult).reason).toMatchObject({
+      code: 'ALREADY_MEMBER',
+      status: 409,
+    });
+    const winner = (won[0] as PromiseFulfilledResult<{ id: string; role: string }>).value;
+    expect(winner.id).toBe(memberships[1]!.id);
+    // The row holds the winner's write, never a silent overwrite by the loser.
+    const row = await db.membership.findUniqueOrThrow({ where: { id: winner.id } });
+    expect(row).toMatchObject({ status: 'ACTIVE', role: winner.role });
+    expect(
+      await db.auditLog.count({ where: { action: 'member.added', workspaceId: workspace.id } }),
+    ).toBe(1);
+  });
+
+  it('addMember in a caller tx that rolls back leaves no membership and no member.added audit row', async () => {
+    const service = ctx.app.get(MembershipService);
+    const teacher = await createUser();
+    const personal = await createPersonalWorkspace(teacher);
+    const pupil = await createUser();
+    await expect(
+      withTenantTx(personal.id, async (tx) => {
+        await service.addMember(
+          { workspaceId: personal.id, userId: pupil.id, role: 'STUDENT', status: 'ACTIVE' },
+          tx,
+        );
+        throw new Error('caller rolls back');
+      }),
+    ).rejects.toThrow('caller rolls back');
+    expect(
+      await db.membership.count({ where: { workspaceId: personal.id, userId: pupil.id } }),
+    ).toBe(0);
+    expect(await db.teacherStudentAssignment.count({ where: { workspaceId: personal.id } })).toBe(
+      0,
+    );
+    expect(await db.auditLog.count({ where: { action: 'member.added' } })).toBe(0);
   });
 });
 
