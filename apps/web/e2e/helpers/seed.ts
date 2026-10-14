@@ -24,6 +24,8 @@ export interface SeedOptions {
   acceptConsents?: boolean;
   /** Create an organisation (the caller becomes OWNER, which makes 2FA mandatory). */
   organization?: boolean;
+  /** Profile timezone (default `Africa/Tunis`); the timezone-banner test seeds a fixed one. */
+  timezone?: string;
 }
 
 /**
@@ -32,7 +34,12 @@ export interface SeedOptions {
  * create an organisation.
  */
 export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
-  const { totp = false, acceptConsents = true, organization = false } = opts;
+  const {
+    totp = false,
+    acceptConsents = true,
+    organization = false,
+    timezone = 'Africa/Tunis',
+  } = opts;
   const ctx = await playwrightRequest.newContext({ baseURL: BASE });
   try {
     const firstName = 'Mohamed';
@@ -47,7 +54,7 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
         email,
         password,
         locale: 'fr',
-        timezone: 'Africa/Tunis',
+        timezone,
         acceptTerms: true,
         acceptPrivacy: true,
       },

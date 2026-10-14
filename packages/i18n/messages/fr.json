@@ -263,5 +263,89 @@
       "coc": "Code de conduite",
       "accept": "Accepter et continuer"
     }
+  },
+  "settings": {
+    "title": "Paramètres",
+    "comingSoon": "Bientôt disponible",
+    "nav": {
+      "profile": "Profil",
+      "security": "Sécurité",
+      "verification": "Vérification",
+      "consents": "Consentements",
+      "notifications": "Notifications",
+      "workspace": "Espace",
+      "organization": "Organisation",
+      "data": "Données & confidentialité"
+    },
+    "profile": {
+      "title": "Profil",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "language": "Langue de l’interface",
+      "timezone": "Fuseau horaire",
+      "birthDate": "Date de naissance",
+      "save": "Enregistrer",
+      "saved": "Modifications enregistrées"
+    },
+    "timezone": {
+      "banner": "Vous semblez être à {city} ; afficher en {tz} ?",
+      "accept": "Oui",
+      "dismiss": "Non"
+    },
+    "security": {
+      "title": "Sécurité",
+      "twoFactor": "Double authentification (2FA)",
+      "twoFactorOn": "La double authentification est activée sur votre compte.",
+      "twoFactorOff": "La double authentification n’est pas activée sur votre compte.",
+      "twoFactorEnable": "Activer la 2FA",
+      "twoFactorDisable": "Désactiver la 2FA",
+      "twoFactorRequired": "La double authentification est obligatoire pour votre rôle et ne peut pas être désactivée.",
+      "disableHint": "Entrez un code de votre application pour confirmer la désactivation.",
+      "otpCode": "Code à 6 chiffres",
+      "changePassword": "Changer de mot de passe",
+      "currentPassword": "Mot de passe actuel",
+      "newPassword": "Nouveau mot de passe",
+      "changePasswordSubmit": "Changer le mot de passe",
+      "passwordChanged": "Mot de passe changé. Les autres appareils ont été déconnectés.",
+      "devices": "Appareils connectés",
+      "thisDevice": "Cet appareil",
+      "disconnect": "Déconnecter",
+      "signOutAll": "Déconnecter partout",
+      "signOutAllConfirm": "Déconnecter tous les appareils, y compris celui-ci ?"
+    },
+    "verification": {
+      "title": "Vérification",
+      "email": "Email",
+      "phoneNumber": "Numéro de téléphone",
+      "phone": "Téléphone",
+      "sendOtp": "Envoyer le code",
+      "otpCode": "Code reçu",
+      "verifyOtp": "Vérifier",
+      "otpSent": "Un code a été envoyé par SMS (et par email en développement).",
+      "otpInvalid": "Code incorrect.",
+      "phoneDone": "Téléphone vérifié : {phone}",
+      "coc": "Code de conduite",
+      "cocBody": "Je m’engage à respecter les autres membres de la plateforme, à ne pas publier de contenu harassant, discriminatoire ou illégal, et à utiliser les sessions en direct dans un cadre pédagogique. Toute infraction peut entraîner la suspension du compte.",
+      "cocAccept": "J’accepte le code de conduite",
+      "acceptCoc": "Accepter le code de conduite",
+      "done": "Vérifié",
+      "todo": "À faire"
+    },
+    "consents": {
+      "title": "Consentements",
+      "version": "Version",
+      "grantedAt": "Accepté le {date}",
+      "revoke": "Retirer",
+      "none": "Aucun consentement enregistré."
+    }
+  },
+  "onboarding": {
+    "title": "Votre espace est prêt à {done}/{total}",
+    "profile": "Compléter mon profil (photo, matière, bio)",
+    "verifyEmail": "Vérifier mon email",
+    "firstCourse": "Créer mon premier cours",
+    "inviteStudents": "Inviter mes étudiants",
+    "firstSession": "Programmer ma première session",
+    "soon": "Bientôt"
   }
 }

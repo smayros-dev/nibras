@@ -10,6 +10,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ConsentGate } from '../../../components/consent-gate';
+import { TimezoneBanner } from '../../../components/timezone-banner';
 import { routing } from '../../../i18n/routing';
 import { appGateRedirect } from '../../../lib/auth-redirects';
 import { getSession } from '../../../lib/session';
@@ -58,6 +59,7 @@ export default async function AppLayout({
       nav={nav}
       labels={{ skipToContent: t('nav.skipToContent'), primaryNav: t('nav.primaryNav') }}
     >
+      <TimezoneBanner timezone={user.timezone} />
       {children}
       {user.pendingConsents.length > 0 ? (
         <ConsentGate

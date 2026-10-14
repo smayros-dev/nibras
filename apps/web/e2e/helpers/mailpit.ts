@@ -42,3 +42,10 @@ export function extractLink(html: string, pathContains: string): string | null {
   }
   return null;
 }
+
+/** The 6-digit OTP code in a dev OTP email's text (`phone.otp_dev`). */
+export function extractOtpCode(text: string): string {
+  const code = text.match(/\b\d{6}\b/)?.[0];
+  if (!code) throw new Error(`No 6-digit OTP code in: ${text.slice(0, 120)}`);
+  return code;
+}

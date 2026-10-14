@@ -1,8 +1,11 @@
+import type { MyWorkspace } from '@tt/contracts';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
+import { OnboardingChecklist } from '../../../../components/onboarding-checklist';
 import { routing } from '../../../../i18n/routing';
 import { getSession } from '../../../../lib/session';
+import { asApiResult, serverApi } from '../../../../lib/api';
 
 export default async function AppHomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -12,7 +15,22 @@ export default async function AppHomePage({ params }: { params: Promise<{ locale
   // The layout already guarantees a session; this is the page's own read for the welcome name.
   const user = await getSession();
 
+  const { data: workspaces } = asApiResult<MyWorkspace[]>(
+    await (await serverApi()).GET('/me/workspaces'),
+  );
+
   return (
-    <h1 className="text-3xl font-bold">{t('app.welcome', { name: user?.firstName ?? '' })}</h1>
+    <div>
+      <h1 className="text-3xl font-bold">{t('app.welcome', { name: user?.firstName ?? '' })}</h1>
+      {user ? (
+        <OnboardingChecklist
+          emailVerified={user.emailVerifiedAt !== null}
+          profileComplete={
+            user.firstName.length > 0 && user.lastName.length > 0 && user.phoneVerifiedAt !== null
+          }
+          workspaces={workspaces ?? []}
+        />
+      ) : null}
+    </div>
   );
 }

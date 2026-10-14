@@ -263,5 +263,89 @@
       "coc": "Code of conduct",
       "accept": "Accept and continue"
     }
+  },
+  "settings": {
+    "title": "Settings",
+    "comingSoon": "Coming soon",
+    "nav": {
+      "profile": "Profile",
+      "security": "Security",
+      "verification": "Verification",
+      "consents": "Consents",
+      "notifications": "Notifications",
+      "workspace": "Workspace",
+      "organization": "Organization",
+      "data": "Data & privacy"
+    },
+    "profile": {
+      "title": "Profile",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "language": "Interface language",
+      "timezone": "Time zone",
+      "birthDate": "Date of birth",
+      "save": "Save",
+      "saved": "Changes saved"
+    },
+    "timezone": {
+      "banner": "You seem to be in {city}; display in {tz}?",
+      "accept": "Yes",
+      "dismiss": "No"
+    },
+    "security": {
+      "title": "Security",
+      "twoFactor": "Two-factor authentication (2FA)",
+      "twoFactorOn": "Two-factor authentication is enabled on your account.",
+      "twoFactorOff": "Two-factor authentication is not enabled on your account.",
+      "twoFactorEnable": "Enable 2FA",
+      "twoFactorDisable": "Disable 2FA",
+      "twoFactorRequired": "Two-factor authentication is mandatory for your role and cannot be disabled.",
+      "disableHint": "Enter a code from your app to confirm disabling.",
+      "otpCode": "6-digit code",
+      "changePassword": "Change password",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "changePasswordSubmit": "Change password",
+      "passwordChanged": "Password changed. Other devices were signed out.",
+      "devices": "Connected devices",
+      "thisDevice": "This device",
+      "disconnect": "Sign out",
+      "signOutAll": "Sign out everywhere",
+      "signOutAllConfirm": "Sign out of all devices, including this one?"
+    },
+    "verification": {
+      "title": "Verification",
+      "email": "Email",
+      "phoneNumber": "Phone number",
+      "phone": "Phone",
+      "sendOtp": "Send code",
+      "otpCode": "Received code",
+      "verifyOtp": "Verify",
+      "otpSent": "A code was sent by SMS (and by email in development).",
+      "otpInvalid": "Incorrect code.",
+      "phoneDone": "Phone verified: {phone}",
+      "coc": "Code of conduct",
+      "cocBody": "I commit to respecting the other members of the platform, not to post harassing, discriminatory or illegal content, and to use live sessions in an educational spirit. Any violation may lead to account suspension.",
+      "cocAccept": "I accept the code of conduct",
+      "acceptCoc": "Accept the code of conduct",
+      "done": "Verified",
+      "todo": "To do"
+    },
+    "consents": {
+      "title": "Consents",
+      "version": "Version",
+      "grantedAt": "Accepted on {date}",
+      "revoke": "Revoke",
+      "none": "No consents recorded."
+    }
+  },
+  "onboarding": {
+    "title": "Your space is ready {done}/{total}",
+    "profile": "Complete my profile (photo, subject, bio)",
+    "verifyEmail": "Verify my email",
+    "firstCourse": "Create my first course",
+    "inviteStudents": "Invite my students",
+    "firstSession": "Schedule my first session",
+    "soon": "Soon"
   }
 }

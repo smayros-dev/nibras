@@ -1,9 +1,12 @@
 import { messages } from '@tt/i18n';
 import {
   TEST_CONSENT_TERMS_VERSION,
+  appUrl,
   expect,
+  fillLogin,
   t,
   test,
+  uiLogin,
   uniqueEmail,
   type APIRequestContext,
 } from './helpers';
@@ -15,14 +18,6 @@ import { totpCode, wrongTotpCode } from './helpers/totp';
 const RAW_KEY = new RegExp(`\\b(${Object.keys(messages.fr).join('|')})\\.[A-Za-z_]+\\b`);
 
 const PASSWORD = 'un mot de passe assez long';
-
-/**
- * Exact URL: `/fr/login` also matches `/fr/fr/login`, which would hide a doubled locale prefix
- * (next-intl's client router prefixes the locale itself — pushes must be locale-less).
- */
-function appUrl(path: string): string {
-  return `http://localhost:3000${path}`;
-}
 
 /** Fill the register form; `password` defaults to a policy-valid one. */
 async function fillRegister(
@@ -36,29 +31,6 @@ async function fillRegister(
   await page.getByLabel(t(locale, 'auth.register.email'), { exact: true }).fill(email);
   await page.getByLabel(t(locale, 'auth.register.password'), { exact: true }).fill(password);
   await page.getByLabel(t(locale, 'auth.register.acceptTerms'), { exact: true }).check();
-}
-
-/** Fill the login form and submit. */
-async function fillLogin(
-  page: import('@playwright/test').Page,
-  locale: string,
-  email: string,
-  password: string,
-) {
-  await page.getByLabel(t(locale, 'auth.login.email'), { exact: true }).fill(email);
-  await page.getByLabel(t(locale, 'auth.login.password'), { exact: true }).fill(password);
-  await page.getByRole('button', { name: t(locale, 'auth.login.submit') }).click();
-}
-
-/** Login through the UI and land on `/app` (no 2FA, consents already accepted). */
-async function uiLogin(
-  page: import('@playwright/test').Page,
-  locale: string,
-  user: { email: string; password: string },
-) {
-  await page.goto(`/${locale}/login`);
-  await fillLogin(page, locale, user.email, user.password);
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
 }
 
 test('teacher signs up, verifies by email, lands on the dashboard', async ({
