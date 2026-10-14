@@ -5,6 +5,8 @@
     "retry": "Réessayer"
   },
   "nav": {
+    "skipToContent": "Aller au contenu",
+    "primaryNav": "Navigation principale",
     "dashboard": "Dashboard",
     "courses": "Cours",
     "students": "Étudiants",
@@ -182,6 +184,84 @@
   "sms": {
     "phone": {
       "otp": "{appName} : votre code de vérification est {otpCode}. Valable 10 minutes. Ne le communiquez à personne."
+    }
+  },
+  "app": {
+    "welcome": "Bonjour, {name}"
+  },
+  "auth": {
+    "register": {
+      "title": "Créer un compte",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "email": "Email",
+      "password": "Mot de passe",
+      "locale": "Langue",
+      "timezone": "Fuseau horaire",
+      "acceptTerms": "J’accepte les conditions générales d’utilisation",
+      "submit": "S’inscrire",
+      "haveAccount": "Vous avez déjà un compte ?",
+      "loginLink": "Se connecter"
+    },
+    "login": {
+      "title": "Connexion",
+      "email": "Email",
+      "password": "Mot de passe",
+      "remember": "Se souvenir de moi",
+      "submit": "Se connecter",
+      "forgot": "Mot de passe oublié ?",
+      "noAccount": "Pas encore de compte ?",
+      "registerLink": "Créer un compte"
+    },
+    "verify": {
+      "pending": "Vérifiez votre email",
+      "pendingBody": "Un lien de confirmation vient de vous être envoyé par email.",
+      "done": "Email vérifié",
+      "continue": "Continuer vers l’application",
+      "resend": "Renvoyer l’email de vérification",
+      "resendDone": "Email renvoyé."
+    },
+    "forgot": {
+      "title": "Mot de passe oublié",
+      "email": "Email",
+      "submit": "Envoyer le lien de réinitialisation",
+      "always": "Si un compte existe avec cette adresse, un email a été envoyé."
+    },
+    "reset": {
+      "title": "Nouveau mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "submit": "Enregistrer le mot de passe",
+      "success": "Mot de passe modifié. Vous pouvez maintenant vous connecter.",
+      "tokenInvalid": "Lien expiré",
+      "requestNew": "Demander un nouveau lien"
+    },
+    "twoFactor": {
+      "title": "Vérification en deux étapes",
+      "code": "Code de vérification",
+      "submit": "Vérifier",
+      "useRecovery": "Utiliser un code de secours",
+      "recoveryCode": "Code de secours",
+      "submitRecovery": "Se connecter"
+    },
+    "setup": {
+      "title": "Activer la vérification en deux étapes",
+      "scanQr": "Scannez ce QR code avec votre application d’authentification, puis saisissez le code généré.",
+      "secret": "Clé secrète",
+      "code": "Code de vérification",
+      "submit": "Activer",
+      "recoveryCodes": "Codes de secours",
+      "recoveryHint": "Conservez ces codes en lieu sûr : chacun ne fonctionne qu’une seule fois.",
+      "download": "Télécharger les codes",
+      "savedAck": "J’ai enregistré mes codes",
+      "continue": "Continuer vers l’application"
+    },
+    "consent": {
+      "title": "Conditions mises à jour",
+      "intro": "Veuillez accepter les conditions suivantes pour continuer.",
+      "terms": "Conditions générales d’utilisation",
+      "privacy": "Politique de confidentialité",
+      "coc": "Code de conduite",
+      "accept": "Accepter et continuer"
     }
   }
 }

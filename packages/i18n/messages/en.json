@@ -5,6 +5,8 @@
     "retry": "Retry"
   },
   "nav": {
+    "skipToContent": "Skip to content",
+    "primaryNav": "Primary navigation",
     "dashboard": "Dashboard",
     "courses": "Courses",
     "students": "Students",
@@ -182,6 +184,84 @@
   "sms": {
     "phone": {
       "otp": "{appName}: your verification code is {otpCode}. Valid for 10 minutes. Do not share it with anyone."
+    }
+  },
+  "app": {
+    "welcome": "Hello, {name}"
+  },
+  "auth": {
+    "register": {
+      "title": "Create an account",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "password": "Password",
+      "locale": "Language",
+      "timezone": "Time zone",
+      "acceptTerms": "I accept the terms of use",
+      "submit": "Sign up",
+      "haveAccount": "Already have an account?",
+      "loginLink": "Sign in"
+    },
+    "login": {
+      "title": "Sign in",
+      "email": "Email",
+      "password": "Password",
+      "remember": "Remember me",
+      "submit": "Sign in",
+      "forgot": "Forgot your password?",
+      "noAccount": "No account yet?",
+      "registerLink": "Create an account"
+    },
+    "verify": {
+      "pending": "Verify your email",
+      "pendingBody": "A confirmation link has just been sent to your email.",
+      "done": "Email verified",
+      "continue": "Continue to the app",
+      "resend": "Resend verification email",
+      "resendDone": "Email resent."
+    },
+    "forgot": {
+      "title": "Forgot your password",
+      "email": "Email",
+      "submit": "Send reset link",
+      "always": "If an account exists with this address, an email has been sent."
+    },
+    "reset": {
+      "title": "New password",
+      "newPassword": "New password",
+      "submit": "Save password",
+      "success": "Password changed. You can now sign in.",
+      "tokenInvalid": "Link expired",
+      "requestNew": "Request a new link"
+    },
+    "twoFactor": {
+      "title": "Two-factor verification",
+      "code": "Verification code",
+      "submit": "Verify",
+      "useRecovery": "Use a recovery code",
+      "recoveryCode": "Recovery code",
+      "submitRecovery": "Sign in"
+    },
+    "setup": {
+      "title": "Enable two-factor verification",
+      "scanQr": "Scan this QR code with your authenticator app, then enter the generated code.",
+      "secret": "Secret key",
+      "code": "Verification code",
+      "submit": "Enable",
+      "recoveryCodes": "Recovery codes",
+      "recoveryHint": "Keep these codes somewhere safe: each one works only once.",
+      "download": "Download codes",
+      "savedAck": "I saved my codes",
+      "continue": "Continue to the app"
+    },
+    "consent": {
+      "title": "Updated terms",
+      "intro": "Please accept the following terms to continue.",
+      "terms": "Terms of use",
+      "privacy": "Privacy policy",
+      "coc": "Code of conduct",
+      "accept": "Accept and continue"
     }
   }
 }

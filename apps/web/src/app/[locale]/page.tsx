@@ -20,7 +20,12 @@ export default async function HelloPage({ params }: { params: Promise<{ locale: 
   }));
 
   return (
-    <AppShell locale={locale} dir={dirOf(locale)} nav={nav}>
+    <AppShell
+      locale={locale}
+      dir={dirOf(locale)}
+      nav={nav}
+      labels={{ skipToContent: t('nav.skipToContent'), primaryNav: t('nav.primaryNav') }}
+    >
       <div className="flex flex-col gap-4">
         <h1 className="text-3xl font-bold">{t('hello.title')}</h1>
         <p className="text-lg">{t('hello.subtitle')}</p>
