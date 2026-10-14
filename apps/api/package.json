@@ -6,6 +6,7 @@
     "dev": "dotenv -e ../../.env -- nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
+    "cli": "nest build && dotenv -e ../../.env -- node dist/cli/create-super-admin.js",
     "openapi:export": "nest build && dotenv -e ../../.env -- node dist/openapi/export.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",

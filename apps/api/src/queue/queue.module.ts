@@ -49,6 +49,7 @@ export function redisConnection(url: string): ConnectionOptions {
     },
     QueueService,
   ],
-  exports: [QueueService],
+  // QUEUES_BY_NAME: read-only inspection (`GET /admin/health` job counts).
+  exports: [QueueService, QUEUES_BY_NAME],
 })
 export class QueueModule {}

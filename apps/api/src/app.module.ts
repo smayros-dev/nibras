@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AbuseReportsModule } from './abuse-reports/abuse-reports.module';
+import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { AccountGatesGuard } from './auth/guards/account-gates.guard';
@@ -46,6 +47,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     WorkspacesModule,
     MembersModule,
     AbuseReportsModule,
+    AdminModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
     TenancyModule,
     RateLimitModule,

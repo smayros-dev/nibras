@@ -11,6 +11,7 @@ import type { Response } from 'express';
 import type Redis from 'ioredis';
 import { REDIS } from '../redis/redis.module';
 import { Public } from '../auth/decorators/public';
+import { TimeoutError, withTimeout } from '../common/with-timeout';
 
 /** Injection token for the Prisma client (`app_user`) the readiness probe pings. */
 export const DB_HEALTH_CLIENT = Symbol('DB_HEALTH_CLIENT');
@@ -60,14 +61,4 @@ export class HealthController {
       return check.down({ message: err instanceof TimeoutError ? err.message : 'unreachable' });
     }
   }
-}
-
-class TimeoutError extends Error {}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new TimeoutError(`timeout of ${ms}ms exceeded`)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
