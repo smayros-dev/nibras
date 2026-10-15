@@ -44,6 +44,9 @@ env:
   SMS_PROVIDER: console
   HIBP_ENABLED: 'false'
   COOKIE_SECURE: 'false'
+  # Global API rate limits: the same defaults as .env.example; the e2e job raises ANON.
+  RATE_LIMIT_USER: '600'
+  RATE_LIMIT_ANON: '60'
   # Superuser of the Postgres service, only used to apply init.sql.
   PG_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
 
@@ -136,6 +139,13 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # This job starts the api/worker itself (Playwright `reuseExistingServer`), so the e2e-only
+    # overrides that the local webServer env carries must be set here too: the bumped TERMS
+    # version (consent-gate specs) and a raised anon rate limit (the suite registers many
+    # accounts from one ip).
+    env:
+      TEST_CONSENT_TERMS_VERSION: terms-e2e-2026-11
+      RATE_LIMIT_ANON: '10000'
     services:
       postgres:
         image: postgres:17

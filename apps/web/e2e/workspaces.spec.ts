@@ -115,7 +115,11 @@ test.describe('workspaces (plan Task 21)', () => {
       .getByLabel(t(locale, 'abuse.description'), { exact: true })
       .fill('Compte test e2e: message inapproprié simulé.');
     await dialog.getByRole('button', { name: t(locale, 'abuse.submit') }).click();
-    await expect(dialog.getByRole('status')).toHaveText(t(locale, 'abuse.sent'));
+    // The success state appears once the POST lands; the dev API can take >5 s under the
+    // full suite's load.
+    await expect(dialog.getByRole('status')).toHaveText(t(locale, 'abuse.sent'), {
+      timeout: 20_000,
+    });
   });
 
   test('AC-WS-09 UI: suspended workspace shows the banner', async ({ page, uiLocale: locale }) => {

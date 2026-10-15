@@ -18,13 +18,24 @@ export default defineConfig<LocaleTestOptions>({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium-fr', use: { ...devices['Desktop Chrome'], uiLocale: 'fr' } },
-    { name: 'chromium-ar', use: { ...devices['Desktop Chrome'], uiLocale: 'ar' } },
+    {
+      name: 'chromium-fr',
+      use: { ...devices['Desktop Chrome'], uiLocale: 'fr' },
+      // The full-journey smoke runs on the mobile projects, once per locale (plan Task 23).
+      testIgnore: /smoke\.spec\.ts/,
+    },
+    {
+      name: 'chromium-ar',
+      use: { ...devices['Desktop Chrome'], uiLocale: 'ar' },
+      testIgnore: /smoke\.spec\.ts/,
+    },
     // The hello spec parameterises locales itself; only it runs on a real mobile viewport.
+    // The smoke runs FR + AR sequentially inside one test (plan Task 23): two parallel journeys
+    // starve the dev servers.
     {
       name: 'mobile-fr',
       use: { ...devices['Pixel 7'], uiLocale: 'fr' },
-      testMatch: /hello\.spec\.ts/,
+      testMatch: /hello\.spec\.ts|smoke\.spec\.ts/,
     },
   ],
   // The API runs with a bumped TERMS version (consent-gate e2e); registration still grants the

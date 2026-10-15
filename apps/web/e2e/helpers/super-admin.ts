@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { request as playwrightRequest } from '@playwright/test';
-import { TEST_CONSENT_TERMS_VERSION, postRegister, uniqueEmail } from '../helpers';
+import { TEST_CONSENT_TERMS_VERSION, postRegister, postTransient, uniqueEmail } from '../helpers';
 import { extractLink, waitForEmail } from './mailpit';
 import { totpCode } from './totp';
 
@@ -82,8 +82,9 @@ export async function seedSuperAdmin(): Promise<SeededSuperAdmin> {
     );
 
     // The CLI grants the static TERMS version; the e2e API requires the bumped one.
-    const consent = await ctx.post('/api/v1/me/consents/TERMS', {
-      data: { version: TEST_CONSENT_TERMS_VERSION },
+    // Idempotent accept, transient-retried (this POST failed once in globalSetup, 500).
+    const consent = await postTransient(ctx, '/api/v1/me/consents/TERMS', {
+      version: TEST_CONSENT_TERMS_VERSION,
     });
     if (consent.status() !== 201 && consent.status() !== 409)
       throw new Error(`consent ${consent.status()}: ${await consent.text()}`);

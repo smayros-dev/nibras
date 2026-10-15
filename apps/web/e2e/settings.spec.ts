@@ -111,6 +111,9 @@ test('onboarding checklist shows 2/5 after email verification and phone verifica
   const otp = extractOtpCode(mail.text);
   await page.getByLabel(t(locale, 'settings.verification.otpCode'), { exact: true }).fill(otp);
   await page.getByRole('button', { name: t(locale, 'settings.verification.verifyOtp') }).click();
+  // Wait for the server to record the verification: navigating earlier can render the
+  // dashboard checklist from the pre-verification state (flaky under full-suite load).
+  await expect(page.getByTestId('tick-PHONE')).toBeVisible();
 
   await page.goto(`/${locale}/app`);
   // "Votre espace est prêt à {done}/{total}" — the checklist counts the two done items.

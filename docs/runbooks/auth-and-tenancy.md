@@ -1,0 +1,116 @@
+# Auth, tenancy & RBAC (SP1)
+
+Operational runbook for the SP1 slice: registration/login, 2FA, consents, workspaces, the
+super-admin console, audit actions and rate limits. Local dev setup lives in
+[local-dev.md](local-dev.md).
+
+## Creating the first super-admin
+
+There is no self-serve super-admin signup. Bootstrap one with the CLI (idempotent: it creates the
+user if missing, otherwise promotes an existing account to `SUPER_ADMIN`, keeping its password):
+
+```bash
+pnpm --filter @tt/api cli create-super-admin --email ops@example.com --password '<a long password>'
+```
+
+The CLI grants the static `CONSENT_VERSIONS` TERMS version. If the deployment runs with a bumped
+`TEST_CONSENT_TERMS_VERSION` (the e2e suite does), the account must re-accept that version before
+the API lets it through the consent gate.
+
+The e2e suite does this automatically: Playwright's `globalSetup` (`apps/web/e2e/warmup.ts`) seeds
+a throwaway super-admin and exposes `E2E_SUPER_ADMIN_{EMAIL,PASSWORD,TOTP_SECRET}` to the tests.
+No CI step is needed — `pnpm build` provides the CLI dist the globalSetup runs.
+
+## Rotating `JWT_SECRET`
+
+Invalidates **all** sessions and refresh tokens (access token 15 min, refresh token 30 days are
+signed with it). Generate a new 48-byte base64 value (`openssl rand -base64 48`), update the env,
+restart the API and the worker. Users must log in again; nothing else is lost.
+
+## Rotating `TOTP_ENCRYPTION_KEY`
+
+TOTP seeds are sealed at rest with AES-256-GCM (`SecretBox`) keyed by this 32-byte base64 value.
+Changing the key **without** re-sealing every stored seed breaks 2FA for every enrolled user
+(their codes stop verifying and the seeds cannot be decrypted).
+
+There is no re-seal command yet: write a one-shot migration script when first needed. It must, in
+one transaction per user, decrypt each `User.totpSecret` with the old key, re-encrypt with the new
+one, and swap. Until such a script exists, treat this key as non-rotatable in production and
+restrict access to it accordingly.
+
+Recovery codes are stored hashed (not sealed), so they survive a rotation.
+
+## Unlocking a locked account
+
+Five failed logins for one email lock it for 15 minutes (`auth.account_locked` in the audit log).
+The lock and the failure counter live in Redis, keyed by `sha256(email)`:
+
+```
+login:lock:<sha256(lowercased email)>    # the 15-minute lock
+login:fail:<sha256(lowercased email)>    # the failure counter
+```
+
+To unlock early, delete both keys (e.g. with `redis-cli DEL ...`). The hash makes the keys
+unreadable as emails; compute it with
+`node -e "console.log(require('crypto').createHash('sha256').update('user@example.com').digest('hex'))"`.
+
+## Reading OTP and other emails in dev
+
+Every email lands in Mailpit (http://localhost:8025):
+
+- **verify-email** — the link the e2e and humans click to verify the address.
+- **phone.otp_dev** — outside the `production` tier, the phone OTP is also emailed so dev and e2e
+  can read it without an SMS provider (`SMS_PROVIDER=console` logs the SMS instead). Subject per
+  locale: FR « Votre code de vérification du téléphone (développement) », AR « رمز التحقق من
+  هاتفك (بيئة التطوير) ».
+- Password reset, email-change and other transactional templates.
+
+## Audit actions
+
+Every mutation writes an `AuditLog` row (`action`, actor, entity, before/after JSON) through
+`AuditService.log`. Actions (SP1, `apps/api/src/audit/audit.service.ts`):
+
+| Prefix           | Meaning                                                                                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.*`         | registration, login (and failures/lock), refresh-token reuse, sessions revoked, password/email changes and resets, 2FA recovery code used, forbidden-workspace attempt |
+| `user.*`         | profile updated, suspended/unsuspended, super-admin granted                                                                                                            |
+| `phone.*`        | phone verified (OTP)                                                                                                                                                   |
+| `consent.*`      | TERMS/PRIVACY/CODE_OF_CONDUCT granted or revoked                                                                                                                       |
+| `workspace.*`    | created, updated, settings updated, ownership transferred, suspended/unsuspended, deleted, quota changed                                                               |
+| `member.*`       | added, removed, role changed                                                                                                                                           |
+| `assignment.*`   | course/session assignment created or deleted                                                                                                                           |
+| `abuse_report.*` | report created or updated (status/resolution)                                                                                                                          |
+
+Writes are fire-and-forget: a failed audit write increments `audit_write_failures_total` and
+never blocks the business operation.
+
+## Tenant isolation suite
+
+`apps/api/test/isolation/tenant-routes.e2e-spec.ts` probes **every** `/workspaces/{wid}` route
+with a member of another organisation and asserts cross-tenant access is refused (403/404, never
+data). Any new tenant route is covered automatically by the suite's route list.
+
+`apps/api/test/isolation/exemptions.ts` lists the rare routes the suite must NOT probe (e.g. ones
+that intentionally answer for non-members). An exemption hides a route from the isolation
+guarantee, so each entry needs a comment justifying it and code review — never add one to make a
+failing test pass.
+
+## Rate limits
+
+Global API limits are configured by env (`apps/api/src/config/env.ts`, applied by
+`RateLimitModule`):
+
+| Variable          | Default | Scope                            |
+| ----------------- | ------- | -------------------------------- |
+| `RATE_LIMIT_ANON` | 60/min  | per-IP, unauthenticated requests |
+| `RATE_LIMIT_USER` | 600/min | per-user, authenticated requests |
+
+Separately, the login throttle (Redis `login:fail:*` / `login:lock:*`) bounds password guessing,
+and the phone OTP endpoint has its own request window (1/60 s) and attempt cap (5).
+
+## Super-admin console
+
+`/{locale}/admin` (workspaces, abuse reports, health) is gated by `platformRole === 'SUPER_ADMIN'`
+server-side; everyone else gets 404. Workspace suspend/unsuspend and abuse-report resolution are
+audited (`workspace.suspended`, `abuse_report.updated`) and refuse to operate on deleted
+workspaces.

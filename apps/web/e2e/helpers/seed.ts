@@ -1,7 +1,8 @@
 import { CONSENT_VERSIONS, type CurrentConsentType } from '@tt/contracts';
 import { request as playwrightRequest } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { TEST_CONSENT_TERMS_VERSION, postRegister, uniqueEmail } from '../helpers';
+import { existsSync, readFileSync } from 'node:fs';
+import { TEST_CONSENT_TERMS_VERSION, postRegister, postTransient, uniqueEmail } from '../helpers';
 import { extractLink, waitForEmail } from './mailpit';
 import { totpCode } from './totp';
 
@@ -83,7 +84,9 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
       const { pendingConsents } = (await me.json()) as { pendingConsents: CurrentConsentType[] };
       for (const type of pendingConsents) {
         const version = type === 'TERMS' ? TEST_CONSENT_TERMS_VERSION : CONSENT_VERSIONS[type];
-        const res = await ctx.post(`/api/v1/me/consents/${type}`, { data: { version } });
+        // Transient-retried: the consent accept is idempotent, and this POST through the
+        // `next dev` proxy is the one the full suite observed failing (500 / ECONNRESET).
+        const res = await postTransient(ctx, `/api/v1/me/consents/${type}`, { version });
         if (res.status() !== 201)
           throw new Error(`consent ${type} ${res.status()}: ${await res.text()}`);
       }
@@ -123,10 +126,27 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Minimal `.env` reader (KEY=VALUE lines) so `psql` works without a docker daemon (CI). */
+function systemDbUrl(): string {
+  const envFile = new URL('../../../../.env', import.meta.url);
+  let env: NodeJS.ProcessEnv = process.env;
+  if (existsSync(envFile)) {
+    env = { ...process.env };
+    for (const line of readFileSync(envFile, 'utf8').split('\n')) {
+      const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (match && match[1]) env[match[1]] = match[2]!.replace(/^["']|["']$/g, '');
+    }
+  }
+  const url = env.DATABASE_URL_SYSTEM;
+  if (!url) throw new Error('addOrgMember: DATABASE_URL_SYSTEM is not set');
+  return url;
+}
+
 /**
  * SP1 ruling (plan Task 21): the public API has no "add member" route yet (students and teachers
  * join by invitation in SP2), so the e2e inserts the membership row directly as the postgres
- * superuser (bypasses RLS). Roles: TEACHER, ADMIN or STUDENT.
+ * superuser (bypasses RLS). Roles: TEACHER, ADMIN or STUDENT. Local docker runs through
+ * `docker exec`; CI (service container, no docker daemon) falls back to a direct `psql`.
  */
 export function addOrgMember(
   wid: string,
@@ -134,19 +154,16 @@ export function addOrgMember(
   role: 'TEACHER' | 'ADMIN' | 'STUDENT' = 'TEACHER',
 ): void {
   if (!UUID.test(wid) || !UUID.test(userId)) throw new Error('addOrgMember: uuids required');
-  execFileSync(
-    'docker',
-    [
-      'exec',
-      'tt-postgres-1',
-      'psql',
-      '-U',
-      'postgres',
-      '-d',
-      'tt',
-      '-c',
-      `INSERT INTO membership (id, workspace_id, user_id, role, status, joined_at, created_at, updated_at) VALUES (gen_random_uuid(), '${wid}', '${userId}', '${role}', 'ACTIVE', now(), now(), now()) ON CONFLICT (workspace_id, user_id) DO NOTHING;`,
-    ],
-    { stdio: 'pipe' },
-  );
+  const sql = `INSERT INTO membership (id, workspace_id, user_id, role, status, joined_at, created_at, updated_at) VALUES (gen_random_uuid(), '${wid}', '${userId}', '${role}', 'ACTIVE', now(), now(), now()) ON CONFLICT (workspace_id, user_id) DO NOTHING;`;
+  try {
+    execFileSync(
+      'docker',
+      ['exec', 'tt-postgres-1', 'psql', '-U', 'postgres', '-d', 'tt', '-c', sql],
+      {
+        stdio: 'pipe',
+      },
+    );
+  } catch {
+    execFileSync('psql', [systemDbUrl(), '-c', sql], { stdio: 'pipe' });
+  }
 }

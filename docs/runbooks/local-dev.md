@@ -108,6 +108,12 @@ Turbo runs tasks in strict env mode: a task only sees the variables listed for i
 `turbo.json` **and** to the `env` block of `.github/workflows/ci.yml` (with a CI-safe value), and
 documented in `.env.example`; otherwise it is silently missing in CI (and turbo's cache ignores it).
 
+SP1 (auth, tenancy & RBAC) added `JWT_SECRET`, `TOTP_ENCRYPTION_KEY`, `EMAIL_FROM`, `SMTP_URL`,
+`SMS_PROVIDER`, `HIBP_ENABLED`, `COOKIE_SECURE`, `RATE_LIMIT_USER` and `RATE_LIMIT_ANON` — all
+have dev-only defaults in `.env.example`. Operations on this slice (first super-admin, secret
+rotation, unlocking a locked account, reading dev OTPs, audit actions, tenant isolation) are in
+[auth-and-tenancy.md](auth-and-tenancy.md).
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:

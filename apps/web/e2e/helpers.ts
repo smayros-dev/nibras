@@ -1,5 +1,11 @@
 import { messages } from '@tt/i18n';
-import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test';
+import {
+  expect,
+  test as base,
+  type APIRequestContext,
+  type APIResponse,
+  type Page,
+} from '@playwright/test';
 
 /**
  * Per-project UI language, set in `playwright.config.ts` (`use: { uiLocale: 'fr' | 'ar' }`,
@@ -55,6 +61,35 @@ export async function postRegister(ctx: APIRequestContext, body: Record<string, 
 }
 
 /**
+ * `POST` an idempotent setup call, retrying the transient transport failures observed through
+ * the `next dev` proxy under full-suite load (reset/failed connection, `5xx` answer): the
+ * dev server stalls while compiling cold routes and drops in-flight proxied requests.
+ * Idempotent targets only (e.g. `POST /me/consents/{type}` — 201 on every current-version
+ * accept), never 4xx (each caller keeps its own status check; `429` keeps its bespoke loops).
+ * On exhaustion the last response — or the last thrown error — surfaces to the caller.
+ */
+export async function postTransient(
+  ctx: APIRequestContext,
+  url: string,
+  data: Record<string, unknown>,
+  attempts = 3,
+): Promise<APIResponse> {
+  let response: APIResponse | undefined;
+  let thrown: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+    try {
+      response = await ctx.post(url, { data });
+      if (response.status() < 500) return response;
+    } catch (error) {
+      thrown = error;
+    }
+  }
+  if (response) return response;
+  throw thrown;
+}
+
+/**
  * Exact URL: `/fr/app` also matches `/fr/fr/app`, which would hide a doubled locale prefix
  * (next-intl's client router prefixes the locale itself — pushes must be locale-less).
  */
@@ -77,17 +112,29 @@ export async function uiLogin(
   locale: string,
   user: { email: string; password: string; secret?: string },
 ) {
-  await page.goto(`/${locale}/login`);
-  await fillLogin(page, locale, user.email, user.password || PASSWORD);
-  if (user.secret) {
-    const { totpCode } = await import('./helpers/totp');
-    await expect(page).toHaveURL(appUrl(`/${locale}/2fa`));
-    await page
-      .getByLabel(t(locale, 'auth.twoFactor.code'), { exact: true })
-      .fill(totpCode(user.secret));
-    await page.getByRole('button', { name: t(locale, 'auth.twoFactor.submit') }).click();
+  // Bounded retry: a login POST lost through the `next dev` proxy (cold compiles stall the
+  // dev server under full-suite load) leaves an alert on the login page instead of navigating.
+  // The URL expects get an explicit timeout: the default 5 s is too tight under load.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await page.goto(`/${locale}/login`);
+      await fillLogin(page, locale, user.email, user.password || PASSWORD);
+      if (user.secret) {
+        const { totpCode } = await import('./helpers/totp');
+        await expect(page).toHaveURL(appUrl(`/${locale}/2fa`), { timeout: 15_000 });
+        await page
+          .getByLabel(t(locale, 'auth.twoFactor.code'), { exact: true })
+          .fill(totpCode(user.secret));
+        await page.getByRole('button', { name: t(locale, 'auth.twoFactor.submit') }).click();
+      }
+      await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+      // Navigation may still be landing after the assertion timed out — don't log in twice.
+      if (page.url().startsWith(appUrl(`/${locale}/app`))) return;
+    }
   }
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
 }
 
 /**
