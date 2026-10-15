@@ -141,7 +141,7 @@ export function MembersPanel({ wid, detail }: { wid: string; detail: WorkspaceDe
             <option value="">—</option>
             {MEMBERSHIP_ROLES.map((r) => (
               <option key={r} value={r}>
-                {r}
+                {t(`members.role_${r}`)}
               </option>
             ))}
           </Select>
@@ -155,7 +155,7 @@ export function MembersPanel({ wid, detail }: { wid: string; detail: WorkspaceDe
             <option value="">—</option>
             {MEMBERSHIP_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {t(`members.status_${s}`)}
               </option>
             ))}
           </Select>
@@ -186,7 +186,7 @@ export function MembersPanel({ wid, detail }: { wid: string; detail: WorkspaceDe
                   <span className="block text-xs text-gray-500">{member.email}</span>
                 ) : null}
               </td>
-              <td className="py-1">{member.role}</td>
+              <td className="py-1">{t(`members.role_${member.role}`)}</td>
               <td className="py-1">
                 {member.role === 'ADMIN' || member.role === 'OWNER' ? (
                   <input
@@ -196,11 +196,13 @@ export function MembersPanel({ wid, detail }: { wid: string; detail: WorkspaceDe
                     onChange={() => void toggleCanTeach(member)}
                     className="size-4"
                   />
+                ) : member.canTeach ? (
+                  '✓'
                 ) : (
-                  String(member.canTeach)
+                  '—'
                 )}
               </td>
-              <td className="py-1">{member.status}</td>
+              <td className="py-1">{t(`members.status_${member.status}`)}</td>
               <td className="py-1">{member.joinedAt ? member.joinedAt.slice(0, 10) : '—'}</td>
               <td className="py-1">
                 <div className="flex flex-wrap items-center gap-2">

@@ -277,7 +277,8 @@
       "notifications": "Notifications",
       "workspace": "Workspace",
       "organization": "Organization",
-      "data": "Data & privacy"
+      "data": "Data & privacy",
+      "workspaces": "Workspaces"
     },
     "profile": {
       "title": "Profile",
@@ -396,7 +397,13 @@
     "navSettings": "Settings",
     "navMembers": "Members",
     "navAudit": "Audit log",
-    "soon": "Soon"
+    "soon": "Soon",
+    "auditAction": "Action",
+    "auditFrom": "From",
+    "auditTo": "To",
+    "auditBefore": "Before",
+    "auditAfter": "After",
+    "auditNext": "Next"
   },
   "members": {
     "title": "Members",
@@ -420,7 +427,20 @@
     "noStudents": "Students join by invitation (next version).",
     "studentsTab": "Students",
     "pendingInvitation": "Invitation pending",
-    "self": "you"
+    "self": "you",
+    "role_OWNER": "Owner",
+    "role_ADMIN": "Admin",
+    "role_TEACHER": "Teacher",
+    "role_ASSISTANT": "Assistant",
+    "role_STUDENT": "Student",
+    "role_GUARDIAN": "Guardian",
+    "status_ACTIVE": "Active",
+    "status_PENDING_APPROVAL": "Pending approval",
+    "status_PENDING_GUARDIAN_CONSENT": "Pending guardian consent",
+    "status_SUSPENDED_NO_CONSENT": "Suspended — no consent",
+    "status_SUSPENDED_CONSENT_REVOKED": "Suspended — consent revoked",
+    "status_REMOVED": "Removed",
+    "status_REJECTED": "Rejected"
   },
   "abuse": {
     "report": "Report",

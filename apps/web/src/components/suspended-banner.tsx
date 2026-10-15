@@ -5,8 +5,8 @@ import { useTranslations } from 'next-intl';
 /**
  * *Bannière d'espace suspendu* (plan Task 21): shown above workspace pages when the API reports
  * the workspace as SUSPENDED/DELETING. Mutations are refused server-side; this banner tells the
- * members why the workspace is read-only. The reason string lives on the admin API only in SP1
- * (see plan deviation logged in the ledger); the copy here is the generic suspension notice.
+ * members the workspace is read-only. The suspension reason lives on the admin API only in SP1 —
+ * members see this generic notice (exposing the reason to members is deferred past SP1).
  */
 export function SuspendedBanner({ status }: { status: 'SUSPENDED' | 'DELETING' }) {
   const t = useTranslations();

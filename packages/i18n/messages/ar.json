@@ -277,7 +277,8 @@
       "notifications": "الإشعارات",
       "workspace": "مساحة العمل",
       "organization": "المنظمة",
-      "data": "البيانات والخصوصية"
+      "data": "البيانات والخصوصية",
+      "workspaces": "مساحات العمل"
     },
     "profile": {
       "title": "الملف الشخصي",
@@ -396,7 +397,13 @@
     "navSettings": "الإعدادات",
     "navMembers": "الأعضاء",
     "navAudit": "سجل التدقيق",
-    "soon": "قريباً"
+    "soon": "قريباً",
+    "auditAction": "الإجراء",
+    "auditFrom": "من",
+    "auditTo": "إلى",
+    "auditBefore": "قبل",
+    "auditAfter": "بعد",
+    "auditNext": "التالي"
   },
   "members": {
     "title": "الأعضاء",
@@ -420,7 +427,20 @@
     "noStudents": "ينضم التلاميذ بالدعوة (النسخة القادمة).",
     "studentsTab": "التلاميذ",
     "pendingInvitation": "دعوة بانتظار القبول",
-    "self": "أنت"
+    "self": "أنت",
+    "role_OWNER": "المالك",
+    "role_ADMIN": "مدير",
+    "role_TEACHER": "أستاذ",
+    "role_ASSISTANT": "مساعد",
+    "role_STUDENT": "تلميذ",
+    "role_GUARDIAN": "ولي الأمر",
+    "status_ACTIVE": "نشط",
+    "status_PENDING_APPROVAL": "بانتظار الموافقة",
+    "status_PENDING_GUARDIAN_CONSENT": "بانتظار موافقة ولي الأمر",
+    "status_SUSPENDED_NO_CONSENT": "موقوف — الموافقة مفقودة",
+    "status_SUSPENDED_CONSENT_REVOKED": "موقوف — سُحبت الموافقة",
+    "status_REMOVED": "محذوف",
+    "status_REJECTED": "مرفوض"
   },
   "abuse": {
     "report": "إبلاغ",

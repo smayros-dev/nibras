@@ -4,6 +4,7 @@ import type { MyWorkspace } from '@tt/contracts';
 import { Button, Field, TextInput } from '@tt/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
+import { CountrySelect } from './country-select';
 import { TimezoneSelect } from './timezone-select';
 import { apiErrorMessage } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
@@ -92,13 +93,7 @@ export function CreateWorkspacePanel({ workspaces }: { workspaces: MyWorkspace[]
           />
         </Field>
         <Field htmlFor="org-country" label={t('workspace.country')}>
-          <TextInput
-            id="org-country"
-            name="country"
-            value={orgCountry}
-            maxLength={2}
-            onChange={(e) => setOrgCountry(e.target.value)}
-          />
+          <CountrySelect id="org-country" value={orgCountry} onChange={setOrgCountry} />
         </Field>
         <Field htmlFor="org-timezone" label={t('workspace.timezone')}>
           <TimezoneSelect

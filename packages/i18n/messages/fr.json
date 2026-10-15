@@ -277,7 +277,8 @@
       "notifications": "Notifications",
       "workspace": "Espace",
       "organization": "Organisation",
-      "data": "Données & confidentialité"
+      "data": "Données & confidentialité",
+      "workspaces": "Espaces"
     },
     "profile": {
       "title": "Profil",
@@ -396,7 +397,13 @@
     "navSettings": "Paramètres",
     "navMembers": "Membres",
     "navAudit": "Journal d’audit",
-    "soon": "Bientôt"
+    "soon": "Bientôt",
+    "auditAction": "Action",
+    "auditFrom": "Du",
+    "auditTo": "Au",
+    "auditBefore": "Avant",
+    "auditAfter": "Après",
+    "auditNext": "Suivant"
   },
   "members": {
     "title": "Membres",
@@ -420,7 +427,20 @@
     "noStudents": "Les élèves rejoignent par invitation (prochaine version).",
     "studentsTab": "Élèves",
     "pendingInvitation": "Invitation en attente",
-    "self": "vous"
+    "self": "vous",
+    "role_OWNER": "Propriétaire",
+    "role_ADMIN": "Administrateur",
+    "role_TEACHER": "Professeur",
+    "role_ASSISTANT": "Assistant",
+    "role_STUDENT": "Élève",
+    "role_GUARDIAN": "Tuteur",
+    "status_ACTIVE": "Actif",
+    "status_PENDING_APPROVAL": "En attente d'approbation",
+    "status_PENDING_GUARDIAN_CONSENT": "En attente de consentement du tuteur",
+    "status_SUSPENDED_NO_CONSENT": "Suspendu — consentement manquant",
+    "status_SUSPENDED_CONSENT_REVOKED": "Suspendu — consentement retiré",
+    "status_REMOVED": "Retiré",
+    "status_REJECTED": "Rejeté"
   },
   "abuse": {
     "report": "Signaler",

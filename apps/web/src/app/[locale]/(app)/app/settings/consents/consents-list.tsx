@@ -1,14 +1,17 @@
 'use client';
 
 import type { ConsentRecord } from '@tt/contracts';
+import { formatDate } from '@tt/i18n';
 import { Button } from '@tt/ui';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import { api, asApiResult } from '../../../../../../lib/api';
 
 /** Granted account-level consents with version and date; only MARKETING may be withdrawn. */
 export function ConsentsList() {
   const t = useTranslations();
+  const locale = useLocale();
+  const viewerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [records, setRecords] = useState<ConsentRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,14 +48,16 @@ export function ConsentsList() {
             className="flex flex-wrap items-center gap-2 rounded-md border border-gray-200 px-3 py-2"
           >
             <span className="flex-1">
-              {t(`auth.consent.${record.type === 'CODE_OF_CONDUCT' ? 'coc' : record.type.toLowerCase()}`)}
+              {t(
+                `auth.consent.${record.type === 'CODE_OF_CONDUCT' ? 'coc' : record.type.toLowerCase()}`,
+              )}
             </span>
             <span className="text-xs text-gray-500">
               {t('settings.consents.version')}: {record.version}
             </span>
             <span className="text-xs text-gray-500">
               {t('settings.consents.grantedAt', {
-                date: new Date(record.grantedAt).toLocaleDateString('fr'),
+                date: formatDate(new Date(record.grantedAt), locale, viewerTimezone),
               })}
             </span>
             {record.type === 'MARKETING' && record.current ? (

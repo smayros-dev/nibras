@@ -10,6 +10,7 @@ import {
 import { Button, Checkbox, Field, Select, TextInput } from '@tt/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
+import { CountrySelect } from './country-select';
 import { TimezoneSelect } from './timezone-select';
 import { apiErrorMessage, issuesToFieldErrors } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
@@ -70,13 +71,13 @@ export function WorkspaceSettingsPanel({
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function save() {
     setFieldErrors({});
     setFormError(null);
-    setSaved(false);
+    setMessage(null);
     setBusy(true);
     const offsets = reminders
       .split(',')
@@ -125,7 +126,7 @@ export function WorkspaceSettingsPanel({
       else setFormError(apiErrorMessage(t, settingsError as unknown));
       return;
     }
-    setSaved(true);
+    setMessage(t('workspace.saved'));
   }
 
   async function transfer() {
@@ -139,7 +140,7 @@ export function WorkspaceSettingsPanel({
     );
     setBusy(false);
     if (error) setFormError(apiErrorMessage(t, error as unknown));
-    else setSaved(true);
+    else setMessage(t('workspace.transferDone'));
   }
 
   async function remove() {
@@ -150,7 +151,7 @@ export function WorkspaceSettingsPanel({
     );
     setBusy(false);
     if (error) setFormError(apiErrorMessage(t, error as unknown));
-    else setSaved(true);
+    else setMessage(t('workspace.deleteDone'));
   }
 
   return (
@@ -168,9 +169,9 @@ export function WorkspaceSettingsPanel({
             {formError}
           </p>
         ) : null}
-        {saved ? (
+        {message ? (
           <p role="status" className="text-sm text-success">
-            {t('workspace.saved')}
+            {message}
           </p>
         ) : null}
         <Field htmlFor="ws-name" label={t('workspace.name')} error={fieldErrors.name}>
@@ -183,13 +184,7 @@ export function WorkspaceSettingsPanel({
           />
         </Field>
         <Field htmlFor="ws-country" label={t('workspace.country')} error={fieldErrors.country}>
-          <TextInput
-            id="ws-country"
-            name="country"
-            value={country}
-            maxLength={2}
-            onChange={(e) => setCountry(e.target.value)}
-          />
+          <CountrySelect id="ws-country" value={country} onChange={setCountry} />
         </Field>
         <Field htmlFor="ws-locale" label={t('workspace.defaultLocale')}>
           <Select
@@ -360,8 +355,9 @@ export function WorkspaceSettingsPanel({
             variant="secondary"
             disabled={!transferTo || busy}
             onClick={() => {
-              if (window.confirm(t('workspace.transferConfirm', { name: transferTo })))
-                void transfer();
+              const target = admins.find((member) => member.userId === transferTo);
+              const name = target ? `${target.firstName} ${target.lastName}` : transferTo;
+              if (window.confirm(t('workspace.transferConfirm', { name }))) void transfer();
             }}
           >
             {t('workspace.transfer')}

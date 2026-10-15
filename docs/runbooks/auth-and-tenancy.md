@@ -42,7 +42,8 @@ Recovery codes are stored hashed (not sealed), so they survive a rotation.
 
 ## Unlocking a locked account
 
-Five failed logins for one email lock it for 15 minutes (`auth.account_locked` in the audit log).
+Ten failed logins for one email within 15 minutes lock it for 15 minutes (`auth.account_locked`
+in the audit log); the first five failures per ip+email start an exponential backoff.
 The lock and the failure counter live in Redis, keyed by `sha256(email)`:
 
 ```
@@ -87,8 +88,9 @@ never blocks the business operation.
 ## Tenant isolation suite
 
 `apps/api/test/isolation/tenant-routes.e2e-spec.ts` probes **every** `/workspaces/{wid}` route
-with a member of another organisation and asserts cross-tenant access is refused (403/404, never
-data). Any new tenant route is covered automatically by the suite's route list.
+with a member of another organisation and asserts cross-tenant access is refused with 404
+(never 200/403/422, never data). Any new tenant route is covered automatically by the suite's
+route list.
 
 `apps/api/test/isolation/exemptions.ts` lists the rare routes the suite must NOT probe (e.g. ones
 that intentionally answer for non-members). An exemption hides a route from the isolation

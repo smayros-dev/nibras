@@ -1,6 +1,7 @@
 'use client';
 
 import type { AuditEntry, AuditLogPage } from '@tt/contracts';
+import { MEMBERSHIP_ROLES } from '@tt/contracts';
 import { formatDate } from '@tt/i18n';
 import { Button, Field, TextInput } from '@tt/ui';
 import { useLocale, useTranslations } from 'next-intl';
@@ -16,6 +17,11 @@ export function AuditLogPanel({ wid }: { wid: string }) {
   const t = useTranslations();
   const locale = useLocale();
   const viewerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // Membership roles get their translated label; platform roles (USER, SYSTEM, SUPER_ADMIN…)
+  // stay verbatim.
+  const roleLabel = (role: string): string =>
+    (MEMBERSHIP_ROLES as readonly string[]).includes(role) ? t(`members.role_${role}`) : role;
 
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -64,10 +70,10 @@ export function AuditLogPanel({ wid }: { wid: string }) {
       ) : null}
 
       <div className="flex flex-wrap items-end gap-3">
-        <Field htmlFor="audit-action" label="action">
+        <Field htmlFor="audit-action" label={t('workspace.auditAction')}>
           <TextInput id="audit-action" value={action} onChange={(e) => setAction(e.target.value)} />
         </Field>
-        <Field htmlFor="audit-from" label="from">
+        <Field htmlFor="audit-from" label={t('workspace.auditFrom')}>
           <TextInput
             id="audit-from"
             type="date"
@@ -75,7 +81,7 @@ export function AuditLogPanel({ wid }: { wid: string }) {
             onChange={(e) => setFrom(e.target.value)}
           />
         </Field>
-        <Field htmlFor="audit-to" label="to">
+        <Field htmlFor="audit-to" label={t('workspace.auditTo')}>
           <TextInput id="audit-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </Field>
       </div>
@@ -83,10 +89,10 @@ export function AuditLogPanel({ wid }: { wid: string }) {
       <table className="w-full max-w-3xl border-collapse text-sm">
         <thead>
           <tr className="border-b border-gray-300">
-            <th className="py-1 text-start">action</th>
+            <th className="py-1 text-start">{t('workspace.auditAction')}</th>
             <th className="py-1 text-start">{t('members.role')}</th>
-            <th className="py-1 text-start">before</th>
-            <th className="py-1 text-start">after</th>
+            <th className="py-1 text-start">{t('workspace.auditBefore')}</th>
+            <th className="py-1 text-start">{t('workspace.auditAfter')}</th>
             <th className="py-1 text-start">{t('members.joined')}</th>
           </tr>
         </thead>
@@ -98,7 +104,7 @@ export function AuditLogPanel({ wid }: { wid: string }) {
               className="border-b border-gray-100"
             >
               <td className="py-1 font-mono">{entry.action}</td>
-              <td className="py-1">{entry.actorRole}</td>
+              <td className="py-1">{roleLabel(entry.actorRole)}</td>
               <td className="py-1 font-mono text-xs">
                 {entry.before ? JSON.stringify(entry.before) : '—'}
               </td>
@@ -122,7 +128,7 @@ export function AuditLogPanel({ wid }: { wid: string }) {
 
       {nextCursor ? (
         <Button variant="secondary" onClick={() => void load(nextCursor)}>
-          Suivant
+          {t('workspace.auditNext')}
         </Button>
       ) : null}
     </div>

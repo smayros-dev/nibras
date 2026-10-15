@@ -2,9 +2,10 @@
 
 import type { CurrentConsentType } from '@tt/contracts';
 import { Button } from '@tt/ui';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '../i18n/navigation';
+import { apiErrorMessage } from '../lib/api-error';
 import { api } from '../lib/api';
 
 const CONSENT_LABEL_KEYS: Record<CurrentConsentType, string> = {
@@ -17,8 +18,10 @@ const CONSENT_LABEL_KEYS: Record<CurrentConsentType, string> = {
 /**
  * Blocking modal over the app while required consents are pending: lists each pending type at
  * its current version and POSTs the grants on accept, then re-renders the server layout
- * (the gate disappears once `pendingConsents` is empty). No `aria-hidden`/`inert` on the app
- * content behind it — the overlay keeps pointer and keyboard focus inside the dialog.
+ * (the gate disappears once `pendingConsents` is empty). `aria-modal` hides the background from
+ * assistive tech; focus starts inside the dialog and Tab/Shift+Tab cycle within it (the gate is
+ * not dismissible, so Escape closes nothing). Server-side `CONSENT_REQUIRED` still refuses every
+ * app call until the grants land.
  */
 export function ConsentGate({
   pending,
@@ -31,6 +34,30 @@ export function ConsentGate({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
+
+  /** Keep Tab inside the dialog while it blocks the app. */
+  function trapTab(event: React.KeyboardEvent) {
+    if (event.key !== 'Tab') return;
+    const nodes = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    if (!nodes || nodes.length === 0) return;
+    const first = nodes[0]!;
+    const last = nodes[nodes.length - 1]!;
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || active === dialogRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   async function accept() {
     setBusy(true);
@@ -43,7 +70,7 @@ export function ConsentGate({
         body: { version },
       });
       if (grantError) {
-        setError(t('errors.INTERNAL_ERROR'));
+        setError(apiErrorMessage(t, grantError as unknown));
         setBusy(false);
         return;
       }
@@ -54,10 +81,13 @@ export function ConsentGate({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="consent-gate-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      tabIndex={-1}
+      onKeyDown={trapTab}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 outline-none"
     >
       <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-lg">
         <h2 id="consent-gate-title" className="mb-2 text-xl font-bold">

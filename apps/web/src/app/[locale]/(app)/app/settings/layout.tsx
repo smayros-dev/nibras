@@ -6,8 +6,8 @@ import type { ReactNode } from 'react';
 import { routing } from '../../../../../i18n/routing';
 
 /** PRD §9.1 settings sections; only the live tabs link, the rest are *Bientôt disponible*. */
-const LIVE_TABS = ['profile', 'security', 'verification', 'consents'] as const;
-const SOON_TABS = ['notifications', 'workspace', 'organization', 'data'] as const;
+const LIVE_TABS = ['profile', 'security', 'verification', 'consents', 'workspaces'] as const;
+const SOON_TABS = ['notifications', 'organization', 'data'] as const;
 
 export default async function SettingsLayout({
   children,

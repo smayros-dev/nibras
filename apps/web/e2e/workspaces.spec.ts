@@ -11,8 +11,17 @@ test.describe('workspaces (plan Task 21)', () => {
     const user = await seedUser({ totp: true });
     await uiLogin(page, locale, user);
 
+    // The create page is reachable from its settings nav tab (plan T20: "Espaces" is live).
+    await page.goto(`/${locale}/app/settings/profile`);
+    await page
+      .getByRole('link', { name: t(locale, 'settings.nav.workspaces'), exact: true })
+      .click();
+    await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/workspaces`));
+    // Full-load the page before interacting: right after a client-side nav the panel may not be
+    // hydrated yet, and a pre-hydration submit click degrades to a native GET form submit.
     await page.goto(`/${locale}/app/settings/workspaces`);
     await page.getByLabel(t(locale, 'workspace.name'), { exact: true }).fill('École E2E');
+    await page.getByLabel(t(locale, 'workspace.country'), { exact: true }).selectOption('TN');
     await page.getByRole('button', { name: t(locale, 'workspace.submitOrganization') }).click();
     await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.created'));
 
@@ -31,6 +40,9 @@ test.describe('workspaces (plan Task 21)', () => {
     ).toBeVisible();
     await expect(page.getByLabel(t(locale, 'workspace.name'), { exact: true })).toHaveValue(
       'École E2E',
+    );
+    await expect(page.getByLabel(t(locale, 'workspace.country'), { exact: true })).toHaveValue(
+      'TN',
     );
   });
 
@@ -77,7 +89,10 @@ test.describe('workspaces (plan Task 21)', () => {
     await expect(page.getByRole('status')).toHaveText(t(locale, 'members.roleChanged'));
     await page.reload();
     await expect(
-      page.getByRole('row').filter({ hasText: member.email }).getByRole('cell', { name: 'ADMIN' }),
+      page
+        .getByRole('row')
+        .filter({ hasText: member.email })
+        .getByRole('cell', { name: t(locale, 'members.role_ADMIN') }),
     ).toBeVisible();
 
     // The audit log records workspace.created and the role change with before/after.
