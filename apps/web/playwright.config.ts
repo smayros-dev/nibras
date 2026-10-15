@@ -35,7 +35,12 @@ export default defineConfig<LocaleTestOptions>({
       url: 'http://localhost:3001/health/live',
       reuseExistingServer: true,
       timeout: 180_000,
-      env: { TEST_CONSENT_TERMS_VERSION },
+      env: {
+        TEST_CONSENT_TERMS_VERSION,
+        // The suite seeds many accounts and logs in from one ip: the production anon limit
+        // (60/min) would 429 the parallel workers. The login throttle still guards passwords.
+        RATE_LIMIT_ANON: '10000',
+      },
     },
     {
       command: 'pnpm --filter @tt/worker dev',

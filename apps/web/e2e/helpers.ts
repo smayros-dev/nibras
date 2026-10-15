@@ -42,6 +42,19 @@ export function uniqueEmail(): string {
 }
 
 /**
+ * `POST /auth/register` with the per-IP rate limit retried: the full e2e suite seeds many
+ * accounts back to back, and the limiter answers `429` with a small window.
+ */
+export async function postRegister(ctx: APIRequestContext, body: Record<string, unknown>) {
+  let reg = await ctx.post('/api/v1/auth/register', { data: body });
+  for (let attempt = 0; attempt < 8 && reg.status() === 429; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 3500));
+    reg = await ctx.post('/api/v1/auth/register', { data: body });
+  }
+  return reg;
+}
+
+/**
  * Exact URL: `/fr/app` also matches `/fr/fr/app`, which would hide a doubled locale prefix
  * (next-intl's client router prefixes the locale itself — pushes must be locale-less).
  */
@@ -75,4 +88,35 @@ export async function uiLogin(
     await page.getByRole('button', { name: t(locale, 'auth.twoFactor.submit') }).click();
   }
   await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+}
+
+/**
+ * Sign in through the API on an existing request context (cookies stick to it), completing the
+ * 2FA challenge when the account has TOTP. Retries the per-IP login rate limit.
+ */
+export async function apiLogin(
+  ctx: APIRequestContext,
+  user: { email: string; password: string; secret?: string },
+) {
+  const { totpCode } = await import('./helpers/totp');
+  let body: { status: string; challengeToken?: string } = { status: '' };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const login = await ctx.post('/api/v1/auth/login', {
+      data: { email: user.email, password: user.password || PASSWORD },
+    });
+    if (login.status() === 200) {
+      body = (await login.json()) as typeof body;
+      break;
+    }
+    if (login.status() !== 429) throw new Error(`login ${login.status()}: ${await login.text()}`);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  if (body.status === 'TWO_FACTOR_REQUIRED') {
+    if (!user.secret) throw new Error('2FA required but no TOTP secret');
+    if (!body.challengeToken) throw new Error('missing challengeToken');
+    const done = await ctx.post('/api/v1/auth/2fa/verify', {
+      data: { challengeToken: body.challengeToken, otpCode: totpCode(user.secret) },
+    });
+    if (done.status() !== 200) throw new Error(`2fa verify ${done.status()}: ${await done.text()}`);
+  }
 }

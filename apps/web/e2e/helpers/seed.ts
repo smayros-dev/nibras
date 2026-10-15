@@ -1,7 +1,7 @@
 import { CONSENT_VERSIONS, type CurrentConsentType } from '@tt/contracts';
 import { request as playwrightRequest } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { TEST_CONSENT_TERMS_VERSION, uniqueEmail } from '../helpers';
+import { TEST_CONSENT_TERMS_VERSION, postRegister, uniqueEmail } from '../helpers';
 import { extractLink, waitForEmail } from './mailpit';
 import { totpCode } from './totp';
 
@@ -29,6 +29,8 @@ export interface SeedOptions {
   acceptConsents?: boolean;
   /** Create an organisation (the caller becomes OWNER, which makes 2FA mandatory). */
   organization?: boolean;
+  /** Organisation name (default `École Test`); the admin console tests pass a unique one. */
+  organizationName?: string;
   /** Profile timezone (default `Africa/Tunis`); the timezone-banner test seeds a fixed one. */
   timezone?: string;
 }
@@ -43,6 +45,7 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
     totp = false,
     acceptConsents = true,
     organization = false,
+    organizationName = 'École Test',
     timezone = 'Africa/Tunis',
   } = opts;
   const ctx = await playwrightRequest.newContext({ baseURL: BASE });
@@ -51,18 +54,16 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
     const email = uniqueEmail();
     const password = 'un mot de passe assez long';
 
-    const reg = await ctx.post('/api/v1/auth/register', {
-      data: {
-        kind: 'TEACHER',
-        firstName,
-        lastName: 'Ben Ali',
-        email,
-        password,
-        locale: 'fr',
-        timezone,
-        acceptTerms: true,
-        acceptPrivacy: true,
-      },
+    const reg = await postRegister(ctx, {
+      kind: 'TEACHER',
+      firstName,
+      lastName: 'Ben Ali',
+      email,
+      password,
+      locale: 'fr',
+      timezone,
+      acceptTerms: true,
+      acceptPrivacy: true,
     });
     if (reg.status() !== 201) throw new Error(`register ${reg.status()}: ${await reg.text()}`);
 
@@ -108,7 +109,7 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
     let orgWorkspaceId: string | undefined;
     if (organization) {
       const ws = await ctx.post('/api/v1/workspaces', {
-        data: { name: 'École Test', timezone: 'Africa/Tunis' },
+        data: { name: organizationName, timezone: 'Africa/Tunis' },
       });
       if (ws.status() !== 201) throw new Error(`workspaces ${ws.status()}: ${await ws.text()}`);
       orgWorkspaceId = ((await ws.json()) as { id: string }).id;

@@ -29,6 +29,11 @@ export default async function warmup() {
     '/fr/app/settings/workspaces',
     // Compiles the [wid] workspace tree (redirects to login, but the route is compiled).
     '/fr/app/w/00000000-0000-0000-0000-000000000000',
+    // Compiles the super-admin console (404 for anonymous, but the route tree is compiled).
+    '/fr/admin',
+    '/fr/admin/workspaces',
+    '/fr/admin/abuse-reports',
+    '/fr/admin/health',
   ];
   for (const route of routes) {
     await fetch(`${BASE}${route}`, { redirect: 'manual' });

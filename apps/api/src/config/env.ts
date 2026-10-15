@@ -60,6 +60,10 @@ const EnvObject = z.object({
   HIBP_ENABLED: z.stringbool().default(true),
   /** `Secure` flag of the auth cookies; defaults to `NODE_ENV === 'production'`. */
   COOKIE_SECURE: z.stringbool().optional(),
+  /** Requests per minute per authenticated user (global throttle). */
+  RATE_LIMIT_USER: z.coerce.number().int().min(1).default(600),
+  /** Requests per minute per anonymous ip (public routes, login, register, …). */
+  RATE_LIMIT_ANON: z.coerce.number().int().min(1).default(60),
 });
 
 export const EnvSchema = EnvObject.superRefine((e, ctx) => {

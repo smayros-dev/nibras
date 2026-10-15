@@ -17,6 +17,7 @@ import { UNPREFIXED_ROUTES } from '../app.setup';
 import { accessTokenOf } from '../auth/cookies';
 import { isPublicRequest } from '../auth/decorators/public';
 import { JwtService } from '../auth/jwt.service';
+import { env } from '../config/env';
 import { REDIS } from '../redis/redis.module';
 import { ApiError } from './api-error';
 
@@ -24,8 +25,8 @@ type ThrottlerStorageRecord = Awaited<ReturnType<ThrottlerStorage['increment']>>
 
 /** Global API limits (PRD §8.1.2, §14.7): per authenticated user and per unauthenticated ip. */
 export const RATE_LIMITS = {
-  user: { limit: 600, ttlMs: 60_000 },
-  anon: { limit: 60, ttlMs: 60_000 },
+  user: { limit: env.RATE_LIMIT_USER, ttlMs: 60_000 },
+  anon: { limit: env.RATE_LIMIT_ANON, ttlMs: 60_000 },
 } as const;
 
 /**

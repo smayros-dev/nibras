@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { request as playwrightRequest } from '@playwright/test';
-import { TEST_CONSENT_TERMS_VERSION, uniqueEmail } from '../helpers';
+import { TEST_CONSENT_TERMS_VERSION, postRegister, uniqueEmail } from '../helpers';
 import { extractLink, waitForEmail } from './mailpit';
 import { totpCode } from './totp';
 
@@ -22,13 +22,21 @@ function repoEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
+/** A seeded super-admin, ready for `uiLogin` (2FA challenge included). */
+export interface SeededSuperAdmin {
+  email: string;
+  password: string;
+  firstName: string;
+  userId: string;
+  secret: string;
+}
+
 /**
- * Suspend a workspace through the admin API (plan Task 21, suspended-banner e2e). Registers a
- * throwaway teacher, verifies the email, sets up TOTP (mandatory for SUPER_ADMIN), promotes the
- * account with the `create-super-admin` CLI (password kept), then logs in and calls
- * `POST /admin/workspaces/{wid}/suspend`.
+ * Registers a throwaway teacher, verifies the email, sets up TOTP (mandatory for SUPER_ADMIN),
+ * promotes the account with the `create-super-admin` CLI (password kept) and re-accepts the
+ * e2e-bumped TERMS version. Idempotent per email; each call makes a fresh account.
  */
-export async function suspendWorkspaceAsSuperAdmin(wid: string, reason = 'e2e suspension') {
+export async function seedSuperAdmin(): Promise<SeededSuperAdmin> {
   const cli = `${API_DIR}dist/cli/create-super-admin.js`;
   if (!existsSync(cli)) throw new Error(`missing ${cli}: build @tt/api before running e2e`);
 
@@ -37,18 +45,16 @@ export async function suspendWorkspaceAsSuperAdmin(wid: string, reason = 'e2e su
     const email = uniqueEmail();
     const password = 'un mot de passe assez long';
 
-    const reg = await ctx.post('/api/v1/auth/register', {
-      data: {
-        kind: 'TEACHER',
-        firstName: 'Super',
-        lastName: 'Admin',
-        email,
-        password,
-        locale: 'fr',
-        timezone: 'UTC',
-        acceptTerms: true,
-        acceptPrivacy: true,
-      },
+    const reg = await postRegister(ctx, {
+      kind: 'TEACHER',
+      firstName: 'Super',
+      lastName: 'Admin',
+      email,
+      password,
+      locale: 'fr',
+      timezone: 'UTC',
+      acceptTerms: true,
+      acceptPrivacy: true,
     });
     if (reg.status() !== 201) throw new Error(`register ${reg.status()}: ${await reg.text()}`);
 
@@ -82,11 +88,31 @@ export async function suspendWorkspaceAsSuperAdmin(wid: string, reason = 'e2e su
     if (consent.status() !== 201 && consent.status() !== 409)
       throw new Error(`consent ${consent.status()}: ${await consent.text()}`);
 
+    const me = await ctx.get('/api/v1/me');
+    if (me.status() !== 200) throw new Error(`me ${me.status()}: ${await me.text()}`);
+    const { id: userId } = (await me.json()) as { id: string };
+
+    return { email, password, firstName: 'Super', userId, secret };
+  } finally {
+    await ctx.dispose();
+  }
+}
+
+/**
+ * Suspend a workspace through the admin API (plan Task 21, suspended-banner e2e): seeds a
+ * super-admin, logs in and calls `POST /admin/workspaces/{wid}/suspend`.
+ */
+export async function suspendWorkspaceAsSuperAdmin(wid: string, reason = 'e2e suspension') {
+  const admin = await seedSuperAdmin();
+  const ctx = await playwrightRequest.newContext({ baseURL: BASE });
+  try {
     // Login (with 2FA challenge), retrying the per-IP rate limit.
     let loginStatus = 0;
     let loginBody: { status: string; challengeToken?: string } = { status: '' };
     for (let attempt = 0; attempt < 5; attempt++) {
-      const login = await ctx.post('/api/v1/auth/login', { data: { email, password } });
+      const login = await ctx.post('/api/v1/auth/login', {
+        data: { email: admin.email, password: admin.password },
+      });
       loginStatus = login.status();
       if (loginStatus === 200) {
         loginBody = (await login.json()) as typeof loginBody;
@@ -99,7 +125,7 @@ export async function suspendWorkspaceAsSuperAdmin(wid: string, reason = 'e2e su
     if (loginBody.status === 'TWO_FACTOR_REQUIRED') {
       if (!loginBody.challengeToken) throw new Error('missing challengeToken');
       const done = await ctx.post('/api/v1/auth/2fa/verify', {
-        data: { challengeToken: loginBody.challengeToken, otpCode: totpCode(secret) },
+        data: { challengeToken: loginBody.challengeToken, otpCode: totpCode(admin.secret) },
       });
       if (done.status() !== 200)
         throw new Error(`2fa verify ${done.status()}: ${await done.text()}`);
