@@ -58,13 +58,21 @@ export async function fillLogin(page: Page, locale: string, email: string, passw
   await page.getByRole('button', { name: t(locale, 'auth.login.submit') }).click();
 }
 
-/** Login through the UI and land on `/app` (no 2FA, consents already accepted). */
+/** Login through the UI and land on `/app` (no 2FA, or completing the OTP challenge). */
 export async function uiLogin(
   page: Page,
   locale: string,
-  user: { email: string; password: string },
+  user: { email: string; password: string; secret?: string },
 ) {
   await page.goto(`/${locale}/login`);
   await fillLogin(page, locale, user.email, user.password || PASSWORD);
+  if (user.secret) {
+    const { totpCode } = await import('./helpers/totp');
+    await expect(page).toHaveURL(appUrl(`/${locale}/2fa`));
+    await page
+      .getByLabel(t(locale, 'auth.twoFactor.code'), { exact: true })
+      .fill(totpCode(user.secret));
+    await page.getByRole('button', { name: t(locale, 'auth.twoFactor.submit') }).click();
+  }
   await expect(page).toHaveURL(appUrl(`/${locale}/app`));
 }

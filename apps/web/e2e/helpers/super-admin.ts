@@ -1,0 +1,116 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync, existsSync } from 'node:fs';
+import { request as playwrightRequest } from '@playwright/test';
+import { TEST_CONSENT_TERMS_VERSION, uniqueEmail } from '../helpers';
+import { extractLink, waitForEmail } from './mailpit';
+import { totpCode } from './totp';
+
+const BASE = 'http://localhost:3000';
+const API_DIR = new URL('../../../api/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const REPO_ROOT = new URL('../../../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+
+/** Minimal `.env` reader (KEY=VALUE lines) for the CLI child process. */
+function repoEnv(): NodeJS.ProcessEnv {
+  const envFile = `${REPO_ROOT}.env`;
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (existsSync(envFile)) {
+    for (const line of readFileSync(envFile, 'utf8').split('\n')) {
+      const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (match && match[1]) env[match[1]] = match[2]!.replace(/^["']|["']$/g, '');
+    }
+  }
+  return env;
+}
+
+/**
+ * Suspend a workspace through the admin API (plan Task 21, suspended-banner e2e). Registers a
+ * throwaway teacher, verifies the email, sets up TOTP (mandatory for SUPER_ADMIN), promotes the
+ * account with the `create-super-admin` CLI (password kept), then logs in and calls
+ * `POST /admin/workspaces/{wid}/suspend`.
+ */
+export async function suspendWorkspaceAsSuperAdmin(wid: string, reason = 'e2e suspension') {
+  const cli = `${API_DIR}dist/cli/create-super-admin.js`;
+  if (!existsSync(cli)) throw new Error(`missing ${cli}: build @tt/api before running e2e`);
+
+  const ctx = await playwrightRequest.newContext({ baseURL: BASE });
+  try {
+    const email = uniqueEmail();
+    const password = 'un mot de passe assez long';
+
+    const reg = await ctx.post('/api/v1/auth/register', {
+      data: {
+        kind: 'TEACHER',
+        firstName: 'Super',
+        lastName: 'Admin',
+        email,
+        password,
+        locale: 'fr',
+        timezone: 'UTC',
+        acceptTerms: true,
+        acceptPrivacy: true,
+      },
+    });
+    if (reg.status() !== 201) throw new Error(`register ${reg.status()}: ${await reg.text()}`);
+
+    const mail = await waitForEmail(email, 'verify-email');
+    const link = extractLink(mail.html, '/verify-email?token=');
+    const token = link ? new URL(link).searchParams.get('token') : null;
+    if (!token) throw new Error('no verify token in the email');
+    const ver = await ctx.post('/api/v1/auth/verify-email', { data: { token } });
+    if (ver.status() !== 200) throw new Error(`verify-email ${ver.status()}: ${await ver.text()}`);
+
+    const setup = await ctx.post('/api/v1/auth/2fa/setup');
+    if (setup.status() !== 200)
+      throw new Error(`2fa/setup ${setup.status()}: ${await setup.text()}`);
+    const { secret } = (await setup.json()) as { secret: string };
+    const confirm = await ctx.post('/api/v1/auth/2fa/verify', {
+      data: { otpCode: totpCode(secret) },
+    });
+    if (confirm.status() !== 200)
+      throw new Error(`2fa/verify ${confirm.status()}: ${await confirm.text()}`);
+
+    execFileSync(
+      process.execPath,
+      [cli, 'create-super-admin', '--email', email, '--password', password],
+      { cwd: API_DIR, env: repoEnv(), stdio: 'pipe' },
+    );
+
+    // The CLI grants the static TERMS version; the e2e API requires the bumped one.
+    const consent = await ctx.post('/api/v1/me/consents/TERMS', {
+      data: { version: TEST_CONSENT_TERMS_VERSION },
+    });
+    if (consent.status() !== 201 && consent.status() !== 409)
+      throw new Error(`consent ${consent.status()}: ${await consent.text()}`);
+
+    // Login (with 2FA challenge), retrying the per-IP rate limit.
+    let loginStatus = 0;
+    let loginBody: { status: string; challengeToken?: string } = { status: '' };
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const login = await ctx.post('/api/v1/auth/login', { data: { email, password } });
+      loginStatus = login.status();
+      if (loginStatus === 200) {
+        loginBody = (await login.json()) as typeof loginBody;
+        break;
+      }
+      if (loginStatus !== 429) throw new Error(`login ${loginStatus}: ${await login.text()}`);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    if (loginStatus !== 200) throw new Error(`login ${loginStatus} (rate-limited)`);
+    if (loginBody.status === 'TWO_FACTOR_REQUIRED') {
+      if (!loginBody.challengeToken) throw new Error('missing challengeToken');
+      const done = await ctx.post('/api/v1/auth/2fa/verify', {
+        data: { challengeToken: loginBody.challengeToken, otpCode: totpCode(secret) },
+      });
+      if (done.status() !== 200)
+        throw new Error(`2fa verify ${done.status()}: ${await done.text()}`);
+    }
+
+    const suspend = await ctx.post(`/api/v1/admin/workspaces/${wid}/suspend`, {
+      data: { reason },
+    });
+    if (suspend.status() >= 400)
+      throw new Error(`suspend ${suspend.status()}: ${await suspend.text()}`);
+  } finally {
+    await ctx.dispose();
+  }
+}

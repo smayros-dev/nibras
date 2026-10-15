@@ -19,6 +19,8 @@ export interface AppShellProps {
   dir: 'ltr' | 'rtl';
   nav: NavItem[];
   labels: AppShellLabels;
+  /** Extra header content (e.g. the workspace switcher), rendered after the primary nav. */
+  headerSlot?: ReactNode;
   children: ReactNode;
 }
 
@@ -26,7 +28,7 @@ export interface AppShellProps {
  * Page frame: top navigation + main content. Layout uses logical properties only (flex, gap,
  * `padding-inline`), so it mirrors through the `dir` attribute — never through left/right classes.
  */
-export function AppShell({ locale, dir, nav, labels, children }: AppShellProps) {
+export function AppShell({ locale, dir, nav, labels, headerSlot, children }: AppShellProps) {
   return (
     <div lang={locale} dir={dir} className="flex min-h-dvh flex-col">
       <a
@@ -35,7 +37,7 @@ export function AppShell({ locale, dir, nav, labels, children }: AppShellProps) 
       >
         {labels.skipToContent}
       </a>
-      <header className="border-b border-brand-100 py-3">
+      <header className="flex flex-wrap items-center gap-4 border-b border-brand-100 py-3">
         <nav aria-label={labels.primaryNav}>
           <ul className="flex flex-wrap gap-x-4 gap-y-2">
             {nav.map((item) => (
@@ -51,6 +53,7 @@ export function AppShell({ locale, dir, nav, labels, children }: AppShellProps) 
             ))}
           </ul>
         </nav>
+        {headerSlot}
       </header>
       <main id="main" tabIndex={-1} className="flex-1 py-6">
         {children}

@@ -3,6 +3,7 @@ import {
   dirOf,
   testConsentTermsVersion,
   type CurrentConsentType,
+  type MyWorkspace,
 } from '@tt/contracts';
 import { AppShell, type NavItem } from '@tt/ui';
 import { hasLocale } from 'next-intl';
@@ -11,9 +12,11 @@ import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ConsentGate } from '../../../components/consent-gate';
 import { TimezoneBanner } from '../../../components/timezone-banner';
+import { WorkspaceSwitcher } from '../../../components/workspace-switcher';
 import { routing } from '../../../i18n/routing';
 import { appGateRedirect } from '../../../lib/auth-redirects';
 import { getSession } from '../../../lib/session';
+import { asApiResult, serverApi } from '../../../lib/api';
 
 const NAV_KEYS = ['dashboard', 'courses', 'sessions', 'messages', 'settings'] as const;
 
@@ -51,6 +54,9 @@ export default async function AppLayout({
     href: `/${locale}/${key}`,
     label: t(`nav.${key}`),
   }));
+  const { data: workspaces } = asApiResult<MyWorkspace[]>(
+    await (await serverApi()).GET('/me/workspaces'),
+  );
 
   return (
     <AppShell
@@ -58,6 +64,7 @@ export default async function AppLayout({
       dir={dirOf(locale)}
       nav={nav}
       labels={{ skipToContent: t('nav.skipToContent'), primaryNav: t('nav.primaryNav') }}
+      headerSlot={<WorkspaceSwitcher workspaces={workspaces ?? []} />}
     >
       <TimezoneBanner timezone={user.timezone} />
       {children}

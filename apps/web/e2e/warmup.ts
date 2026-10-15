@@ -26,6 +26,9 @@ export default async function warmup() {
     '/fr/2fa',
     '/fr/2fa/setup',
     '/fr/app',
+    '/fr/app/settings/workspaces',
+    // Compiles the [wid] workspace tree (redirects to login, but the route is compiled).
+    '/fr/app/w/00000000-0000-0000-0000-000000000000',
   ];
   for (const route of routes) {
     await fetch(`${BASE}${route}`, { redirect: 'manual' });

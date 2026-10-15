@@ -1,0 +1,130 @@
+import { appUrl, t, test, uiLogin, expect } from './helpers';
+import { addOrgMember, seedUser } from './helpers/seed';
+import { suspendWorkspaceAsSuperAdmin } from './helpers/super-admin';
+
+test.describe('workspaces (plan Task 21)', () => {
+  test('AC-WS-01 UI: create an organisation, switch to it from the switcher', async ({
+    page,
+    uiLocale: locale,
+  }) => {
+    // Creating an organisation makes its owner an OWNER (2FA mandatory from the next request).
+    const user = await seedUser({ totp: true });
+    await uiLogin(page, locale, user);
+
+    await page.goto(`/${locale}/app/settings/workspaces`);
+    await page.getByLabel(t(locale, 'workspace.name'), { exact: true }).fill('École E2E');
+    await page.getByRole('button', { name: t(locale, 'workspace.submitOrganization') }).click();
+    await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.created'));
+
+    await page.goto(`/${locale}/app`);
+    const switcher = page.getByLabel(t(locale, 'workspace.switcherLabel'));
+    await expect(switcher).toBeVisible();
+    const option = switcher.locator('option', { hasText: 'École E2E' });
+    await expect(option).toHaveCount(1);
+    const wid = await option.getAttribute('value');
+    expect(wid).toBeTruthy();
+    await switcher.selectOption(wid!);
+
+    await expect(page).toHaveURL(appUrl(`/${locale}/app/w/${wid}`));
+    await expect(
+      page.getByRole('heading', { name: t(locale, 'workspace.settingsTitle') }),
+    ).toBeVisible();
+    await expect(page.getByLabel(t(locale, 'workspace.name'), { exact: true })).toHaveValue(
+      'École E2E',
+    );
+  });
+
+  test('AC-WS-05 UI: rename the organisation; the change persists after reload', async ({
+    page,
+    uiLocale: locale,
+  }) => {
+    const owner = await seedUser({ organization: true, totp: true });
+    await uiLogin(page, locale, owner);
+
+    await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}`);
+    await page.getByLabel(t(locale, 'workspace.name'), { exact: true }).fill('École Renommée');
+    await page.getByRole('button', { name: t(locale, 'workspace.save'), exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.saved'));
+
+    await page.reload();
+    await expect(page.getByLabel(t(locale, 'workspace.name'), { exact: true })).toHaveValue(
+      'École Renommée',
+    );
+  });
+
+  test('AC-WS-04 UI: members page lists both members; owner promotes the teacher to ADMIN; audit log records it', async ({
+    page,
+    uiLocale: locale,
+  }) => {
+    const owner = await seedUser({ organization: true, totp: true });
+    const member = await seedUser();
+    addOrgMember(owner.orgWorkspaceId!, member.userId, 'TEACHER');
+    await uiLogin(page, locale, owner);
+
+    await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}/members`);
+    await expect(page.getByRole('heading', { name: t(locale, 'members.title') })).toBeVisible();
+    // Both members are listed (SP1: no public "add member" route — the seed inserted the row).
+    await expect(page.getByRole('row').filter({ hasText: owner.email })).toBeVisible();
+    const memberRow = page.getByRole('row').filter({ hasText: member.email });
+    await expect(memberRow).toBeVisible();
+    await expect(page.getByLabel(t(locale, 'members.search'))).toBeVisible();
+    // SP1: students join by invitation (SP2), so the assignment panel shows the note.
+    await expect(page.getByTestId('assignments-list')).toBeVisible();
+    await expect(page.getByText(t(locale, 'members.noStudents'))).toBeVisible();
+
+    // Promote the TEACHER to ADMIN (persisted, then visible after reload).
+    await memberRow.getByRole('button', { name: t(locale, 'members.changeRole') }).click();
+    await expect(page.getByRole('status')).toHaveText(t(locale, 'members.roleChanged'));
+    await page.reload();
+    await expect(
+      page.getByRole('row').filter({ hasText: member.email }).getByRole('cell', { name: 'ADMIN' }),
+    ).toBeVisible();
+
+    // The audit log records workspace.created and the role change with before/after.
+    await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}/audit-log`);
+    await expect(page.getByTestId('audit-workspace.created')).toBeVisible();
+    const roleRow = page.getByTestId('audit-member.role_changed').first();
+    await expect(roleRow).toBeVisible();
+    await expect(roleRow.getByText('TEACHER')).toBeVisible();
+    await expect(roleRow.getByText('ADMIN')).toBeVisible();
+  });
+
+  test('AC-WS-07 UI: report a member for abuse — dialog, success toast, RTL dialog in ar', async ({
+    page,
+    uiLocale: locale,
+  }) => {
+    const owner = await seedUser({ organization: true, totp: true });
+    // SP1: no public "add member" route (SP2 invitations) — the seed inserts the row directly.
+    const member = await seedUser();
+    addOrgMember(owner.orgWorkspaceId!, member.userId);
+    await uiLogin(page, locale, owner);
+
+    await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}/members`);
+    await page
+      .getByRole('row')
+      .filter({ hasText: member.email })
+      .getByRole('button', { name: t(locale, 'abuse.report') })
+      .click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: t(locale, 'abuse.title') })).toBeVisible();
+    // The dialog inherits the page direction (RTL in the ar project).
+    await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
+    await dialog
+      .getByLabel(t(locale, 'abuse.description'), { exact: true })
+      .fill('Compte test e2e: message inapproprié simulé.');
+    await dialog.getByRole('button', { name: t(locale, 'abuse.submit') }).click();
+    await expect(dialog.getByRole('status')).toHaveText(t(locale, 'abuse.sent'));
+  });
+
+  test('AC-WS-09 UI: suspended workspace shows the banner', async ({ page, uiLocale: locale }) => {
+    const owner = await seedUser({ organization: true, totp: true });
+    await suspendWorkspaceAsSuperAdmin(owner.orgWorkspaceId!);
+    await uiLogin(page, locale, owner);
+
+    await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}`);
+    await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.suspended'));
+    await expect(page.getByLabel(t(locale, 'workspace.name'), { exact: true })).toBeVisible();
+  });
+});

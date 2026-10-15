@@ -1,5 +1,6 @@
 import { CONSENT_VERSIONS, type CurrentConsentType } from '@tt/contracts';
 import { request as playwrightRequest } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { TEST_CONSENT_TERMS_VERSION, uniqueEmail } from '../helpers';
 import { extractLink, waitForEmail } from './mailpit';
 import { totpCode } from './totp';
@@ -11,10 +12,14 @@ export interface SeededUser {
   email: string;
   password: string;
   firstName: string;
+  /** The account id (needed to seed memberships and to target API rows). */
+  userId: string;
   /** TOTP secret, when `totp` was requested. */
   secret?: string;
   /** The 10 recovery codes, when `totp` was requested (shown once by the API). */
   recoveryCodes?: string[];
+  /** Workspace id, when `organization` was requested (the caller is its OWNER). */
+  orgWorkspaceId?: string;
 }
 
 export interface SeedOptions {
@@ -68,9 +73,12 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
     const ver = await ctx.post('/api/v1/auth/verify-email', { data: { token } });
     if (ver.status() !== 200) throw new Error(`verify-email ${ver.status()}: ${await ver.text()}`);
 
+    const me = await ctx.get('/api/v1/me');
+    if (me.status() !== 200) throw new Error(`me ${me.status()}: ${await me.text()}`);
+    const { id: userId } = (await me.json()) as { id: string };
+
     if (acceptConsents) {
       // The e2e API runs with a bumped TERMS version, so registration's static grant is pending.
-      const me = await ctx.get('/api/v1/me');
       const { pendingConsents } = (await me.json()) as { pendingConsents: CurrentConsentType[] };
       for (const type of pendingConsents) {
         const version = type === 'TERMS' ? TEST_CONSENT_TERMS_VERSION : CONSENT_VERSIONS[type];
@@ -97,15 +105,47 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
       recoveryCodes = ((await confirm.json()) as { recoveryCodes: string[] }).recoveryCodes;
     }
 
+    let orgWorkspaceId: string | undefined;
     if (organization) {
       const ws = await ctx.post('/api/v1/workspaces', {
         data: { name: 'École Test', timezone: 'Africa/Tunis' },
       });
       if (ws.status() !== 201) throw new Error(`workspaces ${ws.status()}: ${await ws.text()}`);
+      orgWorkspaceId = ((await ws.json()) as { id: string }).id;
     }
 
-    return { email, password, firstName, secret, recoveryCodes };
+    return { email, password, firstName, userId, secret, recoveryCodes, orgWorkspaceId };
   } finally {
     await ctx.dispose();
   }
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * SP1 ruling (plan Task 21): the public API has no "add member" route yet (students and teachers
+ * join by invitation in SP2), so the e2e inserts the membership row directly as the postgres
+ * superuser (bypasses RLS). Roles: TEACHER, ADMIN or STUDENT.
+ */
+export function addOrgMember(
+  wid: string,
+  userId: string,
+  role: 'TEACHER' | 'ADMIN' | 'STUDENT' = 'TEACHER',
+): void {
+  if (!UUID.test(wid) || !UUID.test(userId)) throw new Error('addOrgMember: uuids required');
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      'tt-postgres-1',
+      'psql',
+      '-U',
+      'postgres',
+      '-d',
+      'tt',
+      '-c',
+      `INSERT INTO membership (id, workspace_id, user_id, role, status, joined_at, created_at, updated_at) VALUES (gen_random_uuid(), '${wid}', '${userId}', '${role}', 'ACTIVE', now(), now(), now()) ON CONFLICT (workspace_id, user_id) DO NOTHING;`,
+    ],
+    { stdio: 'pipe' },
+  );
 }
