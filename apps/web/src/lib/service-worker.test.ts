@@ -24,6 +24,10 @@ interface FakeEvent {
   waits: Promise<unknown>[];
 }
 
+/**
+ * Like Cache Storage, `keys()` lists entries in insertion order and a `put`/`add` over an
+ * existing key removes the old entry and appends the new one (so it moves to the end).
+ */
 class FakeCache {
   readonly entries = new Map<string, Response>();
   constructor(private readonly fetcher: (input: unknown) => Promise<Response>) {}
@@ -34,13 +38,18 @@ class FakeCache {
   async match(input: unknown) {
     return this.entries.get(this.key(input))?.clone();
   }
+  private store(input: unknown, response: Response) {
+    const key = this.key(input);
+    this.entries.delete(key);
+    this.entries.set(key, response);
+  }
   async put(input: unknown, response: Response) {
-    this.entries.set(this.key(input), response);
+    this.store(input, response);
   }
   async add(input: unknown) {
     const response = await this.fetcher(input);
     if (!response.ok) throw new TypeError('bad response');
-    this.entries.set(this.key(input), response);
+    this.store(input, response);
   }
   async keys() {
     return [...this.entries.keys()].map((url) => ({ url }));
@@ -165,6 +174,8 @@ describe('service worker (public/sw.js)', () => {
       const shell = env.stores.get(SHELL)!;
       expect([...shell.entries.keys()].sort()).toEqual(
         [
+          '/_next/static/chunks/main.js',
+          '/_next/static/css/app.css',
           '/ar/offline',
           '/en/offline',
           '/fr/offline',
@@ -180,12 +191,12 @@ describe('service worker (public/sw.js)', () => {
       }
     });
 
-    it("also caches the offline pages' own /_next/static assets so they render offline", async () => {
+    it("also caches the offline pages' own /_next/static assets, in the never-trimmed shell cache", async () => {
       await env.settle(env.dispatch('install'));
-      expect([...env.stores.get(STATIC)!.entries.keys()].sort()).toEqual([
-        `${ORIGIN}/_next/static/chunks/main.js`,
-        `${ORIGIN}/_next/static/css/app.css`,
-      ]);
+      const shell = [...env.stores.get(SHELL)!.entries.keys()];
+      expect(shell).toContain(`${ORIGIN}/_next/static/chunks/main.js`);
+      expect(shell).toContain(`${ORIGIN}/_next/static/css/app.css`);
+      expect([...(env.stores.get(STATIC)?.entries.keys() ?? [])]).toEqual([]);
     });
 
     it('activates at once on a first install (nothing to replace)', async () => {
@@ -217,7 +228,8 @@ describe('service worker (public/sw.js)', () => {
     env = setup({ existingCaches: ['tt-shell-old', 'tt-static-old', 'other-app'] });
     await env.settle(env.dispatch('install'));
     await env.settle(env.dispatch('activate'));
-    expect([...env.stores.keys()].sort()).toEqual(['other-app', SHELL, STATIC].sort());
+    // (The static cache is only opened by the first `/_next/static/` fetch.)
+    expect([...env.stores.keys()].sort()).toEqual(['other-app', SHELL].sort());
     expect(env.self.clients.claim).toHaveBeenCalled();
   });
 
@@ -289,8 +301,37 @@ describe('service worker (public/sw.js)', () => {
       });
       for (const path of ['/_next/static/404.js', '/_next/static/private.js']) {
         await env.settle(env.dispatch('fetch', { request: env.request(path) }));
-        expect(await env.stores.get(STATIC)!.match(`${ORIGIN}${path}`)).toBeUndefined();
+        expect(await env.stores.get(STATIC)?.match(`${ORIGIN}${path}`)).toBeUndefined();
       }
+    });
+
+    it('trims the static cache to 300 entries, oldest first, never evicting the offline assets', async () => {
+      const assets = ['/_next/static/css/app.css', '/_next/static/chunks/main.js'];
+      for (let i = 0; i < 310; i += 1) {
+        const event = env.dispatch('fetch', { request: env.request(`/_next/static/c/${i}.js`) });
+        await event.responded; // `waitUntil` (store, then trim) is called before the response settles
+        await env.settle(event);
+      }
+      const statics = [...env.stores.get(STATIC)!.entries.keys()];
+      expect(statics).toHaveLength(300);
+      expect(statics[0]).toBe(`${ORIGIN}/_next/static/c/10.js`);
+      // Offline, the offline page still gets its own styles and scripts.
+      env.fetchMock.mockClear();
+      env.fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+      for (const path of assets) {
+        const event = env.dispatch('fetch', { request: env.request(path) });
+        expect(await (await event.responded!).text()).toBe(`body of ${path}`);
+      }
+      expect(env.fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('serves the precached manifest and icon from the shell cache (offline too)', async () => {
+      env.fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+      for (const path of ['/manifest.webmanifest', '/icons/icon-192.png']) {
+        const event = env.dispatch('fetch', { request: env.request(path) });
+        expect(await (await event.responded!).text()).toBe(`body of ${path}`);
+      }
+      expect(env.fetchMock).not.toHaveBeenCalled();
     });
 
     it('leaves every other request to the network', () => {

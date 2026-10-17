@@ -103,6 +103,33 @@ describe('SwRegister', () => {
       expect(reload).toHaveBeenCalledTimes(1);
     });
 
+    it('a stale toast (another tab applied the update) reloads once, without a reload loop', async () => {
+      const ue = userEvent.setup();
+      container.controller = {};
+      renderWithIntl(<SwRegister />);
+      await waitFor(() => expect(container.register).toHaveBeenCalled());
+      const worker = container.registration.startUpdate();
+      act(() => worker.become('installed'));
+      expect(await screen.findByText(tr('fr', 'pwa.updateAvailable'))).toBeInTheDocument();
+
+      // Tab B accepts: the new worker activates and claims this tab too. This tab did not ask.
+      act(() => {
+        worker.become('activated');
+        container.registration.waiting = null;
+        container.controller = worker;
+        container.dispatchEvent(new Event('controllerchange'));
+      });
+      expect(reload).not.toHaveBeenCalled();
+
+      // Clicking the leftover toast reloads (SKIP_WAITING to an active worker would do nothing)…
+      await ue.click(screen.getByRole('button', { name: tr('fr', 'pwa.reload') }));
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(worker.postMessage).not.toHaveBeenCalled();
+      // …and nothing else triggers another reload.
+      act(() => container.dispatchEvent(new Event('controllerchange')));
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+
     it('offers an update that was already waiting when the page loaded', async () => {
       container.controller = {};
       container.registration.waiting = new FakeWorker();

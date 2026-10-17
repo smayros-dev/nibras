@@ -10,6 +10,7 @@ import { SW_VERSION } from '../lib/sw-version';
  * dev never serves a stale shell). When an update has installed behind an existing controller, it
  * offers a reload in a toast: the waiting worker is activated (`SKIP_WAITING`) only when the user
  * clicks, so a dirty form is never reloaded away, and the page reloads once the new worker controls.
+ * A toast left over after another tab applied the update just reloads when clicked.
  */
 export function SwRegister() {
   const t = useTranslations('pwa');
@@ -46,6 +47,17 @@ export function SwRegister() {
               variant="primary"
               size="sm"
               onClick={() => {
+                // Another tab already applied this update (it now controls this page too): the
+                // toast is stale and SKIP_WAITING would do nothing, so reload once, right here.
+                // Only a click reloads, and the reloaded page has no waiting worker: no loop.
+                if (
+                  worker.state === 'activating' ||
+                  worker.state === 'activated' ||
+                  container.controller === worker
+                ) {
+                  window.location.reload();
+                  return;
+                }
                 accepted = true;
                 worker.postMessage({ type: 'SKIP_WAITING' });
               }}

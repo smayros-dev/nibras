@@ -4,8 +4,10 @@
  *
  * Cache policy — only two things are ever stored:
  *   - `tt-shell-<v>`: the three offline pages (fetched anonymously, `credentials: 'omit'`), the
- *     manifest and one icon, at install;
- *   - `tt-static-<v>`: `/_next/static/` (content-hashed, public, immutable), cache-first.
+ *     `/_next/static/` assets they reference, the manifest and one icon, at install. Never trimmed,
+ *     and served cache-first (the manifest and the icon too, so they also resolve offline);
+ *   - `tt-static-<v>`: other `/_next/static/` assets (content-hashed, public, immutable),
+ *     cache-first, trimmed oldest-first to `MAX_STATIC_ENTRIES`.
  * Never cached: `/api/*` (not even intercepted), HTML navigations (they may carry user data:
  * network only, the offline page on failure), non-GET and cross-origin requests, and any
  * response that is an error, redirected, `private`/`no-store` or sets a cookie. (`Set-Cookie` is
@@ -23,7 +25,8 @@ const DEFAULT_LOCALE = 'fr';
 const MAX_STATIC_ENTRIES = 300;
 const ORIGIN = self.location.origin;
 const OFFLINE_PAGES = LOCALES.map((locale) => '/' + locale + '/offline');
-const PRECACHE = OFFLINE_PAGES.concat(['/manifest.webmanifest', '/icons/icon-192.png']);
+const SHELL_ASSETS = ['/manifest.webmanifest', '/icons/icon-192.png'];
+const PRECACHE = OFFLINE_PAGES.concat(SHELL_ASSETS);
 
 const absolute = (path) => new URL(path, ORIGIN).href;
 
@@ -35,7 +38,6 @@ function storable(response) {
 
 async function precache() {
   const shell = await caches.open(SHELL_CACHE);
-  const statics = await caches.open(STATIC_CACHE);
   await Promise.all(
     PRECACHE.map(async (path) => {
       const request = new Request(absolute(path), { credentials: 'omit', cache: 'reload' });
@@ -43,12 +45,13 @@ async function precache() {
       // A redirect (to a login page, say) or an error must not become the offline page.
       if (!response.ok || response.redirected) throw new TypeError('precache ' + path);
       if (OFFLINE_PAGES.includes(path)) {
-        // The offline page's own scripts and styles, so it renders (and hydrates) offline.
+        // The offline page's own scripts and styles, so it renders (and hydrates) offline. They go
+        // in the shell cache: in the static one, the trim would evict them first (oldest entries).
         const html = await response.clone().text();
         const assets = new Set(html.match(/\/_next\/static\/[^"'\s\\<>)]+/g) || []);
         await Promise.all(
           Array.from(assets, (asset) =>
-            statics.add(new Request(absolute(asset), { credentials: 'omit' })).catch(() => {}),
+            shell.add(new Request(absolute(asset), { credentials: 'omit' })).catch(() => {}),
           ),
         );
       }
@@ -104,6 +107,7 @@ async function networkOrOffline(request, url) {
   }
 }
 
+// Only ever applied to the static cache; the shell cache (offline page and its assets) is bounded.
 async function trim(cache) {
   const keys = await cache.keys();
   await Promise.all(
@@ -112,6 +116,8 @@ async function trim(cache) {
 }
 
 async function cacheFirst(event) {
+  const shellHit = await caches.match(event.request, { cacheName: SHELL_CACHE });
+  if (shellHit) return shellHit;
   const cache = await caches.open(STATIC_CACHE);
   const hit = await cache.match(event.request);
   if (hit) return hit;
@@ -136,6 +142,12 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(networkOrOffline(request, url));
   } else if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(cacheFirst(event));
+  } else if (SHELL_ASSETS.includes(url.pathname) && !url.search) {
+    event.respondWith(
+      caches
+        .match(absolute(url.pathname), { cacheName: SHELL_CACHE })
+        .then((hit) => hit || fetch(request)),
+    );
   }
-  // Everything else (RSC payloads, icons, /health, …): the browser's own network handling.
+  // Everything else (RSC payloads, other icons, /health, …): the browser's own network handling.
 });
