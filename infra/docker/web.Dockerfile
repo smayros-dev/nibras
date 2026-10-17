@@ -32,7 +32,9 @@ RUN pnpm turbo run build --filter=@tt/web
 # Runtime: only the standalone server (traced node_modules) and static assets.
 FROM ${NODE_IMAGE} AS runner
 ARG API_URL=http://api:3001
+# APP_ENV (deployment tier) is never unset in an image; compose overrides it (staging).
 ENV NODE_ENV=production \
+    APP_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     API_URL=${API_URL} \
     PORT=3000 \

@@ -93,8 +93,9 @@ stack must be up and migrated. Two modes (`apps/web/playwright.config.ts`):
   (`pnpm --filter @tt/web start:standalone`, `scripts/start-standalone.mjs`: copies `public/` and
   `.next/static` next to `server.js`, listens on 127.0.0.1:3000), and the api/worker run `dist`
   (a `nest start --watch` server restarts when its watcher fires, failing in-flight requests).
-  The strict production CSP and HSTS apply and the SW test runs. The standalone web honours the
-  e2e TERMS override only with `APP_ENV=development` (set by the Playwright config). In CI every
+  The strict production CSP and HSTS apply and the SW test runs. API and web honour the e2e TERMS
+  override only with `APP_ENV=development` (an allow-list, whatever `NODE_ENV` says; the
+  Playwright config sets it for both servers). In CI every
   `reuseExistingServer` is `false`: a stray server fails the run. On Windows the standalone build
   may need Developer Mode (symlinks); when it fails, use dev mode.
 

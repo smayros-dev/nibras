@@ -43,21 +43,26 @@ describe('testConsentTermsVersion (e2e TERMS override)', () => {
     return testConsentTermsVersion();
   }
 
-  it('applies outside production builds', () => {
-    expect(withEnv({ NODE_ENV: 'development', APP_ENV: undefined })).toBe('terms-e2e');
-    expect(withEnv({ NODE_ENV: 'test', APP_ENV: undefined })).toBe('terms-e2e');
-  });
-
-  it('is ignored by a production build unless the deployment says APP_ENV=development', () => {
-    expect(withEnv({ NODE_ENV: 'production', APP_ENV: undefined })).toBeUndefined();
-    expect(withEnv({ NODE_ENV: 'production', APP_ENV: 'production' })).toBeUndefined();
-    expect(withEnv({ NODE_ENV: 'production', APP_ENV: 'staging' })).toBeUndefined();
+  it('applies only when the deployment explicitly says APP_ENV=development', () => {
+    expect(withEnv({ NODE_ENV: 'development', APP_ENV: 'development' })).toBe('terms-e2e');
+    expect(withEnv({ NODE_ENV: 'test', APP_ENV: 'development' })).toBe('terms-e2e');
     // The e2e suite runs the production web build (standalone server) with APP_ENV=development.
     expect(withEnv({ NODE_ENV: 'production', APP_ENV: 'development' })).toBe('terms-e2e');
   });
 
+  it('is ignored for every other tier, whatever NODE_ENV says (allow-list, not deny-list)', () => {
+    for (const NODE_ENV of ['development', 'test', 'production', undefined]) {
+      expect(withEnv({ NODE_ENV, APP_ENV: undefined })).toBeUndefined();
+      expect(withEnv({ NODE_ENV, APP_ENV: '' })).toBeUndefined();
+      expect(withEnv({ NODE_ENV, APP_ENV: 'staging' })).toBeUndefined();
+      expect(withEnv({ NODE_ENV, APP_ENV: 'production' })).toBeUndefined();
+      expect(withEnv({ NODE_ENV, APP_ENV: 'Development' })).toBeUndefined();
+      expect(withEnv({ NODE_ENV, APP_ENV: 'dev' })).toBeUndefined();
+    }
+  });
+
   it('is undefined when the variable is unset or empty', () => {
-    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('APP_ENV', 'development');
     vi.stubEnv('TEST_CONSENT_TERMS_VERSION', '');
     expect(testConsentTermsVersion()).toBeUndefined();
   });

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { withTimeout } from './fetch-timeout';
 import { useAbortableQuery } from './paged-fetch';
 
 interface Deferred<T> {
@@ -139,6 +140,51 @@ describe('useAbortableQuery', () => {
     });
     expect(result.current.data).toBe('ab');
     expect(result.current.loading).toBe(false);
+  });
+
+  describe('with the API client timeout (withTimeout)', () => {
+    /** A run shaped like the call sites: a thrown fetch error becomes the generic message. */
+    function timedRun(timeoutMs: number) {
+      const base = (_: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), {
+            once: true,
+          });
+        });
+      return vi.fn(async (signal: AbortSignal) => {
+        try {
+          await withTimeout(base as typeof fetch, timeoutMs)('/api/v1/x', { signal });
+          return 'ok';
+        } catch {
+          throw new Error('errors.INTERNAL_ERROR');
+        }
+      });
+    }
+
+    it('reports a timeout as an error (not a silent abort)', async () => {
+      vi.useRealTimers();
+      const run = timedRun(20);
+      const { result } = renderHook(() => useAbortableQuery(['k'], run));
+      await vi.waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.error).toBe('errors.INTERNAL_ERROR');
+      expect(run.mock.calls[0]?.[0].aborted).toBe(false);
+    });
+
+    it('still treats a user abort (key change) as silent', async () => {
+      const run = timedRun(60_000);
+      const { result, rerender } = renderHook(
+        ({ q }) => useAbortableQuery([q], run, { debounceMs: 300 }),
+        { initialProps: { q: '' } },
+      );
+      rerender({ q: 'a' });
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(run.mock.calls[0]?.[0].aborted).toBe(true);
+      await act(async () => {});
+      expect(result.current.error).toBeNull();
+      expect(result.current.loading).toBe(true);
+    });
   });
 
   it('reports the error of the latest run and reloads on demand without debounce', async () => {

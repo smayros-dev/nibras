@@ -81,6 +81,8 @@ export default defineConfig<LocaleTestOptions>({
       timeout: 180_000,
       env: {
         TEST_CONSENT_TERMS_VERSION,
+        // The override is honoured only under APP_ENV=development (`testConsentTermsVersion`).
+        APP_ENV: 'development',
         // The suite seeds many accounts and logs in from one ip: the production anon limit
         // (60/min) would 429 the parallel workers. The login throttle still guards passwords.
         RATE_LIMIT_ANON: '10000',
@@ -99,9 +101,9 @@ export default defineConfig<LocaleTestOptions>({
       url: `${baseURL}/fr`,
       reuseExistingServer: !ci,
       timeout: 180_000,
-      // The (app) layout reads it server-side to compute the current TERMS version. The standalone
-      // build runs with NODE_ENV=production, which honours the override only under an explicit
-      // APP_ENV=development (`testConsentTermsVersion`, @tt/contracts).
+      // The (app) layout reads it server-side to compute the current TERMS version. The override
+      // is honoured only under an explicit APP_ENV=development, whatever NODE_ENV says (the
+      // standalone build runs NODE_ENV=production) — `testConsentTermsVersion`, @tt/contracts.
       env: { TEST_CONSENT_TERMS_VERSION, APP_ENV: 'development' },
     },
   ],

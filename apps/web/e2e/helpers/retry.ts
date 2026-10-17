@@ -5,10 +5,14 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Delay in ms for a `429`: its `Retry-After` (delta seconds), else 1 s. */
+/** Longest single wait: a long throttle window must fail the test, not stall it until timeout. */
+export const MAX_RETRY_AFTER_MS = 10_000;
+
+/** Delay in ms for a `429`: its `Retry-After` (delta seconds, capped at 10 s), else 1 s. */
 export function retryAfterMs(response: APIResponse): number {
   const seconds = Number(response.headers()['retry-after']);
-  return Number.isFinite(seconds) && seconds >= 0 ? Math.max(seconds, 0.1) * 1000 : 1000;
+  if (!Number.isFinite(seconds) || seconds < 0) return 1000;
+  return Math.min(Math.max(seconds, 0.1) * 1000, MAX_RETRY_AFTER_MS);
 }
 
 /**
