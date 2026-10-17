@@ -8,14 +8,18 @@ import {
 import { AppShell, type NavSection } from '@tt/ui';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { AuthRefresher } from '../../../components/auth-refresher';
 import { ConsentGate } from '../../../components/consent-gate';
 import { TimezoneBanner } from '../../../components/timezone-banner';
 import { WorkspaceSwitcher } from '../../../components/workspace-switcher';
 import { routing } from '../../../i18n/routing';
+import { RESUME_COOKIE } from '../../../lib/auth-refresh';
 import { appGateRedirect } from '../../../lib/auth-redirects';
-import { getSession } from '../../../lib/session';
+import { sanitizeNext } from '../../../lib/sanitize-next';
+import { getSessionResult } from '../../../lib/session';
 import { asApiResult, serverApi } from '../../../lib/api';
 
 /** Current version of a consent the ConsentGate must show and grant (server-side env override). */
@@ -40,9 +44,20 @@ export default async function AppLayout({
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
 
-  const user = await getSession();
-  // `next` is a locale-less path: next-intl's client router prefixes the locale itself.
-  if (!user) redirect(`/${locale}/login?next=/app`);
+  const session = await getSessionResult();
+  if (session.status === 'error') throw new Error('Session lookup failed');
+  if (session.status !== 'ok') {
+    // `next` is a locale-less path (`x-pathname`, set by the proxy): next-intl's client router
+    // prefixes the locale itself.
+    const next = encodeURIComponent(sanitizeNext((await headers()).get('x-pathname')) ?? '/app');
+    // An expired access cookie on a server navigation: the browser (which alone holds the refresh
+    // cookie) refreshes once on /auth/resume; a second miss within 20 s, or a suspended account
+    // (403), goes to login.
+    const tried = (await cookies()).get(RESUME_COOKIE) !== undefined;
+    const resume = session.status === 'unauthenticated' && !tried;
+    redirect(`/${locale}/${resume ? 'auth/resume' : 'login'}?next=${next}`);
+  }
+  const { user } = session;
 
   const gate = appGateRedirect(user);
   if (gate) redirect(`/${locale}/${gate}`);
@@ -83,6 +98,7 @@ export default async function AppLayout({
       }}
       topBarStart={<WorkspaceSwitcher workspaces={workspaces ?? []} />}
     >
+      <AuthRefresher />
       <TimezoneBanner timezone={user.timezone} />
       {children}
       {user.pendingConsents.length > 0 ? (

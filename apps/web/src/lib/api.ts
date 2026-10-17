@@ -1,10 +1,18 @@
 import { createApiClient, type ApiErrorBody } from '@tt/contracts';
+import { createRefreshingFetch } from './auth-refresh';
 import { forwardHeaders } from './forwarded-headers';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3001';
 
-/** Client components: same-origin `/api/v1` (rewritten to the API by `next.config.ts`). */
-export const api = createApiClient('/api/v1');
+/**
+ * Client components: same-origin `/api/v1` (rewritten to the API by `next.config.ts`). A
+ * session-expiry 401 is answered by one shared `/auth/refresh` and one retry (`auth-refresh.ts`).
+ * The fetch is resolved per call so tests and the browser's own `fetch` stubs are honoured.
+ */
+export const api = createApiClient(
+  '/api/v1',
+  createRefreshingFetch((input, init) => fetch(input, init)),
+);
 
 /**
  * Server components: call the API directly, forwarding the incoming request's `cookie`,

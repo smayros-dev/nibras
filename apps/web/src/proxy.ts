@@ -6,6 +6,7 @@ import { routing } from './i18n/routing';
 const handleI18nRouting = createMiddleware(routing);
 
 const VALID_LOCALES = routing.locales as readonly string[];
+const LOCALE_PREFIX = new RegExp(`^/(?:${VALID_LOCALES.join('|')})(?=/|$)`);
 
 /**
  * next-intl routing (cookie `NEXT_LOCALE`, then `Accept-Language`, then `fr`), with the
@@ -21,15 +22,20 @@ export default function proxy(request: NextRequest) {
     request.cookies.set('NEXT_LOCALE', stored);
   }
 
-  const header = request.headers.get('accept-language');
-  if (header === null) return handleI18nRouting(request);
-
   const headers = new Headers(request.headers);
-  const locale = negotiateLocale(header);
-  if (locale) headers.set('accept-language', locale);
-  else headers.delete('accept-language'); // nothing supported -> default locale
+  // The locale-less path (+ query) for server layouts that build a `?next=` deep link; always
+  // overwritten, so a client cannot inject it. next-intl forwards these request headers.
+  const { pathname, search } = request.nextUrl;
+  headers.set('x-pathname', `${pathname.replace(LOCALE_PREFIX, '') || '/'}${search}`);
+
+  const header = request.headers.get('accept-language');
+  if (header !== null) {
+    const locale = negotiateLocale(header);
+    if (locale) headers.set('accept-language', locale);
+    else headers.delete('accept-language'); // nothing supported -> default locale
+  }
   // Body-less copy: next-intl only reads the URL, headers and cookies, and the original request
-  // (with its body, e.g. a server action POST) is the one Next forwards.
+  // (with its body, e.g. a server action POST) is the one Next forwards, with these headers.
   return handleI18nRouting(new NextRequest(request.url, { headers, method: request.method }));
 }
 

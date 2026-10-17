@@ -7,19 +7,23 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from '../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../lib/api-error';
 import { api, asApiResult } from '../../../../lib/api';
-
-const CHALLENGE_STORAGE_KEY = 'tt.2fa.challenge';
+import { sanitizeNext } from '../../../../lib/sanitize-next';
+import {
+  CHALLENGE_STORAGE_KEY,
+  parseChallenge,
+  type TwoFactorChallenge,
+} from '../../../../lib/two-factor-challenge';
 
 /** Login challenge stored by the login form; without one there is nothing to verify. */
-function readChallenge(): string | null {
-  return sessionStorage.getItem(CHALLENGE_STORAGE_KEY);
+function readChallenge(): TwoFactorChallenge | null {
+  return parseChallenge(sessionStorage.getItem(CHALLENGE_STORAGE_KEY));
 }
 
 export default function TwoFactorPage() {
   const t = useTranslations();
   const router = useRouter();
 
-  const [challenge, setChallenge] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null);
   const [useRecovery, setUseRecovery] = useState(false);
   const [code, setCode] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
@@ -29,13 +33,13 @@ export default function TwoFactorPage() {
   const bounced = useRef(false);
 
   useEffect(() => {
-    const token = readChallenge();
-    if (!token && !bounced.current) {
+    const stored = readChallenge();
+    if (!stored && !bounced.current) {
       bounced.current = true;
       router.replace('/login');
       return;
     }
-    setChallenge(token);
+    setChallenge(stored);
   }, [router]);
 
   async function submit(event: React.FormEvent) {
@@ -47,10 +51,18 @@ export default function TwoFactorPage() {
     const { data, error } = asApiResult<LoginResponse>(
       useRecovery
         ? await api.POST('/auth/2fa/recovery', {
-            body: { challengeToken: challenge, recoveryCode, remember: false },
+            body: {
+              challengeToken: challenge.challengeToken,
+              recoveryCode,
+              remember: challenge.remember,
+            },
           })
         : await api.POST('/auth/2fa/verify', {
-            body: { challengeToken: challenge, otpCode: code, remember: false },
+            body: {
+              challengeToken: challenge.challengeToken,
+              otpCode: code,
+              remember: challenge.remember,
+            },
           }),
     );
     setBusy(false);
@@ -66,7 +78,7 @@ export default function TwoFactorPage() {
     }
     if (data?.status === 'OK') {
       sessionStorage.removeItem(CHALLENGE_STORAGE_KEY);
-      router.push(nextAfterLogin(data.user.twoFactor));
+      router.push(nextAfterLogin(data.user.twoFactor) ?? sanitizeNext(challenge.next) ?? '/app');
     }
   }
 
@@ -135,9 +147,9 @@ export default function TwoFactorPage() {
   );
 }
 
-/** A user who just completed the login: send them where the gates would send them anyway
- * (locale-less path — next-intl's router prefixes the locale). */
-function nextAfterLogin(twoFactor: { enabled: boolean; required: boolean }): string {
+/** A user who just completed the login: where the gates would send them anyway, else `null` (the
+ * deep link or `/app` applies). Locale-less path — next-intl's router prefixes the locale. */
+function nextAfterLogin(twoFactor: { enabled: boolean; required: boolean }): string | null {
   if (twoFactor.required && !twoFactor.enabled) return '/2fa/setup';
-  return '/app';
+  return null;
 }

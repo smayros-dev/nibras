@@ -7,21 +7,12 @@ import { useState } from 'react';
 import { useRouter } from '../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../lib/api-error';
 import { api, asApiResult } from '../../../../lib/api';
-
-const CHALLENGE_STORAGE_KEY = 'tt.2fa.challenge';
+import { sanitizeNext } from '../../../../lib/sanitize-next';
+import { CHALLENGE_STORAGE_KEY, serializeChallenge } from '../../../../lib/two-factor-challenge';
 
 /** `tt_locale` cookie: the proxy prefers it over `Accept-Language` on the next request. */
 function setLocaleCookie(locale: string) {
   document.cookie = `tt_locale=${locale}; path=/; max-age=31536000`;
-}
-
-/**
- * Same-origin absolute path only (next-intl's router prefixes the locale itself; a full URL or
- * protocol-relative path would leave the app).
- */
-function sanitizeNext(next: string | null): string | null {
-  if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
-  return next;
 }
 
 export function LoginForm({ next }: { next: string | null }) {
@@ -58,7 +49,10 @@ export function LoginForm({ next }: { next: string | null }) {
       return;
     }
     if (data?.status === 'TWO_FACTOR_REQUIRED') {
-      sessionStorage.setItem(CHALLENGE_STORAGE_KEY, data.challengeToken);
+      sessionStorage.setItem(
+        CHALLENGE_STORAGE_KEY,
+        serializeChallenge({ challengeToken: data.challengeToken, remember, next }),
+      );
       router.push('/2fa');
       return;
     }
