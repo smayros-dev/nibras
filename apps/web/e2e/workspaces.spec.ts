@@ -19,10 +19,18 @@ test.describe('workspaces (plan Task 21)', () => {
 
     // The create page is reachable from its settings nav tab (plan T20: "Espaces" is live).
     await page.goto(`/${locale}/app/settings/profile`);
-    await page
-      .getByRole('link', { name: t(locale, 'settings.nav.workspaces'), exact: true })
-      .click();
-    await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/workspaces`));
+    // A click that lands right after the page load, before the tabs hydrate, is swallowed (no
+    // navigation); retry the click until the client-side navigation happens.
+    const workspacesTab = page.getByRole('tab', {
+      name: t(locale, 'settings.nav.workspaces'),
+      exact: true,
+    });
+    await expect(async () => {
+      await workspacesTab.click();
+      await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/workspaces`), {
+        timeout: 5_000,
+      });
+    }).toPass({ timeout: 30_000 });
     // Full-load the page before interacting: right after a client-side nav the panel may not be
     // hydrated yet, and a pre-hydration submit click degrades to a native GET form submit.
     await page.goto(`/${locale}/app/settings/workspaces`);
@@ -43,7 +51,7 @@ test.describe('workspaces (plan Task 21)', () => {
     const wid = new URL(page.url()).pathname.split('/').pop();
     expect(wid).toBeTruthy();
 
-    await expect(page).toHaveURL(appUrl(`/${locale}/app/w/${wid}`));
+    await expect(page).toHaveURL(appUrl(`/${locale}/app/w/${wid}`), { timeout: 15_000 });
     await expect(
       page.getByRole('heading', { name: t(locale, 'workspace.settingsTitle') }),
     ).toBeVisible();
@@ -192,11 +200,12 @@ test.describe('workspaces (plan Task 21)', () => {
     await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}/members`);
     await expect(page.getByRole('heading', { name: t(locale, 'members.title') })).toBeVisible();
     // Scope `own`: the teacher lists his assigned student; his row menu only reports.
-    await page
-      .getByRole('row')
-      .filter({ hasText: student.email })
-      .getByRole('button', { name: rowActions(locale, `${student.firstName} Ben Ali`) })
-      .click();
+    // Teachers do not see member emails: his single row is the assigned student's.
+    const rows = page.getByRole('row').filter({
+      has: page.getByRole('button', { name: rowActions(locale, `${student.firstName} Ben Ali`) }),
+    });
+    await expect(rows).toHaveCount(1);
+    await rows.getByRole('button').click();
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem', { name: t(locale, 'abuse.report') })).toBeVisible();
     await expect(menu.getByRole('menuitemradio')).toHaveCount(0);

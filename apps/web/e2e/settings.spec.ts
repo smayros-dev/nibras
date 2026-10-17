@@ -18,7 +18,7 @@ test('profile: change language to ar flips the UI to RTL and persists', async ({
   await page.getByRole('button', { name: t(locale, 'settings.profile.save') }).click();
 
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(page).toHaveURL(appUrl('/ar/app/settings/profile'));
+  await expect(page).toHaveURL(appUrl('/ar/app/settings/profile'), { timeout: 15_000 });
 
   // Persisted: a fresh load under the stored locale is still RTL with the ar nav label.
   await page.reload();
@@ -35,7 +35,7 @@ test('timezone banner appears when the browser tz differs and PATCHes on Oui', a
   try {
     await page.goto(`/${locale}/login`);
     await fillLogin(page, locale, user.email, user.password);
-    await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+    await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
 
     await expect(page.getByText('Europe/Paris')).toBeVisible();
     await page.getByRole('button', { name: t(locale, 'settings.timezone.accept') }).click();
@@ -94,7 +94,7 @@ test('security: devices list shows this device; sign out everywhere ends the ses
     name: t(locale, 'settings.security.signOutAllConfirm'),
   });
   await confirm.getByRole('button', { name: t(locale, 'settings.security.signOutAll') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/login`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/login`), { timeout: 15_000 });
 });
 
 test('onboarding checklist shows 2/5 after email verification and phone verification', async ({

@@ -1,10 +1,10 @@
-import { PageSkeleton } from '../../components/page-skeleton';
+import { PageSkeleton } from '../../../components/page-skeleton';
 
-/** Page transitions outside the app frame (landing, auth screens). */
-export default function LocaleLoading() {
-  return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-      <PageSkeleton />
-    </div>
-  );
+/**
+ * Auth screen transitions. Scoped to `(auth)`, never at the `[locale]` level: a Suspense boundary
+ * above a layout that calls `notFound()` (admin) or above the `[...rest]` catch-all starts the
+ * stream first and turns every 404 into an HTTP 200.
+ */
+export default function AuthLoading() {
+  return <PageSkeleton />;
 }

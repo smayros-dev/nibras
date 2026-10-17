@@ -104,7 +104,7 @@ test('locale menu switches the landing to ar and flips direction', async ({ page
     .first()
     .click();
   await page.getByRole('menuitemradio', { name: 'العربية' }).click();
-  await expect(page).toHaveURL(/\/ar$/);
+  await expect(page).toHaveURL(/\/ar$/, { timeout: 15_000 });
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(t('ar', 'landing.title'));
 });

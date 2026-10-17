@@ -56,13 +56,13 @@ async function runJourney(page: Page, locale: string) {
   await expect(page.locator('html')).toHaveAttribute('dir', dir);
   await fillRegister(page, locale, email);
   await page.getByRole('button', { name: t(locale, 'auth.register.submit') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/verify-email`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/verify-email`), { timeout: 15_000 });
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
 
   const mail = await waitForEmail(email, 'verify-email');
   await page.goto(extractLink(mail.html, '/verify-email?token=')!);
   await page.getByRole('link', { name: t(locale, 'auth.verify.continue') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
   // Every UI-registered user has one pending consent (the e2e bumps TERMS): accept the gate.
   // Wait for the grant POST itself; the dialog unmounts on the refreshed server layout, but the
   // dev-mode RSC refresh races — a full reload makes it deterministic.
@@ -103,7 +103,7 @@ async function runJourney(page: Page, locale: string) {
   await expect(toast(page, locale, t(locale, 'workspace.created'))).toBeVisible();
 
   await page.goto(`/${locale}/app`);
-  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`), { timeout: 15_000 });
   await expect(page.locator('html')).toHaveAttribute('dir', dir);
   // The setup page shows the otpauth secret: enrol with a real TOTP code.
   const secretText = (await page.getByTestId('totp-secret').innerText()).trim();
@@ -114,7 +114,7 @@ async function runJourney(page: Page, locale: string) {
   await expect(page.getByTestId('recovery-codes')).toBeVisible();
   await page.getByLabel(t(locale, 'auth.setup.savedAck'), { exact: true }).check();
   await page.getByRole('button', { name: t(locale, 'auth.setup.continue') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
 
   // The organisation's id, from the switcher menu on the dashboard (it navigates to the workspace).

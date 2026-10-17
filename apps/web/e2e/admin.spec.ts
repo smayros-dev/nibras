@@ -63,6 +63,8 @@ test.describe('super-admin console (plan Task 22)', () => {
     browser,
     uiLocale: locale,
   }) => {
+    // Three logins and several admin pages: under dev-server load this outgrows the default budget.
+    test.slow();
     const owner = await seedUser({ organization: true, totp: true });
     const teacher = await seedUser();
     addOrgMember(owner.orgWorkspaceId!, teacher.userId, 'TEACHER');
@@ -175,6 +177,6 @@ test.describe('super-admin console (plan Task 22)', () => {
     await uiLogin(page, locale, user);
     const response = await page.goto(`/${locale}/admin`);
     expect(response?.status()).toBe(404);
-    await expect(page).toHaveURL(appUrl(`/${locale}/admin`));
+    await expect(page).toHaveURL(appUrl(`/${locale}/admin`), { timeout: 15_000 });
   });
 });

@@ -118,6 +118,25 @@ describe('Button', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it('enabled asChild forwards a caller onClickCapture; inert asChild does not call it', () => {
+    const onClickCapture = vi.fn();
+    const { rerender } = render(
+      <Button variant="primary" asChild onClickCapture={onClickCapture}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Accueil' });
+    fireEvent.click(link);
+    expect(onClickCapture).toHaveBeenCalledTimes(1);
+    rerender(
+      <Button variant="primary" asChild disabled onClickCapture={onClickCapture}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    fireEvent.click(link);
+    expect(onClickCapture).toHaveBeenCalledTimes(1);
+  });
+
   it('forwards the ref', () => {
     let node: HTMLButtonElement | null = null;
     render(

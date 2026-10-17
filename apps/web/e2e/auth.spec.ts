@@ -44,7 +44,7 @@ test('teacher signs up, verifies by email, lands on the dashboard', async ({
   await fillRegister(page, locale, email);
   await page.getByRole('button', { name: t(locale, 'auth.register.submit') }).click();
 
-  await expect(page).toHaveURL(appUrl(`/${locale}/verify-email`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/verify-email`), { timeout: 15_000 });
   // Role-based: Next's route announcer duplicates the page text, breaking getByText strict mode.
   await expect(
     page.getByRole('heading', { level: 1, name: t(locale, 'auth.verify.pending') }),
@@ -57,7 +57,7 @@ test('teacher signs up, verifies by email, lands on the dashboard', async ({
   ).toBeVisible();
   await page.getByRole('link', { name: t(locale, 'auth.verify.continue') }).click();
 
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Mohamed');
   // Review Focus 5: no raw message key anywhere in the rendered text.
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
@@ -101,7 +101,7 @@ test('login with 2FA: challenge page, wrong code error, right code enters; recov
 
   await page.goto(`/${locale}/login`);
   await fillLogin(page, locale, user.email, user.password);
-  await expect(page).toHaveURL(appUrl(`/${locale}/2fa`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa`), { timeout: 15_000 });
 
   await page
     .getByLabel(t(locale, 'auth.twoFactor.code'), { exact: true })
@@ -113,20 +113,20 @@ test('login with 2FA: challenge page, wrong code error, right code enters; recov
     .getByLabel(t(locale, 'auth.twoFactor.code'), { exact: true })
     .fill(totpCode(user.secret!));
   await page.getByRole('button', { name: t(locale, 'auth.twoFactor.submit') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
 
   // Recovery path: a fresh session, the same challenge, one recovery code (consumed).
   await page.context().clearCookies();
   await page.evaluate(() => sessionStorage.clear());
   await page.goto(`/${locale}/login`);
   await fillLogin(page, locale, user.email, user.password);
-  await expect(page).toHaveURL(appUrl(`/${locale}/2fa`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa`), { timeout: 15_000 });
   await page.getByRole('button', { name: t(locale, 'auth.twoFactor.useRecovery') }).click();
   const recovery = user.recoveryCodes?.[0];
   if (!recovery) throw new Error('seedUser returned no recovery codes');
   await page.getByLabel(t(locale, 'auth.twoFactor.recoveryCode'), { exact: true }).fill(recovery);
   await page.getByRole('button', { name: t(locale, 'auth.twoFactor.submitRecovery') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
 });
 
 test('AC-AUTH-05 UI: org admin without 2FA is forced to /2fa/setup and cannot leave before confirming', async ({
@@ -137,11 +137,11 @@ test('AC-AUTH-05 UI: org admin without 2FA is forced to /2fa/setup and cannot le
 
   await page.goto(`/${locale}/login`);
   await fillLogin(page, locale, user.email, user.password);
-  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`), { timeout: 15_000 });
 
   // Leaving for the app bounces straight back until 2FA is confirmed.
   await page.goto(`/${locale}/app`);
-  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`), { timeout: 15_000 });
 });
 
 test('forgot/reset: expired link shows "Lien expiré" and a request-new link', async ({

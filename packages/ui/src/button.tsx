@@ -1,3 +1,5 @@
+'use client';
+
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Slot } from 'radix-ui';
 import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
@@ -50,7 +52,16 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   iconEnd?: ReactNode;
 }
 
-/** Design-system button; `type` defaults to `button` (not `submit`). */
+function swallowActivation(event: MouseEvent<HTMLElement>) {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+/**
+ * Design-system button; `type` defaults to `button` (not `submit`). A client component: the
+ * `asChild` branch hands a capture handler to the client `Slot`, which a server component cannot
+ * pass across the RSC boundary.
+ */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
     variant,
@@ -88,14 +99,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         aria-busy={loading || undefined}
         aria-disabled={inert || undefined}
         {...props}
-        onClickCapture={(event: MouseEvent<HTMLButtonElement>) => {
-          if (inert) {
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-          }
-          onClickCapture?.(event);
-        }}
+        onClickCapture={inert ? swallowActivation : onClickCapture}
       >
         {start}
         <Slot.Slottable>{children}</Slot.Slottable>

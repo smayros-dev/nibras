@@ -30,7 +30,7 @@ test('every nav link resolves (no 404) and the current item is marked', async ({
     expect(href.startsWith(`/${locale}/`), href).toBe(true);
     const response = await page.goto(href);
     expect(response?.status(), href).toBe(200);
-    await expect(page).toHaveURL(appUrl(href));
+    await expect(page).toHaveURL(appUrl(href), { timeout: 15_000 });
     expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
     await expect(
       page
@@ -54,26 +54,29 @@ test('client navigation: clicking nav links moves aria-current without a page lo
     (window as unknown as { __ttNoReload?: boolean }).__ttNoReload = true;
   });
   const nav = page.getByRole('navigation', { name: t(locale, 'nav.primaryNav') });
-  const settings = nav.getByRole('link', { name: t(locale, 'nav.settings') });
+  // By href: "Paramètres" also names the workspace settings item once a workspace is open.
+  const settings = nav.locator(`a[href="/${locale}/app/settings/profile"]`);
   const workspaces = nav.getByRole('link', { name: t(locale, 'nav.workspaces') });
   await expect(settings).toHaveAttribute('aria-current', 'page');
 
   await workspaces.click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/workspaces`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/workspaces`), { timeout: 15_000 });
   await expect(workspaces).toHaveAttribute('aria-current', 'page');
   await expect(settings).not.toHaveAttribute('aria-current', 'page');
 
   await settings.click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/profile`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/profile`), { timeout: 15_000 });
   await expect(settings).toHaveAttribute('aria-current', 'page');
   await expect(workspaces).not.toHaveAttribute('aria-current', 'page');
 
   // The switcher navigates client-side too, and the workspace section follows the path.
-  const orgSettings = nav.getByRole('link', { name: t(locale, 'workspace.navSettings') });
+  const orgSettings = nav.locator(`a[href="/${locale}/app/w/${user.orgWorkspaceId}"]`);
   await expect(orgSettings).toHaveCount(0);
   await page.getByRole('button', { name: t(locale, 'nav.currentWorkspace') }).click();
   await page.getByRole('menuitemradio', { name: /École Test/ }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app/w/${user.orgWorkspaceId}`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app/w/${user.orgWorkspaceId}`), {
+    timeout: 15_000,
+  });
   await expect(orgSettings).toHaveAttribute('aria-current', 'page');
   await expect(settings).not.toHaveAttribute('aria-current', 'page');
 

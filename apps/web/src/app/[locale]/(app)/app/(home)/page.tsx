@@ -4,11 +4,11 @@ import { Building2 } from 'lucide-react';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
-import { OnboardingChecklist } from '../../../../components/onboarding-checklist';
-import { Link } from '../../../../i18n/navigation';
-import { routing } from '../../../../i18n/routing';
-import { getSession } from '../../../../lib/session';
-import { asApiResult, serverApi } from '../../../../lib/api';
+import { OnboardingChecklist } from '../../../../../components/onboarding-checklist';
+import { Link } from '../../../../../i18n/navigation';
+import { routing } from '../../../../../i18n/routing';
+import { getSession } from '../../../../../lib/session';
+import { asApiResult, serverApi } from '../../../../../lib/api';
 
 export default async function AppHomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;

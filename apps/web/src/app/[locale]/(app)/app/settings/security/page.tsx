@@ -1,4 +1,3 @@
-import type { MeUser } from '@tt/contracts';
 import { hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -14,7 +13,9 @@ export default async function SecuritySettingsPage({
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
-  const user = (await getSession()) as MeUser;
+  // The (app) layout redirects a missing session; render nothing if it lapsed in between.
+  const user = await getSession();
+  if (!user) return null;
 
   return <SecurityPanel twoFactor={user.twoFactor} />;
 }
