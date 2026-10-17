@@ -59,4 +59,28 @@ describe('AuthRefresher', () => {
     expect(router.replace).toHaveBeenCalledTimes(1);
     expect(router.replace).toHaveBeenCalledWith('/login?next=%2Fapp%2Fsettings%2Fprofile');
   });
+
+  it('dispatches tt:session-expired when a proactive refresh fails', async () => {
+    const router = mockRouter({ pathname: '/app' });
+    refreshSession.mockResolvedValueOnce(false);
+    render(<AuthRefresher />);
+    await act(async () => {
+      vi.advanceTimersByTime(INTERVAL);
+    });
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(router.replace).toHaveBeenCalledWith('/login?next=%2Fapp');
+  });
+
+  it('does not end the session when the proactive refresh fails offline', async () => {
+    const router = mockRouter({ pathname: '/app' });
+    refreshSession.mockResolvedValueOnce(false);
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    render(<AuthRefresher />);
+    await act(async () => {
+      vi.advanceTimersByTime(INTERVAL);
+    });
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
+    onLine.mockRestore();
+  });
 });

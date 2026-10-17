@@ -105,6 +105,26 @@ describe('createRefreshingFetch', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
+  it('dispatches tt:session-expired on a SESSION_REVOKED 401 without refreshing or retrying', async () => {
+    const target = new EventTarget();
+    const listener = vi.fn();
+    target.addEventListener(SESSION_EXPIRED_EVENT, listener);
+    vi.stubGlobal('window', target);
+    const base = vi.fn(
+      async () =>
+        new Response('{"code":"SESSION_REVOKED"}', {
+          status: 401,
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+    const f = createRefreshingFetch(base as typeof fetch);
+    const res = await f('/api/v1/me', { method: 'PATCH', body: '{"a":1}' });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ code: 'SESSION_REVOKED' });
+    expect(base).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
   it('passes non-401 responses through untouched', async () => {
     const base = vi.fn(async () => new Response('x', { status: 403 }));
     const res = await createRefreshingFetch(base as typeof fetch)('/api/v1/me');

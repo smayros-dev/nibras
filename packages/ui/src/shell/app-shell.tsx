@@ -58,7 +58,7 @@ export function AppShell({
         <main
           id="main"
           tabIndex={-1}
-          className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 focus:outline-none sm:px-6 lg:pb-8"
+          className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-[calc(6rem+env(safe-area-inset-bottom))] focus:outline-none sm:px-6 lg:pb-8"
         >
           {children}
         </main>

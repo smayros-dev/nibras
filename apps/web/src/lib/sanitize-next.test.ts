@@ -9,6 +9,8 @@ describe('sanitizeNext', () => {
     ['/ar/app/settings/profile?x=1', '/app/settings/profile?x=1'],
     ['/en', '/'],
     ['/french/app', '/french/app'],
+    ['/app/../app/settings', '/app/settings'],
+    ['/x/../fr/app', '/app'],
   ])('accepts %s as %s', (input, expected) => {
     expect(sanitizeNext(input)).toBe(expected);
   });
@@ -27,6 +29,12 @@ describe('sanitizeNext', () => {
     ['/fr//evil'],
     ['/fr/\\evil'],
     ['/fr/app\\x'],
+    ['/..//evil'],
+    ['/fr/..//evil'],
+    ['/./..//evil'],
+    ['/app/../..//evil'],
+    ['/%2e%2e//evil'],
+    ['/fr/%2E%2E//evil'],
     [''],
   ])('rejects %j', (input) => {
     expect(sanitizeNext(input)).toBeNull();

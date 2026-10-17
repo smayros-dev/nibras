@@ -79,6 +79,15 @@ describe('AppShell', () => {
     );
   });
 
+  it('adds no unnamed complementary landmark and clears the bottom nav plus the safe area', () => {
+    renderShell();
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    expect(screen.getByRole('main').className).toContain(
+      'pb-[calc(6rem+env(safe-area-inset-bottom))]',
+    );
+    expect(screen.getByRole('main').className).toContain('lg:pb-8');
+  });
+
   it('marks only the current item with aria-current="page"', () => {
     renderShell();
     const nav = screen.getByRole('navigation', { name: 'Navigation principale' });

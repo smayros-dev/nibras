@@ -2,6 +2,7 @@ import type { Locale } from '@tt/contracts';
 import { dirOf } from '@tt/contracts';
 import { messages } from '@tt/i18n';
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
+import { DirectionProvider, ToastProvider } from '@tt/ui';
 import type { ReactElement, ReactNode } from 'react';
 import { IntlProvider } from '../components/intl-provider';
 
@@ -15,8 +16,8 @@ export interface RenderWithIntlOptions extends Omit<RenderOptions, 'wrapper'> {
 
 /**
  * Renders `ui` the way the app does: `<html lang dir>` set, wrapped in the intl provider with the
- * real catalogue for `locale` and the `Africa/Tunis` time zone (missing keys throw, as in dev).
- * TODO(T3): also wrap in `DirectionProvider` and `ToastProvider` once they exist.
+ * real catalogue for `locale` and the `Africa/Tunis` time zone (missing keys throw, as in dev),
+ * inside `DirectionProvider` and `ToastProvider` like the locale layout.
  */
 export function renderWithIntl(
   ui: ReactElement,
@@ -27,9 +28,28 @@ export function renderWithIntl(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <IntlProvider locale={locale} messages={messages[locale]} timeZone="Africa/Tunis">
-        {children}
+        <DirectionProvider dir={dir}>
+          <ToastProvider
+            labels={{ close: 'Fermer', region: 'Notifications', toast: 'Notification' }}
+          >
+            {children}
+          </ToastProvider>
+        </DirectionProvider>
       </IntlProvider>
     );
   }
   return render(ui, { wrapper: Wrapper, ...options });
+}
+
+/** Raw catalogue string for a dotted key (`tr('fr', 'shell.logout')`); throws when missing. */
+export function tr(locale: Locale, key: string): string {
+  let node: unknown = messages[locale];
+  for (const part of key.split('.')) {
+    node =
+      typeof node === 'object' && node !== null
+        ? (node as Record<string, unknown>)[part]
+        : undefined;
+  }
+  if (typeof node !== 'string') throw new Error(`Not a message: ${key} (${locale})`);
+  return node;
 }

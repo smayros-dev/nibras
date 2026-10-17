@@ -70,7 +70,10 @@ for (const path of ['/health/live', '/health/ready']) {
 
 test('locale switcher keeps the page and flips direction', async ({ page }) => {
   await page.goto('/fr');
-  await page.getByRole('link', { name: 'العربية' }).click();
+  await page
+    .getByRole('button', { name: (messages.fr as { shell: { language: string } }).shell.language })
+    .click();
+  await page.getByRole('menuitemradio', { name: 'العربية' }).click();
   await expect(page).toHaveURL(/\/ar$/);
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 });

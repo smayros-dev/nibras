@@ -117,10 +117,11 @@ async function runJourney(page: Page, locale: string) {
   await expect(page).toHaveURL(appUrl(`/${locale}/app`));
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
 
-  // The organisation's id, from the switcher on the dashboard.
-  const switcher = page.getByLabel(t(locale, 'workspace.switcherLabel'));
-  const option = switcher.locator('option', { hasText: orgName });
-  const wid = await option.getAttribute('value');
+  // The organisation's id, from the switcher menu on the dashboard (it navigates to the workspace).
+  await page.getByRole('button', { name: t(locale, 'nav.currentWorkspace') }).click();
+  await page.getByRole('menuitemradio', { name: orgName }).click();
+  await expect(page).toHaveURL(/\/app\/w\/[^/?#]+$/, { timeout: 15_000 });
+  const wid = new URL(page.url()).pathname.split('/').pop();
   expect(wid).toBeTruthy();
 
   // 4. Invitations are SP2: assign a role to a seeded member instead (promote to ADMIN).

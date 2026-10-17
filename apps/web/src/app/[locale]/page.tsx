@@ -3,7 +3,8 @@ import { AppShell, type NavSection } from '@tt/ui';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
-import { LocaleSwitcher } from '../../components/locale-switcher';
+import { LocaleMenu } from '../../components/locale-menu';
+import { ThemeToggleClient } from '../../components/theme-provider';
 import { routing } from '../../i18n/routing';
 
 export default async function HelloPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -12,7 +13,7 @@ export default async function HelloPage({ params }: { params: Promise<{ locale: 
   setRequestLocale(locale);
   const t = await getTranslations();
 
-  // Temporary single-section nav of the routes that exist; T8 replaces it with the nav model.
+  // Placeholder hello page until the landing (T9); the nav lists the app's entry routes.
   const sections: NavSection[] = [
     {
       id: 'main',
@@ -42,11 +43,16 @@ export default async function HelloPage({ params }: { params: Promise<{ locale: 
         closeMenu: t('nav.closeMenu'),
         brandHome: t('nav.brandHome'),
       }}
+      topBarEnd={
+        <>
+          <LocaleMenu />
+          <ThemeToggleClient />
+        </>
+      }
     >
       <div className="flex flex-col gap-4">
         <h1 className="text-3xl font-bold">{t('hello.title')}</h1>
         <p className="text-lg">{t('hello.subtitle')}</p>
-        <LocaleSwitcher />
       </div>
     </AppShell>
   );

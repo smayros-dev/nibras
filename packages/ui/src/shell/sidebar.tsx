@@ -29,11 +29,12 @@ export interface SidebarProps {
 
 /**
  * Desktop navigation at inline-start (`lg` and up): 72px icon rail below `xl`, 256px with labels
- * from `xl`. Hidden below `lg`, where the bottom nav takes over.
+ * from `xl`. Hidden below `lg`, where the bottom nav takes over. A plain `div`, not `<aside>`: the
+ * `<nav>` inside is the landmark (an unnamed `complementary` would only add noise).
  */
 export function Sidebar({ brand, sections, label }: SidebarProps) {
   return (
-    <aside className="sticky top-0 hidden h-dvh flex-col gap-4 overflow-y-auto border-e border-border bg-surface p-3 lg:flex">
+    <div className="sticky top-0 hidden h-dvh flex-col gap-4 overflow-y-auto border-e border-border bg-surface p-3 lg:flex">
       <a
         href={brand.href}
         className="flex min-h-11 items-center gap-3 rounded-md px-2 font-semibold text-fg focus-visible:outline-2 focus-visible:outline-focus lg:justify-center xl:justify-start"
@@ -44,6 +45,6 @@ export function Sidebar({ brand, sections, label }: SidebarProps) {
       <nav aria-label={label}>
         <NavList sections={sections} collapsible />
       </nav>
-    </aside>
+    </div>
   );
 }

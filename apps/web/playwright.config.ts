@@ -29,13 +29,14 @@ export default defineConfig<LocaleTestOptions>({
       use: { ...devices['Desktop Chrome'], uiLocale: 'ar' },
       testIgnore: /smoke\.spec\.ts/,
     },
-    // The hello spec parameterises locales itself; only it runs on a real mobile viewport.
+    // The hello spec parameterises locales itself; it and the shell spec (bottom nav, More sheet)
+    // run on a real mobile viewport.
     // The smoke runs FR + AR sequentially inside one test (plan Task 23): two parallel journeys
     // starve the dev servers.
     {
       name: 'mobile-fr',
       use: { ...devices['Pixel 7'], uiLocale: 'fr' },
-      testMatch: /hello\.spec\.ts|smoke\.spec\.ts/,
+      testMatch: /hello\.spec\.ts|smoke\.spec\.ts|shell\.spec\.ts/,
     },
   ],
   // The API runs with a bumped TERMS version (consent-gate e2e); registration still grants the

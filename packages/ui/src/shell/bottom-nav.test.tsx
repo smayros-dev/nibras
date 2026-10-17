@@ -63,6 +63,20 @@ describe('BottomNav', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('returns focus to the More trigger when the sheet closes', async () => {
+    const user = userEvent.setup();
+    renderWithDir(<BottomNav sections={[main, admin]} labels={labels} />);
+    const more = screen.getByRole('button', { name: 'Plus' });
+    await user.click(more);
+    expect(screen.getByRole('dialog', { name: 'Plus' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(more).toHaveFocus();
+    await user.click(more);
+    await user.click(screen.getByRole('button', { name: 'Fermer le menu' }));
+    expect(more).toHaveFocus();
+  });
+
   it('hides More when everything fits and there is no extra content', () => {
     renderWithDir(
       <BottomNav sections={[{ id: 'main', items: main.items.slice(0, 3) }]} labels={labels} />,

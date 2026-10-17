@@ -19,7 +19,10 @@
     "sessions": "الحصص",
     "messages": "الرسائل",
     "notifications": "الإشعارات",
-    "settings": "الإعدادات"
+    "settings": "الإعدادات",
+    "workspaces": "المساحات",
+    "console": "وحدة التحكم",
+    "currentWorkspace": "المساحة الحالية"
   },
   "hello": {
     "title": "مرحباً",
@@ -552,5 +555,37 @@
       "up": "سليم",
       "down": "غير متاح"
     }
+  },
+  "shell": {
+    "userMenu": "قائمة حساب {name}",
+    "profile": "ملفي الشخصي",
+    "security": "الأمان",
+    "logout": "تسجيل الخروج",
+    "logoutFailed": "تعذّر تسجيل الخروج. تحقّق من اتصالك ثم أعد المحاولة.",
+    "language": "اللغة",
+    "notifications": "الإشعارات",
+    "notification": "إشعار",
+    "legalNav": "معلومات قانونية"
+  },
+  "theme": {
+    "toggle": "المظهر",
+    "toggleCurrent": "المظهر: {theme}",
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "النظام"
+  },
+  "errorPages": {
+    "title": "حدث خطأ",
+    "description": "تعذّر عرض الصفحة. أعد المحاولة بعد قليل.",
+    "requestId": "مرجع الخطأ: {id}",
+    "retry": "إعادة المحاولة",
+    "home": "العودة إلى الصفحة الرئيسية",
+    "notFoundTitle": "الصفحة غير موجودة",
+    "notFoundDescription": "هذه الصفحة غير موجودة أو تم نقلها.",
+    "loading": "جارٍ تحميل الصفحة…"
+  },
+  "legal": {
+    "termsTitle": "شروط الاستخدام",
+    "privacyTitle": "سياسة الخصوصية"
   }
 }

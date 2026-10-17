@@ -19,7 +19,10 @@
     "sessions": "Sessions",
     "messages": "Messages",
     "notifications": "Notifications",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "workspaces": "Espaces",
+    "console": "Console",
+    "currentWorkspace": "Espace actuel"
   },
   "hello": {
     "title": "Bonjour",
@@ -552,5 +555,37 @@
       "up": "OK",
       "down": "Indisponible"
     }
+  },
+  "shell": {
+    "userMenu": "Menu du compte de {name}",
+    "profile": "Mon profil",
+    "security": "Sécurité",
+    "logout": "Se déconnecter",
+    "logoutFailed": "La déconnexion a échoué. Vérifiez votre connexion puis réessayez.",
+    "language": "Langue",
+    "notifications": "Notifications",
+    "notification": "Notification",
+    "legalNav": "Informations légales"
+  },
+  "theme": {
+    "toggle": "Thème",
+    "toggleCurrent": "Thème : {theme}",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
+  },
+  "errorPages": {
+    "title": "Une erreur est survenue",
+    "description": "La page n’a pas pu s’afficher. Réessayez dans un instant.",
+    "requestId": "Référence de l’erreur : {id}",
+    "retry": "Réessayer",
+    "home": "Retour à l’accueil",
+    "notFoundTitle": "Page introuvable",
+    "notFoundDescription": "Cette page n’existe pas ou a été déplacée.",
+    "loading": "Chargement de la page…"
+  },
+  "legal": {
+    "termsTitle": "Conditions d’utilisation",
+    "privacyTitle": "Politique de confidentialité"
   }
 }

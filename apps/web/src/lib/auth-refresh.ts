@@ -28,6 +28,8 @@ const REFRESHED_AT_KEY = 'tt.auth.refreshedAt';
 const NO_RETRY_PATH = /^\/api\/v1\/auth\/(login|refresh|logout|2fa\/)/;
 /** 401 codes that mean "access token missing/expired"; others (wrong password…) are final. */
 const SESSION_CODES = new Set(['UNAUTHENTICATED']);
+/** 401 code of a dead session (revoked, expired, refresh reuse): a refresh cannot revive it. */
+const REVOKED_CODE = 'SESSION_REVOKED';
 
 let inflight: Promise<boolean> | null = null;
 
@@ -91,15 +93,24 @@ function pathOf(input: RequestInfo | URL): string {
   }
 }
 
-/** Whether a 401 means the access token is missing or expired (unknown bodies count). */
-async function isSessionExpiry(res: Response): Promise<boolean> {
+/**
+ * What a 401 means: `expired` — the access token is missing or expired (unknown bodies count), a
+ * refresh may help; `revoked` — the session is dead (`SESSION_REVOKED`), only a new login helps;
+ * `final` — an answer about the request itself (wrong password, wrong code).
+ */
+async function classify401(res: Response): Promise<'expired' | 'revoked' | 'final'> {
   try {
     const body: unknown = await res.clone().json();
     const code = (body as { code?: unknown } | null)?.code;
-    return typeof code !== 'string' || SESSION_CODES.has(code);
+    if (code === REVOKED_CODE) return 'revoked';
+    return typeof code !== 'string' || SESSION_CODES.has(code) ? 'expired' : 'final';
   } catch {
-    return true;
+    return 'expired';
   }
+}
+
+function dispatchSessionExpired(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
 }
 
 /** A body that can be sent a second time (a one-shot stream cannot). */
@@ -111,7 +122,8 @@ function isReplayable(init: RequestInit | undefined): boolean {
 /**
  * `fetch` that answers a session-expiry 401 with one shared refresh and one retry of the original
  * request (same body: a `Request` input is cloned before the first send). When the refresh fails
- * it dispatches {@link SESSION_EXPIRED_EVENT} on `window` and returns the original 401.
+ * it dispatches {@link SESSION_EXPIRED_EVENT} on `window` and returns the original 401. A
+ * `SESSION_REVOKED` 401 dispatches the event straight away, without a refresh or a retry.
  */
 export function createRefreshingFetch(base: typeof fetch = fetch): typeof fetch {
   const call = (input: RequestInfo | URL, init?: RequestInit) => base(input, init);
@@ -119,9 +131,15 @@ export function createRefreshingFetch(base: typeof fetch = fetch): typeof fetch 
     const retryable = !NO_RETRY_PATH.test(pathOf(input)) && isReplayable(init);
     const spare = retryable && input instanceof Request ? input.clone() : input;
     const res = await call(input, init);
-    if (res.status !== 401 || !retryable || !(await isSessionExpiry(res))) return res;
+    if (res.status !== 401 || NO_RETRY_PATH.test(pathOf(input))) return res;
+    const kind = await classify401(res);
+    if (kind === 'revoked') {
+      dispatchSessionExpired();
+      return res;
+    }
+    if (kind === 'final' || !retryable) return res;
     if (await refreshSession(base)) return call(spare, init);
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+    dispatchSessionExpired();
     return res;
   };
 }

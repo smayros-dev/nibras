@@ -7,21 +7,29 @@ export interface LogoutRouter {
 }
 
 /**
- * Ends the session: `POST /auth/logout` (public, always clears both cookies; errors are ignored —
- * the user is leaving either way), forgets any pending 2FA challenge, then goes to login and
- * drops the router cache so no authenticated RSC payload is reused.
+ * Ends the session: `POST /auth/logout` (public; on success it clears both cookies), forgets any
+ * pending 2FA challenge, then goes to login and drops the router cache so no authenticated RSC
+ * payload is reused. Resolves `true` when logged out.
+ *
+ * On a network error or a non-2xx answer the cookies may still be set, so the user is NOT sent to
+ * login as if logged out: it resolves `false` (the caller shows an error toast) and stays put. The
+ * pending 2FA challenge is dropped either way (client-only state, worthless after a logout click).
  */
-export async function logout(router: LogoutRouter): Promise<void> {
+export async function logout(router: LogoutRouter): Promise<boolean> {
+  let ok = false;
   try {
-    await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    const res = await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    ok = res.ok;
   } catch {
-    // Network error: the cookies stay, but the UI still leaves the app.
+    ok = false;
   }
   try {
     sessionStorage.removeItem(CHALLENGE_STORAGE_KEY);
   } catch {
     // Storage blocked.
   }
+  if (!ok) return false;
   router.replace('/login');
   router.refresh();
+  return true;
 }

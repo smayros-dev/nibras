@@ -68,5 +68,22 @@ test('an unsafe ?next is ignored after login', async ({ page, uiLocale: locale }
   await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
 });
 
-// Enabled in T8, once the user menu exposes the logout action.
-test.fixme('logout from the user menu clears the session', async () => {});
+test('logout from the user menu clears the session', async ({
+  page,
+  context,
+  uiLocale: locale,
+}) => {
+  const user = await seedUser({ acceptConsents: true });
+  await uiLogin(page, locale, user);
+  await page
+    .getByRole('button', { name: t(locale, 'shell.userMenu').replace('{name}', '').trim() })
+    .click();
+  await page.getByRole('menuitem', { name: t(locale, 'shell.logout') }).click();
+  await expect(page).toHaveURL(appUrl(`/${locale}/login`), { timeout: 15_000 });
+  const names = (await context.cookies()).map((c) => c.name);
+  expect(names).not.toContain('tt_access');
+  expect(names).not.toContain('tt_refresh');
+  // Back to the app: no session left, so the layout sends the visitor to login again.
+  await page.goto(`/${locale}/app`);
+  await expect(page).toHaveURL(new RegExp(`/${locale}/login\\?next=`), { timeout: 15_000 });
+});

@@ -1,13 +1,15 @@
 import { dirOf } from '@tt/contracts';
 import { getMessages } from '@tt/i18n';
-import { BRAND } from '@tt/ui';
+import { BRAND, DirectionProvider, ToastProvider } from '@tt/ui';
 import type { Metadata, Viewport } from 'next';
 import { hasLocale } from 'next-intl';
 import { getTimeZone, getTranslations, setRequestLocale } from 'next-intl/server';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { IntlProvider } from '../../components/intl-provider';
+import { ThemeProvider } from '../../components/theme-provider';
 import { routing } from '../../i18n/routing';
 import '../globals.css';
 
@@ -24,8 +26,12 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
-/** `<meta name="color-scheme">` and the per-scheme `theme-color` (browser chrome, PWA). */
+/**
+ * `<meta name="color-scheme">`, the per-scheme `theme-color` (browser chrome, PWA) and
+ * `viewport-fit=cover`, without which `env(safe-area-inset-*)` is 0 (bottom nav on notched phones).
+ */
 export const viewport: Viewport = {
+  viewportFit: 'cover',
   colorScheme: 'light dark',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: BRAND.themeColor },
@@ -53,14 +59,30 @@ export default async function LocaleLayout({
   // The client provider does not inherit request config; without a timeZone use-intl reports
   // ENVIRONMENT_FALLBACK, which our dev onError turns into a render failure.
   const timeZone = await getTimeZone();
+  // CSP nonce for next-themes' inline script; set by the proxy from T15 (absent until then).
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+  const t = await getTranslations({ locale });
+  const dir = dirOf(locale);
 
   return (
     // `suppressHydrationWarning`: the theme script sets `data-theme` on <html> before hydration.
-    <html lang={locale} dir={dirOf(locale)} suppressHydrationWarning>
+    <html lang={locale} dir={dir} suppressHydrationWarning>
       <body className={plexArabic.className}>
-        <IntlProvider locale={locale} messages={getMessages(locale)} timeZone={timeZone}>
-          {children}
-        </IntlProvider>
+        <ThemeProvider nonce={nonce}>
+          <IntlProvider locale={locale} messages={getMessages(locale)} timeZone={timeZone}>
+            <DirectionProvider dir={dir}>
+              <ToastProvider
+                labels={{
+                  close: t('common.close'),
+                  region: t('shell.notifications'),
+                  toast: t('shell.notification'),
+                }}
+              >
+                {children}
+              </ToastProvider>
+            </DirectionProvider>
+          </IntlProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

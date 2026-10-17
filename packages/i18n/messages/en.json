@@ -19,7 +19,10 @@
     "sessions": "Sessions",
     "messages": "Messages",
     "notifications": "Notifications",
-    "settings": "Settings"
+    "settings": "Settings",
+    "workspaces": "Workspaces",
+    "console": "Console",
+    "currentWorkspace": "Current workspace"
   },
   "hello": {
     "title": "Hello",
@@ -552,5 +555,37 @@
       "up": "OK",
       "down": "Down"
     }
+  },
+  "shell": {
+    "userMenu": "Account menu for {name}",
+    "profile": "My profile",
+    "security": "Security",
+    "logout": "Log out",
+    "logoutFailed": "Logging out failed. Check your connection and try again.",
+    "language": "Language",
+    "notifications": "Notifications",
+    "notification": "Notification",
+    "legalNav": "Legal information"
+  },
+  "theme": {
+    "toggle": "Theme",
+    "toggleCurrent": "Theme: {theme}",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "errorPages": {
+    "title": "Something went wrong",
+    "description": "The page could not be displayed. Try again in a moment.",
+    "requestId": "Error reference: {id}",
+    "retry": "Try again",
+    "home": "Back to home",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "This page does not exist or has moved.",
+    "loading": "Loading the page…"
+  },
+  "legal": {
+    "termsTitle": "Terms of use",
+    "privacyTitle": "Privacy policy"
   }
 }

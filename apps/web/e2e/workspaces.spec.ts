@@ -26,13 +26,16 @@ test.describe('workspaces (plan Task 21)', () => {
     await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.created'));
 
     await page.goto(`/${locale}/app`);
-    const switcher = page.getByLabel(t(locale, 'workspace.switcherLabel'));
+    // The switcher is a menu (SP1.5 T8): open it and pick the organisation.
+    const switcher = page.getByRole('button', { name: t(locale, 'nav.currentWorkspace') });
     await expect(switcher).toBeVisible();
-    const option = switcher.locator('option', { hasText: 'École E2E' });
+    await switcher.click();
+    const option = page.getByRole('menuitemradio', { name: 'École E2E' });
     await expect(option).toHaveCount(1);
-    const wid = await option.getAttribute('value');
+    await option.click();
+    await expect(page).toHaveURL(/\/app\/w\/[^/?#]+$/, { timeout: 15_000 });
+    const wid = new URL(page.url()).pathname.split('/').pop();
     expect(wid).toBeTruthy();
-    await switcher.selectOption(wid!);
 
     await expect(page).toHaveURL(appUrl(`/${locale}/app/w/${wid}`));
     await expect(
