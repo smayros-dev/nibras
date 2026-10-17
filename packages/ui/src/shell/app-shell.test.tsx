@@ -13,7 +13,7 @@ const labels: ShellLabels = {
   secondaryNav: 'Navigation rapide',
   more: 'Plus',
   closeMenu: 'Fermer le menu',
-  brandHome: 'Accueil Plateforme cours',
+  brandHome: 'Accueil Nibras',
 };
 
 const sections: NavSection[] = [
@@ -47,7 +47,7 @@ function renderShell(dir: Dir = 'ltr', extra = true) {
     <AppShell
       dir={dir}
       locale={dir === 'rtl' ? 'ar' : 'fr'}
-      brand={{ name: 'Plateforme cours', href: '/fr/app' }}
+      brand={{ name: 'Nibras', href: '/fr/app' }}
       sections={sections}
       labels={labels}
       topBarStart={<span>Espace actuel</span>}
@@ -108,10 +108,7 @@ describe('AppShell', () => {
 
   it('links the brand home, named on the mark-only mobile link', () => {
     renderShell();
-    expect(screen.getByRole('link', { name: 'Accueil Plateforme cours' })).toHaveAttribute(
-      'href',
-      '/fr/app',
-    );
+    expect(screen.getByRole('link', { name: 'Accueil Nibras' })).toHaveAttribute('href', '/fr/app');
   });
 
   it('renders the bottom nav with More opening a sheet with the extra slot', async () => {

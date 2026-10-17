@@ -102,10 +102,10 @@ describe('renderEmail', () => {
 
   it('carries the app name and the legal footer in html and text', () => {
     const fr = renderEmail('security.password_changed', 'fr', { firstName: 'Mohamed' });
-    expect(fr.html).toContain('Plateforme cours');
-    expect(fr.text).toContain('Plateforme cours');
+    expect(fr.html).toContain('Nibras');
+    expect(fr.text).toContain('Nibras');
     const ar = renderEmail('security.password_changed', 'ar', { firstName: 'أحمد' });
-    expect(ar.html).toContain('منصة الدروس');
+    expect(ar.html).toContain('نبراس');
   });
 
   it('HTML-escapes params (no markup injection) and keeps them raw in the text part', () => {
