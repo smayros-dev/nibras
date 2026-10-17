@@ -7,8 +7,9 @@ rebranding) are in [frontend.md](frontend.md).
 
 ## Prerequisites
 
-- **Node.js 22 LTS**: the version is pinned in `.node-version` (fnm, nvm-windows, Volta and most
-  version managers read it).
+- **Node.js 22 LTS, 22.18 or later** (`engines.node`): the major is pinned in `.node-version`
+  (fnm, nvm-windows, Volta and most version managers read it). 22.18 runs `.ts` files directly
+  (type stripping), which `pnpm db:seed` relies on.
 - **pnpm 10** via corepack: `corepack enable` once; the exact version is pinned by `packageManager`
   in the root `package.json`.
 - **Docker Desktop** (with Docker Compose v2): runs Postgres, Redis, Mailpit and MinIO.
@@ -33,6 +34,40 @@ Stop the apps with `Ctrl+C`; stop the containers with `docker compose down`
 `init.sql` only runs on an empty Postgres volume. On a volume created before the per-package test
 databases existed, `pnpm db:migrate:test` still works: Prisma creates a missing database
 (`app_system` has `CREATEDB`). Re-run it after pulling new migrations, like `pnpm db:migrate`.
+
+### Demo data (`pnpm db:seed`)
+
+```bash
+pnpm db:seed           # builds @tt/db (and @tt/contracts), then runs packages/db/prisma/seed.ts
+```
+
+Fills the dev database `tt` with demo accounts, their personal workspaces and the organisation
+_Académie El Manar_ (`academie-el-manar`, TN): members in every role, teacher ↔ student
+assignments, teacher profiles, consent history, an audit log and two abuse reports. Re-running it
+is safe (idempotent): rows are upserted, history is only added while the organisation has none,
+and a password hash is rewritten only when it no longer matches, which then bumps the user's
+`credentialsVersion` (their open sessions end).
+
+Every account uses the password **`mot-de-passe-demo-2026`**:
+
+| Email                  | Role in the organisation         | Notes                                    |
+| ---------------------- | -------------------------------- | ---------------------------------------- |
+| `amine@example.test`   | OWNER                            | phone verified; first login forces 2FA   |
+| `leila@example.test`   | TEACHER                          | marketing consent; assigned to Yassine   |
+| `karim@example.test`   | TEACHER                          | Europe/Paris; assigned to Noussa         |
+| `sana@example.test`    | ASSISTANT                        | Arabic UI                                |
+| `rajaa@example.test`   | GUARDIAN                         |                                          |
+| `yassine@example.test` | STUDENT (minor)                  | no personal workspace                    |
+| `noussa@example.test`  | STUDENT                          | no personal workspace                    |
+| `tarek@example.test`   | STUDENT (`SUSPENDED_NO_CONSENT`) | minor without guardian consent; reported |
+
+The super-admin console needs its own account (`pnpm --filter @tt/api cli create-super-admin`,
+[auth-and-tenancy.md](auth-and-tenancy.md)). The seed is for local development only: it refuses
+to run (exit 1) unless `APP_ENV` is unset or `development`, `NODE_ENV` is not `production`, and
+the host of `DATABASE_URL_SYSTEM` is `localhost`, `127.0.0.1` or the compose service `postgres`.
+`argon2` and `@tt/contracts` are dev dependencies of `@tt/db`: only the seed uses them.
+
+### Migrations
 
 New migration (from `packages/db`'s schema), extra arguments go after `--`:
 
@@ -76,6 +111,7 @@ Each app exposes `/health/live` and `/health/ready` (the API serves them outside
 | `pnpm db:migrate`      | Apply/create Prisma migrations (`@tt/db`)      |
 | `pnpm db:migrate:test` | Apply migrations to the three test databases   |
 | `pnpm db:generate`     | Regenerate the Prisma client (`@tt/db`)        |
+| `pnpm db:seed`         | Load the local demo data (dev database only)   |
 
 Run a task for a single package with a filter, e.g. `pnpm --filter @tt/api test` or
 `pnpm turbo run test --filter=@tt/api`.

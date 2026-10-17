@@ -33,14 +33,17 @@
     "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "migrate:check": "dotenv -e ../../.env -- node scripts/migrate-check.mjs",
     "studio": "dotenv -e ../../.env -- prisma studio",
-    "migrate:test": "dotenv -e ../../.env -- node scripts/migrate-test.mjs"
+    "migrate:test": "dotenv -e ../../.env -- node scripts/migrate-test.mjs",
+    "seed": "dotenv -e ../../.env -- node prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "~6.19.3"
   },
   "devDependencies": {
     "@tt/config": "workspace:*",
+    "@tt/contracts": "workspace:*",
     "@types/node": "^24.19.2",
+    "argon2": "^0.44.0",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.5",
     "prisma": "~6.19.3",

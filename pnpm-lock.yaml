@@ -385,9 +385,15 @@ importers:
       '@tt/config':
         specifier: workspace:*
         version: link:../config
+      '@tt/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
+      argon2:
+        specifier: ^0.44.0
+        version: 0.44.0
       dotenv-cli:
         specifier: ^11.0.0
         version: 11.0.0

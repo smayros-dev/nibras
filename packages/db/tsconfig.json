@@ -5,5 +5,5 @@
     "moduleResolution": "Bundler",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "vitest.config.ts", "vitest.setup.ts"]
+  "include": ["src/**/*.ts", "prisma/seed.ts", "vitest.config.ts", "vitest.setup.ts"]
 }
