@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 
 /** `value`, published only after it has stopped changing for `delay` ms (filters, search). */

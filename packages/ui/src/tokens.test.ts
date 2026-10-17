@@ -26,13 +26,14 @@ function vars(body: string): Vars {
 
 const brandScale = vars(block('@theme'));
 const light = vars(block(':root'));
-const dark = vars(block(":root[data-theme='dark']")); // prettier normalises to single quotes
+// Any element (not only `:root`) can carry the dark theme, matching the `dark:` variant.
+const dark = vars(block("[data-theme='dark']")); // prettier normalises to single quotes
 const inline = vars(block('@theme inline'));
 
 /** Resolves one level of `var(--x)` against the theme block, then the brand scale. */
 function resolve(theme: Vars, name: string): string {
-  const raw = theme[`color-${name}`];
-  if (!raw) throw new Error(`--color-${name} missing`);
+  const raw = theme[`tt-${name}`];
+  if (!raw) throw new Error(`--tt-${name} missing`);
   const ref = /^var\(--([\w-]+)\)$/.exec(raw);
   if (!ref) return raw;
   const target = theme[ref[1]!] ?? brandScale[ref[1]!];
@@ -44,7 +45,7 @@ function luminance(hex: string): number {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
   if (!m) throw new Error(`not a 6-digit hex colour: ${hex}`);
   const channels = [0, 2, 4].map((i) => parseInt(m[1]!.slice(i, i + 2), 16) / 255);
-  const [r, g, b] = channels.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const [r, g, b] = channels.map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
   return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
 }
 
@@ -59,6 +60,8 @@ const TEXT_PAIRS: [string, string][] = [
   ['fg', 'surface-raised'],
   ['fg-muted', 'bg'],
   ['fg-muted', 'surface'],
+  ['fg-muted', 'bg-subtle'],
+  ['fg-muted', 'surface-raised'],
   ['primary-fg', 'primary'],
   ['primary-fg', 'primary-hover'],
   ['danger-fg', 'danger'],
@@ -131,14 +134,20 @@ describe('token structure', () => {
       'info-subtle',
       'focus',
       'overlay',
-    ].map((n) => `color-${n}`);
+    ].map((n) => `tt-${n}`);
     for (const name of required) expect(light, name).toHaveProperty([name]);
   });
 
   it('exposes every semantic token to Tailwind and nothing undefined', () => {
-    expect(Object.keys(inline).sort()).toEqual(Object.keys(light).sort());
+    const themed = Object.keys(light).map((raw) => raw.replace(/^tt-/, 'color-'));
+    expect(Object.keys(inline).sort()).toEqual(themed.sort());
     for (const [name, value] of Object.entries(inline)) {
-      expect(value).toBe(`var(--${name})`);
+      expect(value).toBe(`var(--${name.replace(/^color-/, 'tt-')})`);
     }
+  });
+
+  it('keeps raw values under --tt-* so no Tailwind token references itself', () => {
+    for (const name of Object.keys(light)) expect(name).toMatch(/^tt-/);
+    for (const [name, value] of Object.entries(inline)) expect(value).not.toBe(`var(--${name})`);
   });
 });
