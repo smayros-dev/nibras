@@ -64,7 +64,10 @@ Every account uses the password **`mot-de-passe-demo-2026`**:
 The super-admin console needs its own account (`pnpm --filter @tt/api cli create-super-admin`,
 [auth-and-tenancy.md](auth-and-tenancy.md)). The seed is for local development only: it refuses
 to run (exit 1) unless `APP_ENV` is unset or `development`, `NODE_ENV` is not `production`, and
-the host of `DATABASE_URL_SYSTEM` is `localhost`, `127.0.0.1` or the compose service `postgres`.
+the host of `DATABASE_URL_SYSTEM` is `localhost`, `127.0.0.1` or `::1`. Any other host, including
+the compose service name `postgres` (staging uses the same host name, and its `.env` may still say
+`APP_ENV=development`), is refused unless `SEED_ALLOW_HOST` names that exact host, for example
+`SEED_ALLOW_HOST=postgres pnpm db:seed` from inside the compose network. Never set it on staging.
 `argon2` and `@tt/contracts` are dev dependencies of `@tt/db`: only the seed uses them.
 
 ### Migrations

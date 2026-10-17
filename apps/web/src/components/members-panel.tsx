@@ -30,11 +30,12 @@ import {
 } from '@tt/ui';
 import { Flag, MoreHorizontal, UserMinus, Users } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ReportAbuseButton } from './report-abuse-button';
 import { apiErrorMessage } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
 import { useAbortableQuery } from '../lib/paged-fetch';
+import { useReturnFocus } from '../lib/use-return-focus';
 
 /** The API changes a role only between these two (else `422 ROLE_CHANGE_NOT_ALLOWED`). */
 const STAFF_ROLES = ['ADMIN', 'TEACHER'] as const;
@@ -156,15 +157,7 @@ export function MembersPanel({
 
   const [removeTarget, setRemoveTarget] = useState<MemberSummary | null>(null);
   // Dialogs opened from a row menu have no `Trigger`: focus goes back to that row's menu button.
-  const menuTriggers = useRef(new Map<string, HTMLButtonElement>());
-  const returnFocusTo = useRef<string | null>(null);
-  const restoreFocus = (event: Event) => {
-    const opener = returnFocusTo.current ? menuTriggers.current.get(returnFocusTo.current) : null;
-    if (opener?.isConnected) {
-      event.preventDefault();
-      opener.focus();
-    }
-  };
+  const returnFocus = useReturnFocus();
   const [reportTarget, setReportTarget] = useState<MemberSummary | null>(null);
 
   const mutate = useSubmit(
@@ -332,10 +325,7 @@ export function MembersPanel({
                               variant="ghost"
                               size="icon"
                               aria-label={t('members.rowActions', { name })}
-                              ref={(el) => {
-                                if (el) menuTriggers.current.set(m.userId, el);
-                                else menuTriggers.current.delete(m.userId);
-                              }}
+                              ref={returnFocus.register(m.userId)}
                             >
                               <MoreHorizontal aria-hidden="true" className="size-5" />
                             </Button>
@@ -384,7 +374,7 @@ export function MembersPanel({
                                 destructive
                                 icon={<UserMinus />}
                                 onSelect={() => {
-                                  returnFocusTo.current = m.userId;
+                                  returnFocus.remember(m.userId);
                                   setRemoveTarget(m);
                                 }}
                               >
@@ -395,7 +385,7 @@ export function MembersPanel({
                               <DropdownMenu.Item
                                 icon={<Flag />}
                                 onSelect={() => {
-                                  returnFocusTo.current = m.userId;
+                                  returnFocus.remember(m.userId);
                                   setReportTarget(m);
                                 }}
                               >
@@ -449,7 +439,7 @@ export function MembersPanel({
           <AlertDialog.Content
             title={t('members.confirmRemoveTitle', { name: fullName(removeTarget) })}
             description={t('members.confirmRemoveDescription')}
-            onCloseAutoFocus={restoreFocus}
+            onCloseAutoFocus={returnFocus.onCloseAutoFocus}
           >
             <AlertDialog.Footer>
               <AlertDialog.Cancel>{t('common.cancel')}</AlertDialog.Cancel>
@@ -488,10 +478,7 @@ export function MembersPanel({
           onOpenChange={(open) => {
             if (open) return;
             setReportTarget(null);
-            const opener = returnFocusTo.current
-              ? menuTriggers.current.get(returnFocusTo.current)
-              : null;
-            opener?.focus();
+            returnFocus.focusOpener();
           }}
         />
       ) : null}

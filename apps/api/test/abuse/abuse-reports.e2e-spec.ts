@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { PrismaClient, User } from '@tt/db';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AbuseReportsService } from '../../src/abuse-reports/abuse-reports.service';
 import { SnapshotRegistry } from '../../src/abuse-reports/snapshot.registry';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
@@ -172,6 +172,56 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
       .patch(wsReports(personal.id, `/${row!.id}`))
       .send({ status: 'DISMISSED' })
       .expect(403);
+  });
+
+  it('escalation emails to the super-admins go out concurrently; one failed send does not block the others', async () => {
+    const admins = await Promise.all(
+      Array.from({ length: 4 }, () => createUser({ platformRole: 'SUPER_ADMIN' })),
+    );
+    const solo = await createUser();
+    const pupil = await createUser();
+    const personal = await createPersonalWorkspace(solo);
+    await db.membership.create({
+      data: { workspaceId: personal.id, userId: pupil.id, role: 'STUDENT', status: 'ACTIVE' },
+    });
+    const failing = admins[0]!.email;
+    const send = ctx.email.send.bind(ctx.email);
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const spy = vi.spyOn(ctx.email, 'send').mockImplementation(async (msg) => {
+      if (msg.templateKey !== 'abuse.new_report') return send(msg);
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (msg.to === failing) throw new Error('smtp down');
+        return await send(msg);
+      } finally {
+        inFlight -= 1;
+      }
+    });
+    try {
+      await (
+        await agent(pupil)
+      )
+        .post(wsReports(personal.id))
+        .send({
+          category: 'HARASSMENT',
+          description: DESCRIPTION,
+          entityType: 'USER',
+          entityId: solo.id,
+        })
+        .expect(201);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(maxInFlight).toBe(admins.length);
+    expect(ctx.email.findByTemplate('abuse.new_report', failing)).toHaveLength(0);
+    for (const sa of admins.slice(1)) {
+      expect(ctx.email.findByTemplate('abuse.new_report', sa.email)).toHaveLength(1);
+    }
+    expect(ctx.email.findByTemplate('abuse.report_received', pupil.email)).toHaveLength(1);
+    expect(await db.abuseReport.count({ where: { workspaceId: personal.id } })).toBe(1);
   });
 
   it('HARASSMENT against the org owner who is its only admin escalates to the super-admins; the owner gets nothing', async () => {

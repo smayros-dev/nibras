@@ -3,7 +3,8 @@
  * its workspace dependencies first, then runs this file through Node's type stripping, Node
  * >= 22.18). Local development only: it refuses to run unless `APP_ENV` is unset or
  * `development`, `NODE_ENV` is not `production` and `DATABASE_URL_SYSTEM` points at localhost,
- * 127.0.0.1 or the compose service `postgres` (see {@link seedRefusal}).
+ * 127.0.0.1 or ::1 — any other host (even the compose service `postgres`, which staging shares)
+ * needs `SEED_ALLOW_HOST=<that exact host>` (see {@link seedRefusal}).
  *
  * Idempotent: users and workspaces are upserted on their fixed emails/slugs, memberships on
  * their unique keys, consents are skipped when already granted, and the audit/abuse rows only
@@ -16,30 +17,7 @@
 import { PrismaClient } from '@prisma/client';
 import { CONSENT_VERSIONS, defaultWorkspaceSettings, type CurrentConsentType } from '@tt/contracts';
 import argon2 from 'argon2';
-
-/** Database hosts the seed may write to: the developer's machine or the compose network. */
-const LOCAL_DB_HOSTS = new Set(['localhost', '127.0.0.1', 'postgres']);
-
-/** Why the seed must not run in this environment, or `null` when it may. */
-function seedRefusal(env: NodeJS.ProcessEnv): string | null {
-  const appEnv = env.APP_ENV;
-  if (appEnv !== undefined && appEnv !== '' && appEnv !== 'development') {
-    return `APP_ENV=${appEnv} (only unset or "development" is allowed)`;
-  }
-  if (env.NODE_ENV === 'production') return 'NODE_ENV=production';
-  const url = env.DATABASE_URL_SYSTEM;
-  if (!url) return 'DATABASE_URL_SYSTEM is not set';
-  let host: string;
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    return 'DATABASE_URL_SYSTEM is not a valid URL';
-  }
-  if (!LOCAL_DB_HOSTS.has(host)) {
-    return `DATABASE_URL_SYSTEM host "${host}" is not local (${[...LOCAL_DB_HOSTS].join(', ')})`;
-  }
-  return null;
-}
+import { seedRefusal } from '../src/seed-guard.ts';
 
 const refusal = seedRefusal(process.env);
 if (refusal) {

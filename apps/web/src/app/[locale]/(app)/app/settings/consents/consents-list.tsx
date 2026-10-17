@@ -15,9 +15,10 @@ import {
   useToast,
 } from '@tt/ui';
 import { useLocale, useTranslations } from 'next-intl';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiErrorMessage } from '../../../../../../lib/api-error';
 import { api, asApiResult } from '../../../../../../lib/api';
+import { useReturnFocus } from '../../../../../../lib/use-return-focus';
 
 const consentKey = (type: ConsentRecord['type']) => `settings.consents.types.${type}` as const;
 
@@ -30,7 +31,7 @@ export function ConsentsList() {
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<ConsentRecord['type'] | null>(null);
   // The dialog is shared by the rows (no `Trigger`), so focus goes back to the row that opened it.
-  const returnFocusRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocus = useReturnFocus();
   // Resolved after mount: the server has no viewer time zone (no hydration mismatch).
   const [viewerTimezone, setViewerTimezone] = useState('UTC');
 
@@ -125,7 +126,7 @@ export function ConsentsList() {
                           variant="secondary"
                           size="sm"
                           onClick={(event) => {
-                            returnFocusRef.current = event.currentTarget;
+                            returnFocus.remember(event.currentTarget);
                             setConfirming(record.type);
                           }}
                         >
@@ -149,13 +150,7 @@ export function ConsentsList() {
         {confirming ? (
           <AlertDialog.Content
             title={t('settings.consents.revokeConfirm', { name: t(consentKey(confirming)) })}
-            onCloseAutoFocus={(event) => {
-              const opener = returnFocusRef.current;
-              if (opener?.isConnected) {
-                event.preventDefault();
-                opener.focus();
-              }
-            }}
+            onCloseAutoFocus={returnFocus.onCloseAutoFocus}
           >
             <AlertDialog.Footer>
               <AlertDialog.Cancel>{t('common.cancel')}</AlertDialog.Cancel>

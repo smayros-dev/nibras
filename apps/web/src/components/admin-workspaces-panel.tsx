@@ -23,13 +23,14 @@ import {
 } from '@tt/ui';
 import { Ban, Building2, HardDrive, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminReasonDialog } from './admin-reason-dialog';
 import { apiErrorMessage, issuesToFieldErrors } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
 import { formatBytes } from '../lib/format-bytes';
 import { useAbortableQuery } from '../lib/paged-fetch';
 import { useErrorFocus } from '../lib/use-error-focus';
+import { useReturnFocus } from '../lib/use-return-focus';
 
 type WorkspaceStatus = (typeof WORKSPACE_STATUSES)[number];
 
@@ -215,17 +216,9 @@ export function AdminWorkspacesPanel() {
 
   const [pending, setPending] = useState<Pending>(null);
   // Dialogs opened from a row menu have no `Trigger`: focus goes back to that row's menu button.
-  const menuTriggers = useRef(new Map<string, HTMLButtonElement>());
-  const returnFocusTo = useRef<string | null>(null);
-  const restoreFocus = (event: Event) => {
-    const opener = returnFocusTo.current ? menuTriggers.current.get(returnFocusTo.current) : null;
-    if (opener?.isConnected) {
-      event.preventDefault();
-      opener.focus();
-    }
-  };
+  const returnFocus = useReturnFocus();
   const open = (kind: NonNullable<Pending>['kind'], ws: AdminWorkspace) => {
-    returnFocusTo.current = ws.id;
+    returnFocus.remember(ws.id);
     setPending({ kind, ws });
   };
   const close = () => setPending(null);
@@ -370,10 +363,7 @@ export function AdminWorkspacesPanel() {
                           variant="ghost"
                           size="icon"
                           aria-label={t('admin.workspaces.rowActions', { name: ws.name })}
-                          ref={(el) => {
-                            if (el) menuTriggers.current.set(ws.id, el);
-                            else menuTriggers.current.delete(ws.id);
-                          }}
+                          ref={returnFocus.register(ws.id)}
                         >
                           <MoreHorizontal aria-hidden="true" className="size-5" />
                         </Button>
@@ -418,7 +408,7 @@ export function AdminWorkspacesPanel() {
           pending ? t('admin.workspaces.suspendDescription', { name: pending.ws.name }) : undefined
         }
         submitLabel={t('admin.workspaces.suspend')}
-        onCloseAutoFocus={restoreFocus}
+        onCloseAutoFocus={returnFocus.onCloseAutoFocus}
         onConfirm={async (reason) => {
           if (!pending) return null;
           const { error } = asApiResult<unknown>(
@@ -437,7 +427,7 @@ export function AdminWorkspacesPanel() {
       <QuotaDialog
         target={pending?.kind === 'quota' ? pending.ws : null}
         onClose={close}
-        onCloseAutoFocus={restoreFocus}
+        onCloseAutoFocus={returnFocus.onCloseAutoFocus}
         onSaved={() => {
           close();
           toast({ title: t('admin.workspaces.quotaSaved'), variant: 'success' });
@@ -455,7 +445,7 @@ export function AdminWorkspacesPanel() {
           <AlertDialog.Content
             title={t('admin.workspaces.confirmReactivate')}
             description={t('admin.workspaces.reactivateDescription', { name: pending.ws.name })}
-            onCloseAutoFocus={restoreFocus}
+            onCloseAutoFocus={returnFocus.onCloseAutoFocus}
           >
             <AlertDialog.Footer>
               <AlertDialog.Cancel>{t('common.cancel')}</AlertDialog.Cancel>
