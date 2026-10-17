@@ -1,4 +1,4 @@
-import { LOCALES } from '@tt/contracts';
+import { LOCALES } from '@tt/contracts/web';
 
 /**
  * A same-origin path: one leading `/` not followed by `/` or `\`, no backslash anywhere (browsers

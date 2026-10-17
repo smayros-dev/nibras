@@ -1,12 +1,7 @@
 'use client';
 
-import {
-  WORKSPACE_STATUSES,
-  WORKSPACE_TYPES,
-  type AdminWorkspace,
-  type AdminWorkspacesPage,
-  type WorkspaceType,
-} from '@tt/contracts';
+import { WORKSPACE_STATUSES, WORKSPACE_TYPES } from '@tt/contracts/web';
+import type { AdminWorkspace, AdminWorkspacesPage, WorkspaceType } from '@tt/contracts';
 import { formatDate } from '@tt/i18n';
 import {
   Alert,

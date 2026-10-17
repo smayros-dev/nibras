@@ -1,6 +1,7 @@
 'use client';
 
-import { ABUSE_REPORT_STATUSES, type AbuseReport, type AbuseReportStatus } from '@tt/contracts';
+import { ABUSE_REPORT_STATUSES } from '@tt/contracts/web';
+import type { AbuseReport, AbuseReportStatus } from '@tt/contracts';
 import { formatDate } from '@tt/i18n';
 import {
   Alert,

@@ -4,7 +4,8 @@
     "loading": "Loading…",
     "retry": "Retry",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "newTab": "(opens in a new tab)"
   },
   "nav": {
     "skipToContent": "Skip to content",
@@ -14,11 +15,6 @@
     "closeMenu": "Close menu",
     "brandHome": "Home",
     "dashboard": "Dashboard",
-    "courses": "Courses",
-    "students": "Students",
-    "sessions": "Sessions",
-    "messages": "Messages",
-    "notifications": "Notifications",
     "settings": "Settings",
     "workspaces": "Workspaces",
     "console": "Console",
@@ -86,9 +82,6 @@
     "invalid_format_date": "Invalid date.",
     "invalid_format_regex": "Invalid format.",
     "invalid_value": "This value is not allowed."
-  },
-  "health": {
-    "ok": "Service is up"
   },
   "emails": {
     "footer": {
@@ -309,7 +302,6 @@
   },
   "settings": {
     "title": "Settings",
-    "comingSoon": "Coming soon",
     "nav": {
       "profile": "Profile",
       "security": "Security",
@@ -337,7 +329,6 @@
       "dismiss": "No"
     },
     "security": {
-      "title": "Security",
       "twoFactor": "Two-factor authentication (2FA)",
       "twoFactorOn": "Two-factor authentication is enabled on your account.",
       "twoFactorOff": "Two-factor authentication is not enabled on your account.",
@@ -353,7 +344,6 @@
       "passwordChanged": "Password changed. Other devices were signed out.",
       "devices": "Connected devices",
       "thisDevice": "This device",
-      "disconnect": "Sign out",
       "signOutAll": "Sign out everywhere",
       "signOutAllConfirm": "Sign out of all devices, including this one?",
       "twoFactorStatusOn": "On",
@@ -367,7 +357,6 @@
       "deviceRevoked": "Device signed out."
     },
     "verification": {
-      "title": "Verification",
       "email": "Email",
       "phoneNumber": "Phone number",
       "phone": "Phone",
@@ -375,7 +364,6 @@
       "otpCode": "Received code",
       "verifyOtp": "Verify",
       "otpSent": "A code was sent by SMS (and by email in development).",
-      "otpInvalid": "Incorrect code.",
       "phoneDone": "Phone verified: {phone}",
       "coc": "Code of conduct",
       "cocBody": "I commit to respecting the other members of the platform, not to post harassing, discriminatory or illegal content, and to use live sessions in an educational spirit. Any violation may lead to account suspension.",
@@ -390,7 +378,6 @@
     "consents": {
       "title": "Consents",
       "version": "Version",
-      "grantedAt": "Accepted on {date}",
       "revoke": "Revoke",
       "none": "No consents recorded.",
       "type": "Consent",
@@ -434,8 +421,6 @@
     "typePersonal": "Personal",
     "typeOrganization": "Organization",
     "createTitle": "Your workspaces",
-    "createOrganization": "Create an organization",
-    "createPersonal": "Create my personal workspace",
     "personalForbidden": "{organizationName} does not allow personal workspaces",
     "personalExists": "You already have a personal workspace.",
     "name": "Name",
@@ -475,7 +460,6 @@
     "navSettings": "Settings",
     "navMembers": "Members",
     "navAudit": "Audit log",
-    "soon": "Soon",
     "auditAction": "Action",
     "auditFrom": "From",
     "auditTo": "To",
@@ -503,19 +487,12 @@
     "canTeach": "Can teach",
     "joined": "Joined",
     "actions": "Actions",
-    "changeRole": "Change role",
     "toggleCanTeach": "Can teach",
     "remove": "Remove",
     "removed": "Member removed.",
     "roleChanged": "Role changed.",
     "assignments": "Assignments",
-    "assignTeacher": "Teacher",
-    "assignStudents": "Students",
-    "assignSubmit": "Assign",
-    "assigned": "Assignment saved.",
     "noStudents": "Students join by invitation (next version).",
-    "studentsTab": "Students",
-    "pendingInvitation": "Invitation pending",
     "self": "you",
     "role_OWNER": "Owner",
     "role_ADMIN": "Admin",
@@ -582,9 +559,7 @@
       "quota": "Quota",
       "quotaGiB": "Quota (GiB)",
       "reason": "Reason",
-      "confirm": "Confirm",
       "saveQuota": "Save quota",
-      "saved": "Changes saved.",
       "suspended": "Workspace suspended.",
       "reactivated": "Workspace reactivated.",
       "quotaSaved": "Quota updated.",
@@ -649,7 +624,6 @@
       "active": "Active",
       "delayed": "Delayed",
       "failed": "Failed",
-      "name": "Name",
       "up": "OK",
       "down": "Down",
       "services": "Services"

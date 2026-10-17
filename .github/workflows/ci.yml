@@ -91,6 +91,8 @@ jobs:
         run: pnpm db:migrate:test
       - run: pnpm test
       - run: pnpm build
+      - name: First-load JS budget (PRD §14.1, < 250 kB gzip per route)
+        run: pnpm --filter @tt/web budget
       - name: OpenAPI contracts are up to date
         run: pnpm --filter @tt/api openapi:export && pnpm --filter @tt/contracts generate && git diff --exit-code packages/contracts
 

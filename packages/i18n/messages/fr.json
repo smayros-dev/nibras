@@ -4,7 +4,8 @@
     "loading": "Chargement…",
     "retry": "Réessayer",
     "cancel": "Annuler",
-    "close": "Fermer"
+    "close": "Fermer",
+    "newTab": "(nouvel onglet)"
   },
   "nav": {
     "skipToContent": "Aller au contenu",
@@ -14,11 +15,6 @@
     "closeMenu": "Fermer le menu",
     "brandHome": "Accueil",
     "dashboard": "Dashboard",
-    "courses": "Cours",
-    "students": "Étudiants",
-    "sessions": "Sessions",
-    "messages": "Messages",
-    "notifications": "Notifications",
     "settings": "Paramètres",
     "workspaces": "Espaces",
     "console": "Console",
@@ -86,9 +82,6 @@
     "invalid_format_date": "Date invalide.",
     "invalid_format_regex": "Format invalide.",
     "invalid_value": "Cette valeur n’est pas autorisée."
-  },
-  "health": {
-    "ok": "Service opérationnel"
   },
   "emails": {
     "footer": {
@@ -309,7 +302,6 @@
   },
   "settings": {
     "title": "Paramètres",
-    "comingSoon": "Bientôt disponible",
     "nav": {
       "profile": "Profil",
       "security": "Sécurité",
@@ -337,7 +329,6 @@
       "dismiss": "Non"
     },
     "security": {
-      "title": "Sécurité",
       "twoFactor": "Double authentification (2FA)",
       "twoFactorOn": "La double authentification est activée sur votre compte.",
       "twoFactorOff": "La double authentification n’est pas activée sur votre compte.",
@@ -353,7 +344,6 @@
       "passwordChanged": "Mot de passe changé. Les autres appareils ont été déconnectés.",
       "devices": "Appareils connectés",
       "thisDevice": "Cet appareil",
-      "disconnect": "Déconnecter",
       "signOutAll": "Déconnecter partout",
       "signOutAllConfirm": "Déconnecter tous les appareils, y compris celui-ci ?",
       "twoFactorStatusOn": "Activée",
@@ -367,7 +357,6 @@
       "deviceRevoked": "Appareil déconnecté."
     },
     "verification": {
-      "title": "Vérification",
       "email": "Email",
       "phoneNumber": "Numéro de téléphone",
       "phone": "Téléphone",
@@ -375,7 +364,6 @@
       "otpCode": "Code reçu",
       "verifyOtp": "Vérifier",
       "otpSent": "Un code a été envoyé par SMS (et par email en développement).",
-      "otpInvalid": "Code incorrect.",
       "phoneDone": "Téléphone vérifié : {phone}",
       "coc": "Code de conduite",
       "cocBody": "Je m’engage à respecter les autres membres de la plateforme, à ne pas publier de contenu harassant, discriminatoire ou illégal, et à utiliser les sessions en direct dans un cadre pédagogique. Toute infraction peut entraîner la suspension du compte.",
@@ -390,7 +378,6 @@
     "consents": {
       "title": "Consentements",
       "version": "Version",
-      "grantedAt": "Accepté le {date}",
       "revoke": "Retirer",
       "none": "Aucun consentement enregistré.",
       "type": "Consentement",
@@ -434,8 +421,6 @@
     "typePersonal": "Personnel",
     "typeOrganization": "Organisation",
     "createTitle": "Vos espaces",
-    "createOrganization": "Créer une organisation",
-    "createPersonal": "Créer mon espace personnel",
     "personalForbidden": "{organizationName} n’autorise pas les espaces personnels",
     "personalExists": "Vous avez déjà un espace personnel.",
     "name": "Nom",
@@ -475,7 +460,6 @@
     "navSettings": "Paramètres",
     "navMembers": "Membres",
     "navAudit": "Journal d’audit",
-    "soon": "Bientôt",
     "auditAction": "Action",
     "auditFrom": "Du",
     "auditTo": "Au",
@@ -503,19 +487,12 @@
     "canTeach": "Peut enseigner",
     "joined": "Rejoint le",
     "actions": "Actions",
-    "changeRole": "Changer le rôle",
     "toggleCanTeach": "Peut enseigner",
     "remove": "Retirer",
     "removed": "Membre retiré.",
     "roleChanged": "Rôle modifié.",
     "assignments": "Affectations",
-    "assignTeacher": "Enseignant",
-    "assignStudents": "Élèves",
-    "assignSubmit": "Affecter",
-    "assigned": "Affectation enregistrée.",
     "noStudents": "Les élèves rejoignent par invitation (prochaine version).",
-    "studentsTab": "Élèves",
-    "pendingInvitation": "Invitation en attente",
     "self": "vous",
     "role_OWNER": "Propriétaire",
     "role_ADMIN": "Administrateur",
@@ -582,9 +559,7 @@
       "quota": "Quota",
       "quotaGiB": "Quota (Go)",
       "reason": "Motif",
-      "confirm": "Confirmer",
       "saveQuota": "Enregistrer le quota",
-      "saved": "Modifications enregistrées.",
       "suspended": "Espace suspendu.",
       "reactivated": "Espace réactivé.",
       "quotaSaved": "Quota mis à jour.",
@@ -649,7 +624,6 @@
       "active": "En cours",
       "delayed": "Différées",
       "failed": "Échouées",
-      "name": "Nom",
       "up": "OK",
       "down": "Indisponible",
       "services": "Services"

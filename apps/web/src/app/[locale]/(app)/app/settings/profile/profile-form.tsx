@@ -1,6 +1,7 @@
 'use client';
 
-import { LOCALES, type MeUser } from '@tt/contracts';
+import { LOCALES } from '@tt/contracts/web';
+import type { MeUser } from '@tt/contracts';
 import { Alert, Button, Card, Field, Input, Select, useSubmit, useToast } from '@tt/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';

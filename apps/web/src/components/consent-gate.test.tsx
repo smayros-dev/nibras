@@ -40,7 +40,10 @@ describe('ConsentGate', () => {
       ['auth.consent.readCoc', '/legal/code-of-conduct'],
     ];
     for (const [key, href] of links) {
-      const link = screen.getByRole('link', { name: tr('fr', key) });
+      // The sr-only cue tells screen-reader users the link leaves this tab.
+      const link = screen.getByRole('link', {
+        name: `${tr('fr', key)} ${tr('fr', 'common.newTab')}`,
+      });
       expect(link).toHaveAttribute('href', href);
       expect(link).toHaveAttribute('target', '_blank');
       expect(link).toHaveAttribute('rel', 'noopener');
@@ -67,6 +70,18 @@ describe('ConsentGate', () => {
         params: { path: { type } },
         body: { version },
       });
+  });
+
+  it('re-enables accept when consents are still pending after the refresh', async () => {
+    // e.g. a version bump between render and accept, or a web/API version mismatch: the refreshed
+    // layout renders the gate again and the button must not spin forever.
+    const router = mockRouter({ pathname: '/app' });
+    renderGate();
+    const accept = screen.getByRole('button', { name: tr('fr', 'auth.consent.accept') });
+    await userEvent.click(accept);
+    await waitFor(() => expect(router.refresh).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(accept).toBeEnabled());
+    expect(accept).not.toHaveAttribute('aria-busy', 'true');
   });
 
   it('shows the error and re-enables accept when a grant fails', async () => {

@@ -4,7 +4,8 @@
     "loading": "جارٍ التحميل…",
     "retry": "إعادة المحاولة",
     "cancel": "إلغاء",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "newTab": "(علامة تبويب جديدة)"
   },
   "nav": {
     "skipToContent": "تخطَّ إلى المحتوى",
@@ -14,11 +15,6 @@
     "closeMenu": "إغلاق القائمة",
     "brandHome": "الصفحة الرئيسية",
     "dashboard": "لوحة التحكم",
-    "courses": "الدروس",
-    "students": "الطلاب",
-    "sessions": "الحصص",
-    "messages": "الرسائل",
-    "notifications": "الإشعارات",
     "settings": "الإعدادات",
     "workspaces": "المساحات",
     "console": "وحدة التحكم",
@@ -86,9 +82,6 @@
     "invalid_format_date": "تاريخ غير صالح.",
     "invalid_format_regex": "تنسيق غير صالح.",
     "invalid_value": "هذه القيمة غير مسموح بها."
-  },
-  "health": {
-    "ok": "الخدمة تعمل بشكل طبيعي"
   },
   "emails": {
     "footer": {
@@ -309,7 +302,6 @@
   },
   "settings": {
     "title": "الإعدادات",
-    "comingSoon": "قريباً",
     "nav": {
       "profile": "الملف الشخصي",
       "security": "الأمان",
@@ -337,7 +329,6 @@
       "dismiss": "لا"
     },
     "security": {
-      "title": "الأمان",
       "twoFactor": "التحقق الثنائي (2FA)",
       "twoFactorOn": "التحقق الثنائي مفعّل على حسابك.",
       "twoFactorOff": "التحقق الثنائي غير مفعّل على حسابك.",
@@ -353,7 +344,6 @@
       "passwordChanged": "تم تغيير كلمة المرور. تم تسجيل الخروج من الأجهزة الأخرى.",
       "devices": "الأجهزة المتصلة",
       "thisDevice": "هذا الجهاز",
-      "disconnect": "تسجيل الخروج",
       "signOutAll": "تسجيل الخروج من كل الأجهزة",
       "signOutAllConfirm": "هل تريد تسجيل الخروج من كل الأجهزة، بما في ذلك هذا الجهاز؟",
       "twoFactorStatusOn": "مفعّل",
@@ -367,7 +357,6 @@
       "deviceRevoked": "تم تسجيل خروج الجهاز."
     },
     "verification": {
-      "title": "التحقق",
       "email": "البريد الإلكتروني",
       "phoneNumber": "رقم الهاتف",
       "phone": "الهاتف",
@@ -375,7 +364,6 @@
       "otpCode": "الرمز المستلم",
       "verifyOtp": "تحقق",
       "otpSent": "تم إرسال رمز عبر SMS (وعلى البريد الإلكتروني في بيئة التطوير).",
-      "otpInvalid": "رمز غير صحيح.",
       "phoneDone": "تم التحقق من الهاتف: {phone}",
       "coc": "ميثاق السلوك",
       "cocBody": "ألتزم باحترام بقية مستخدمي المنصة، وعدم نشر أي محتوى مسيء أو تميزي أو غير قانوني، واستخدام الجلسات المباشرة في إطار تربوي. أي خرق قد يؤدي إلى تعليق الحساب.",
@@ -390,7 +378,6 @@
     "consents": {
       "title": "الموافقات",
       "version": "الإصدار",
-      "grantedAt": "قُبل في {date}",
       "revoke": "سحب",
       "none": "لا توجد موافقات مسجلة.",
       "type": "الموافقة",
@@ -434,8 +421,6 @@
     "typePersonal": "شخصي",
     "typeOrganization": "منظمة",
     "createTitle": "مساحاتك",
-    "createOrganization": "إنشاء منظمة",
-    "createPersonal": "إنشاء مساحتي الشخصية",
     "personalForbidden": "{organizationName} لا تسمح بالمساحات الشخصية",
     "personalExists": "لديك بالفعل مساحة شخصية.",
     "name": "الاسم",
@@ -475,7 +460,6 @@
     "navSettings": "الإعدادات",
     "navMembers": "الأعضاء",
     "navAudit": "سجل التدقيق",
-    "soon": "قريباً",
     "auditAction": "الإجراء",
     "auditFrom": "من",
     "auditTo": "إلى",
@@ -503,19 +487,12 @@
     "canTeach": "يستطيع التدريس",
     "joined": "انضم في",
     "actions": "إجراءات",
-    "changeRole": "تغيير الدور",
     "toggleCanTeach": "يستطيع التدريس",
     "remove": "إزالة",
     "removed": "تمت إزالة العضو.",
     "roleChanged": "تم تغيير الدور.",
     "assignments": "التعيينات",
-    "assignTeacher": "المعلم",
-    "assignStudents": "التلاميذ",
-    "assignSubmit": "تعيين",
-    "assigned": "تم حفظ التعيين.",
     "noStudents": "ينضم التلاميذ بالدعوة (النسخة القادمة).",
-    "studentsTab": "التلاميذ",
-    "pendingInvitation": "دعوة بانتظار القبول",
     "self": "أنت",
     "role_OWNER": "المالك",
     "role_ADMIN": "مدير",
@@ -582,9 +559,7 @@
       "quota": "الحصة",
       "quotaGiB": "الحصة (غيغابايت)",
       "reason": "السبب",
-      "confirm": "تأكيد",
       "saveQuota": "حفظ الحصة",
-      "saved": "تم حفظ التغييرات.",
       "suspended": "تم تعليق مساحة العمل.",
       "reactivated": "تمت إعادة تفعيل مساحة العمل.",
       "quotaSaved": "تم تحديث الحصة.",
@@ -649,7 +624,6 @@
       "active": "نشطة",
       "delayed": "مؤجّلة",
       "failed": "فاشلة",
-      "name": "الاسم",
       "up": "سليم",
       "down": "غير متاح",
       "services": "الخدمات"

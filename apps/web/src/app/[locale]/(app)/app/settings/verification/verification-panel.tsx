@@ -1,6 +1,7 @@
 'use client';
 
-import { CONSENT_VERSIONS, type TeacherVerification } from '@tt/contracts';
+import { CONSENT_VERSIONS } from '@tt/contracts/web';
+import type { TeacherVerification } from '@tt/contracts';
 import {
   Alert,
   Badge,

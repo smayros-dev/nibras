@@ -1,12 +1,7 @@
 'use client';
 
-import {
-  ABUSE_CATEGORIES,
-  ABUSE_REPORT_STATUSES,
-  type AbuseCategory,
-  type AbuseReportsPage,
-  type AbuseReportStatus,
-} from '@tt/contracts';
+import { ABUSE_CATEGORIES, ABUSE_REPORT_STATUSES } from '@tt/contracts/web';
+import type { AbuseCategory, AbuseReportsPage, AbuseReportStatus } from '@tt/contracts';
 import { formatDate } from '@tt/i18n';
 import {
   Alert,

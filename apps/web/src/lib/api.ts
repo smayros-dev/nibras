@@ -1,4 +1,5 @@
-import { createApiClient, type ApiErrorBody } from '@tt/contracts';
+import { createApiClient } from '@tt/contracts/web';
+import type { ApiErrorBody } from '@tt/contracts';
 import { createRefreshingFetch } from './auth-refresh';
 import { forwardHeaders } from './forwarded-headers';
 

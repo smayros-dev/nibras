@@ -1,4 +1,5 @@
-import { dirOf, type Locale, type MeUser, type MyWorkspace } from '@tt/contracts';
+import { dirOf } from '@tt/contracts/web';
+import type { Locale, MeUser, MyWorkspace } from '@tt/contracts';
 import { AppShell } from '@tt/ui';
 import { getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';

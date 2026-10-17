@@ -1,4 +1,5 @@
-import { CONSENT_VERSIONS, testConsentTermsVersion, type CurrentConsentType } from '@tt/contracts';
+import { CONSENT_VERSIONS, testConsentTermsVersion } from '@tt/contracts/web';
+import type { CurrentConsentType } from '@tt/contracts';
 import { hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { cookies, headers } from 'next/headers';
@@ -65,6 +66,8 @@ export default async function AppLayout({
       </AppFrame>
       {gated ? (
         <ConsentGate
+          // A new pending set or version is a new gate: no error or busy state carried over.
+          key={user.pendingConsents.map((type) => `${type}@${consentVersion(type)}`).join(',')}
           pending={user.pendingConsents}
           versions={Object.fromEntries(
             user.pendingConsents.map((type) => [type, consentVersion(type)]),

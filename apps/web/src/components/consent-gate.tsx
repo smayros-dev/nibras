@@ -1,10 +1,10 @@
 'use client';
 
 import type { CurrentConsentType } from '@tt/contracts';
-import { Alert, Badge, Button, Dialog, useSubmit } from '@tt/ui';
+import { Alert, Badge, Button, Dialog, useSubmit, VisuallyHidden } from '@tt/ui';
 import { ExternalLink } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { Link, useRouter } from '../i18n/navigation';
 import { apiErrorMessage } from '../lib/api-error';
 import { api } from '../lib/api';
@@ -50,8 +50,10 @@ export function ConsentGate({
   const t = useTranslations();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  // Stays busy after success until the refreshed layout unmounts the gate (no second submit).
-  const [accepted, setAccepted] = useState(false);
+  // Stays busy after success while the layout refreshes (no second submit). The transition ends
+  // when the refreshed tree is committed: either the gate has unmounted, or the consents are still
+  // pending (a version bump, a web/API version mismatch) and the button is usable again.
+  const [refreshing, startRefresh] = useTransition();
   const { alertRef } = useErrorFocus(undefined, error);
 
   const accept = useSubmit(async () => {
@@ -73,9 +75,8 @@ export function ConsentGate({
       setError(t('errors.INTERNAL_ERROR'));
       return;
     }
-    setAccepted(true);
     // Re-run the (app) layout server component: pendingConsents is now empty and the gate unmounts.
-    router.refresh();
+    startRefresh(() => router.refresh());
   });
 
   return (
@@ -107,7 +108,7 @@ export function ConsentGate({
                   rel="noopener"
                   className="inline-flex items-center gap-1 text-sm font-semibold text-primary underline-offset-4 hover:underline"
                 >
-                  {t(row.read)}
+                  {t(row.read)} <VisuallyHidden>{t('common.newTab')}</VisuallyHidden>
                   <ExternalLink aria-hidden="true" className="size-4 shrink-0" />
                 </Link>
               </li>
@@ -122,7 +123,7 @@ export function ConsentGate({
         <Dialog.Footer>
           <Button
             variant="primary"
-            loading={accept.busy || accepted}
+            loading={accept.busy || refreshing}
             onClick={() => void accept.submit()}
           >
             {t('auth.consent.accept')}

@@ -1,6 +1,7 @@
 'use client';
 
-import { LOCALES, type Locale } from '@tt/contracts';
+import { LOCALES } from '@tt/contracts/web';
+import type { Locale } from '@tt/contracts';
 import { Button, DropdownMenu } from '@tt/ui';
 import { Languages } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';

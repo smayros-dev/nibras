@@ -1,7 +1,7 @@
 'use client';
 
 import type { AuditEntry, AuditLogPage } from '@tt/contracts';
-import { MEMBERSHIP_ROLES } from '@tt/contracts';
+import { MEMBERSHIP_ROLES } from '@tt/contracts/web';
 import { formatDate } from '@tt/i18n';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, SkeletonTable, Table } from '@tt/ui';
 import { ChevronLeft, ChevronRight, ScrollText } from 'lucide-react';

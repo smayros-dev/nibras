@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start --port 3000",
     "start:standalone": "node scripts/start-standalone.mjs",
+    "budget": "node scripts/first-load-js.mjs",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",

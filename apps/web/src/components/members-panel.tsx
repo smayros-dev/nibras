@@ -1,16 +1,14 @@
 'use client';
 
-import {
-  grantFor,
-  MEMBERSHIP_ROLES,
-  MEMBERSHIP_STATUSES,
-  type Assignment,
-  type AssignmentsPage,
-  type MemberSummary,
-  type MembersPage,
-  type MembershipRole,
-  type MembershipStatus,
-  type WorkspaceDetail,
+import { grantFor, MEMBERSHIP_ROLES, MEMBERSHIP_STATUSES } from '@tt/contracts/web';
+import type {
+  Assignment,
+  AssignmentsPage,
+  MemberSummary,
+  MembersPage,
+  MembershipRole,
+  MembershipStatus,
+  WorkspaceDetail,
 } from '@tt/contracts';
 import { formatDate } from '@tt/i18n';
 import {

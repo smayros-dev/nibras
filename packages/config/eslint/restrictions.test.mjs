@@ -164,3 +164,22 @@ describe('logical CSS rule scope', () => {
     expect(await ruleIds(nextWithoutTypes, sql, 'e2e/a.spec.ts')).toEqual(['no-restricted-syntax']);
   });
 });
+
+describe('browser-bundle contracts import', () => {
+  it('bans value imports from the zod-bundling @tt/contracts entry in app sources', async () => {
+    const value = "import { LOCALES } from '@tt/contracts';\nexport const l = LOCALES;\n";
+    expect(await ruleIds(nextWithoutTypes, value, 'src/a.tsx')).toEqual([
+      '@typescript-eslint/no-restricted-imports',
+    ]);
+    const typeOnly = "import type { MeUser } from '@tt/contracts';\nexport type U = MeUser;\n";
+    expect(await ruleIds(nextWithoutTypes, typeOnly, 'src/a.tsx')).toEqual([]);
+    const web = "import { LOCALES } from '@tt/contracts/web';\nexport const l = LOCALES;\n";
+    expect(await ruleIds(nextWithoutTypes, web, 'src/a.tsx')).toEqual([]);
+  });
+
+  it('leaves tests and e2e free to import the schemas', async () => {
+    const value = "import { LOCALES } from '@tt/contracts';\nexport const l = LOCALES;\n";
+    expect(await ruleIds(nextWithoutTypes, value, 'src/a.test.ts')).toEqual([]);
+    expect(await ruleIds(nextWithoutTypes, value, 'e2e/a.spec.ts')).toEqual([]);
+  });
+});

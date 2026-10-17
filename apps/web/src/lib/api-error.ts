@@ -1,4 +1,4 @@
-import { ERROR_CODES } from '@tt/contracts';
+import { ERROR_CODES } from '@tt/contracts/web';
 
 /** The API error envelope as `openapi-fetch` returns it (already parsed JSON). */
 interface ErrorBody {

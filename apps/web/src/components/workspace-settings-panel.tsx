@@ -1,12 +1,11 @@
 'use client';
 
-import {
-  grantFor,
-  LOCALES,
-  type MemberSummary,
-  type WorkspaceDetail,
-  type WorkspaceSettings,
-  type WorkspaceStorage,
+import { grantFor, LOCALES } from '@tt/contracts/web';
+import type {
+  MemberSummary,
+  WorkspaceDetail,
+  WorkspaceSettings,
+  WorkspaceStorage,
 } from '@tt/contracts';
 import {
   Alert,

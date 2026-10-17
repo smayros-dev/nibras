@@ -16,7 +16,7 @@ export function getMessages(locale: Locale): AbstractIntlMessages {
   return messages[locale];
 }
 
-/** Dotted paths of every leaf string, e.g. `['common.appName', 'nav.courses', ...]`. */
+/** Dotted paths of every leaf string, e.g. `['common.appName', 'nav.more', ...]`. */
 export function flattenKeys(obj: AbstractIntlMessages, prefix = ''): string[] {
   return Object.entries(obj).flatMap(([key, value]) => {
     const path = prefix ? `${prefix}.${key}` : key;

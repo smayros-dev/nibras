@@ -26,7 +26,7 @@ describe('messages', () => {
 
   it('ships the SP0 namespaces and API error messages', () => {
     const keys = flattenKeys(messages.fr);
-    for (const ns of ['common', 'nav', 'landing', 'errors', 'health'])
+    for (const ns of ['common', 'nav', 'landing', 'errors'])
       expect(
         keys.some((k) => k.startsWith(`${ns}.`)),
         ns,

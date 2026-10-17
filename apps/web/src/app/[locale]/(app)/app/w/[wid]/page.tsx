@@ -1,3 +1,5 @@
+// Server component: the zod-bundling entry never reaches the browser from here.
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
   defaultWorkspaceSettings,
   type MemberSummary,

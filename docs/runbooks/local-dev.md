@@ -2,6 +2,8 @@
 
 How to run the platform on a developer machine (Windows 11 + Git Bash or PowerShell, macOS, Linux).
 This page covers what SP0 (monorepo & infrastructure) delivers; later plans append to it.
+Frontend conventions (tokens, components, nav, i18n guards, first-load budget, CSP, PWA,
+rebranding) are in [frontend.md](frontend.md).
 
 ## Prerequisites
 

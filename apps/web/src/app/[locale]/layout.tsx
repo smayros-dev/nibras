@@ -1,4 +1,4 @@
-import { dirOf } from '@tt/contracts';
+import { dirOf } from '@tt/contracts/web';
 import { getMessages } from '@tt/i18n';
 import { BRAND, DirectionProvider, ToastProvider } from '@tt/ui';
 import type { Metadata, Viewport } from 'next';

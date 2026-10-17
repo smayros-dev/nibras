@@ -1,6 +1,6 @@
 'use client';
 
-import { SUSPENSION_REASON_MAX } from '@tt/contracts';
+import { SUSPENSION_REASON_MAX } from '@tt/contracts/web';
 import { Alert, Button, Dialog, Field, Textarea, useSubmit } from '@tt/ui';
 import { useTranslations } from 'next-intl';
 import { useState, type ReactNode } from 'react';
