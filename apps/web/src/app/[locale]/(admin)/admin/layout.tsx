@@ -1,3 +1,4 @@
+import { PageHeader } from '@tt/ui';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -29,8 +30,8 @@ export default async function AdminLayout({
 
   return (
     <AppFrame locale={locale} user={user}>
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-semibold text-fg">{t('admin.title')}</h1>
+      <div className="flex flex-col gap-6">
+        <PageHeader title={t('admin.title')} />
         {children}
       </div>
     </AppFrame>

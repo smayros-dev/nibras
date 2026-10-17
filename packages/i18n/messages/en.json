@@ -484,7 +484,13 @@
     "dangerZone": "Danger zone",
     "status_ACTIVE": "Active",
     "status_SUSPENDED": "Suspended",
-    "status_DELETING": "Being deleted"
+    "status_DELETING": "Being deleted",
+    "auditDate": "Date",
+    "auditPrevious": "Previous",
+    "auditEmpty": "No entries match these filters.",
+    "auditPagination": "Audit log pagination",
+    "auditFilters": "Audit log filters",
+    "auditActor": "Actor role"
   },
   "members": {
     "title": "Members",
@@ -580,7 +586,15 @@
       "quotaSaved": "Quota updated.",
       "confirmSuspend": "Suspend this workspace?",
       "confirmReactivate": "Reactivate this workspace?",
-      "empty": "No workspaces."
+      "empty": "No workspaces.",
+      "filters": "Workspace filters",
+      "allTypes": "All types",
+      "allStatuses": "All statuses",
+      "rowActions": "Actions for {name}",
+      "suspendDescription": "“{name}” becomes read-only for its members.",
+      "reactivateDescription": "“{name}” becomes editable again for its members.",
+      "quotaTitle": "Storage quota",
+      "quotaDescription": "“{name}” currently uses {used}."
     },
     "workspaceStatus": {
       "ACTIVE": "Active",
@@ -609,7 +623,18 @@
       "empty": "No abuse reports.",
       "openDetail": "Open",
       "snapshot": "Snapshot",
-      "userAccount": "Reported account"
+      "userAccount": "Reported account",
+      "filters": "Report filters",
+      "allStatuses": "All statuses",
+      "allCategories": "All categories",
+      "createdAt": "Received",
+      "openDetailFor": "Open the report from {name}",
+      "backToQueue": "Reports",
+      "details": "Details",
+      "handling": "Handling",
+      "newStatus": "New status",
+      "suspendUserDescription": "The account can no longer sign in. The reason is sent to them.",
+      "reactivateUserDescription": "The account can sign in again."
     },
     "health": {
       "db": "Database",
@@ -622,7 +647,8 @@
       "failed": "Failed",
       "name": "Name",
       "up": "OK",
-      "down": "Down"
+      "down": "Down",
+      "services": "Services"
     }
   },
   "shell": {

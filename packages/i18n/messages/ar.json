@@ -484,7 +484,13 @@
     "dangerZone": "منطقة حساسة",
     "status_ACTIVE": "نشطة",
     "status_SUSPENDED": "موقوفة",
-    "status_DELETING": "قيد الحذف"
+    "status_DELETING": "قيد الحذف",
+    "auditDate": "التاريخ",
+    "auditPrevious": "السابق",
+    "auditEmpty": "لا توجد إدخالات تطابق هذه المرشحات.",
+    "auditPagination": "ترقيم صفحات سجل التدقيق",
+    "auditFilters": "مرشحات السجل",
+    "auditActor": "دور المنفّذ"
   },
   "members": {
     "title": "الأعضاء",
@@ -580,7 +586,15 @@
       "quotaSaved": "تم تحديث الحصة.",
       "confirmSuspend": "هل تريد تعليق مساحة العمل هذه؟",
       "confirmReactivate": "هل تريد إعادة تفعيل مساحة العمل هذه؟",
-      "empty": "لا توجد مساحات عمل."
+      "empty": "لا توجد مساحات عمل.",
+      "filters": "مرشحات مساحات العمل",
+      "allTypes": "كل الأنواع",
+      "allStatuses": "كل الحالات",
+      "rowActions": "إجراءات لـ {name}",
+      "suspendDescription": "ستصبح «{name}» للقراءة فقط بالنسبة لأعضائها.",
+      "reactivateDescription": "سيتمكن أعضاء «{name}» من التعديل مجددًا.",
+      "quotaTitle": "حصة التخزين",
+      "quotaDescription": "تستخدم «{name}» حاليًا {used}."
     },
     "workspaceStatus": {
       "ACTIVE": "نشطة",
@@ -609,7 +623,18 @@
       "empty": "لا توجد بلاغات.",
       "openDetail": "فتح",
       "snapshot": "لقطة",
-      "userAccount": "الحساب المُبلَّغ عنه"
+      "userAccount": "الحساب المُبلَّغ عنه",
+      "filters": "مرشحات البلاغات",
+      "allStatuses": "كل الحالات",
+      "allCategories": "كل الفئات",
+      "createdAt": "تاريخ الاستلام",
+      "openDetailFor": "فتح بلاغ {name}",
+      "backToQueue": "البلاغات",
+      "details": "التفاصيل",
+      "handling": "المعالجة",
+      "newStatus": "الحالة الجديدة",
+      "suspendUserDescription": "لن يتمكن الحساب من تسجيل الدخول. سيُرسل إليه السبب.",
+      "reactivateUserDescription": "سيتمكن الحساب من تسجيل الدخول مجددًا."
     },
     "health": {
       "db": "قاعدة البيانات",
@@ -622,7 +647,8 @@
       "failed": "فاشلة",
       "name": "الاسم",
       "up": "سليم",
-      "down": "غير متاح"
+      "down": "غير متاح",
+      "services": "الخدمات"
     }
   },
   "shell": {

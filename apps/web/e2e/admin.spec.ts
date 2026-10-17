@@ -1,9 +1,14 @@
 import { request as playwrightRequest } from '@playwright/test';
-import { appUrl, t, test, uiLogin, apiLogin, expect } from './helpers';
+import { appUrl, t, test, toast, uiLogin, apiLogin, expect } from './helpers';
 import { addOrgMember, seedUser } from './helpers/seed';
 import { seedSuperAdmin } from './helpers/super-admin';
 
 const BASE = 'http://localhost:3000';
+
+/** Accessible name of a console workspace-row menu (`admin.workspaces.rowActions`). */
+function rowActions(locale: string, name: string): string {
+  return t(locale, 'admin.workspaces.rowActions').replace('{name}', name);
+}
 
 test.describe('super-admin console (plan Task 22)', () => {
   test('super-admin suspends a workspace from the console; member sees the banner', async ({
@@ -24,14 +29,20 @@ test.describe('super-admin console (plan Task 22)', () => {
         .fill(orgName);
       const row = adminPage.getByRole('row').filter({ hasText: orgName });
       await expect(row).toBeVisible();
-      await row.getByRole('button', { name: t(locale, 'admin.workspaces.suspend') }).click();
+      // Row menu → *Suspendre* → the reason is asked in a dialog.
+      await row.getByRole('button', { name: rowActions(locale, orgName) }).click();
       await adminPage
+        .getByRole('menuitem', { name: t(locale, 'admin.workspaces.suspend') })
+        .click();
+      const dialog = adminPage.getByRole('dialog', {
+        name: t(locale, 'admin.workspaces.confirmSuspend'),
+      });
+      await dialog
         .getByLabel(t(locale, 'admin.workspaces.reason'), { exact: true })
         .fill('Suspension depuis la console');
-      await adminPage.getByRole('button', { name: t(locale, 'admin.workspaces.confirm') }).click();
-      await expect(adminPage.getByRole('status')).toHaveText(
-        t(locale, 'admin.workspaces.suspended'),
-      );
+      await dialog.getByRole('button', { name: t(locale, 'admin.workspaces.suspend') }).click();
+      await expect(toast(adminPage, locale, t(locale, 'admin.workspaces.suspended'))).toBeVisible();
+      await expect(dialog).toBeHidden();
       await expect(row.getByText(t(locale, 'admin.workspaceStatus.SUSPENDED'))).toBeVisible();
     } finally {
       await adminContext.close();
@@ -98,22 +109,30 @@ test.describe('super-admin console (plan Task 22)', () => {
         .first();
       await harassmentRow.getByRole('link').first().click();
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-      await expect(page.getByText(t(locale, 'admin.reports.description'))).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: t(locale, 'admin.reports.description'), exact: true }),
+      ).toBeVisible();
 
       await page
-        .getByLabel(t(locale, 'admin.reports.filterStatus'), { exact: true })
+        .getByLabel(t(locale, 'admin.reports.newStatus'), { exact: true })
         .selectOption('IN_REVIEW');
       await page.getByRole('button', { name: t(locale, 'admin.reports.save') }).click();
-      await expect(page.getByRole('status')).toHaveText(t(locale, 'admin.reports.saved'));
+      await expect(toast(page, locale, t(locale, 'admin.reports.saved'))).toBeVisible();
+      await expect(page.getByTestId('admin-abuse-status')).toHaveText(
+        t(locale, 'abuse.status_IN_REVIEW'),
+      );
 
       await page
-        .getByLabel(t(locale, 'admin.reports.filterStatus'), { exact: true })
+        .getByLabel(t(locale, 'admin.reports.newStatus'), { exact: true })
         .selectOption('RESOLVED');
       await page
         .getByLabel(t(locale, 'admin.reports.resolution'), { exact: true })
         .fill('Avertissement envoyé, contenu retiré.');
       await page.getByRole('button', { name: t(locale, 'admin.reports.save') }).click();
-      await expect(page.getByRole('status')).toHaveText(t(locale, 'admin.reports.saved'));
+      // The first "saved" toast may still be on screen: assert on the reloaded status instead.
+      await expect(page.getByTestId('admin-abuse-status')).toHaveText(
+        t(locale, 'abuse.status_RESOLVED'),
+      );
       await page.reload();
       await expect(page.getByTestId('admin-abuse-status')).toHaveText(
         t(locale, 'abuse.status_RESOLVED'),
@@ -121,11 +140,14 @@ test.describe('super-admin console (plan Task 22)', () => {
 
       // The reported teacher holds a teaching membership: suspend from the detail page.
       await page.getByRole('button', { name: t(locale, 'admin.reports.suspendTeacher') }).click();
-      await page
+      const dialog = page.getByRole('dialog', {
+        name: t(locale, 'admin.reports.confirmSuspendUser'),
+      });
+      await dialog
         .getByLabel(t(locale, 'admin.workspaces.reason'), { exact: true })
         .fill('Comportement signalé');
-      await page.getByRole('button', { name: t(locale, 'admin.workspaces.confirm') }).click();
-      await expect(page.getByRole('status')).toHaveText(t(locale, 'admin.reports.userSuspended'));
+      await dialog.getByRole('button', { name: t(locale, 'admin.reports.suspendUser') }).click();
+      await expect(toast(page, locale, t(locale, 'admin.reports.userSuspended'))).toBeVisible();
     } finally {
       await adminContext.close();
     }

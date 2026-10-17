@@ -484,7 +484,13 @@
     "dangerZone": "Zone sensible",
     "status_ACTIVE": "Actif",
     "status_SUSPENDED": "Suspendu",
-    "status_DELETING": "Suppression en cours"
+    "status_DELETING": "Suppression en cours",
+    "auditDate": "Date",
+    "auditPrevious": "Précédent",
+    "auditEmpty": "Aucune entrée ne correspond à ces filtres.",
+    "auditPagination": "Pagination du journal d’audit",
+    "auditFilters": "Filtres du journal",
+    "auditActor": "Rôle de l’auteur"
   },
   "members": {
     "title": "Membres",
@@ -580,7 +586,15 @@
       "quotaSaved": "Quota mis à jour.",
       "confirmSuspend": "Suspendre cet espace ?",
       "confirmReactivate": "Réactiver cet espace ?",
-      "empty": "Aucun espace."
+      "empty": "Aucun espace.",
+      "filters": "Filtres des espaces",
+      "allTypes": "Tous les types",
+      "allStatuses": "Tous les statuts",
+      "rowActions": "Actions pour {name}",
+      "suspendDescription": "« {name} » passera en lecture seule pour ses membres.",
+      "reactivateDescription": "« {name} » redeviendra modifiable par ses membres.",
+      "quotaTitle": "Quota de stockage",
+      "quotaDescription": "« {name} » utilise actuellement {used}."
     },
     "workspaceStatus": {
       "ACTIVE": "Actif",
@@ -609,7 +623,18 @@
       "empty": "Aucun signalement.",
       "openDetail": "Ouvrir",
       "snapshot": "Instantané",
-      "userAccount": "Compte signalé"
+      "userAccount": "Compte signalé",
+      "filters": "Filtres des signalements",
+      "allStatuses": "Tous les statuts",
+      "allCategories": "Toutes les catégories",
+      "createdAt": "Reçu le",
+      "openDetailFor": "Ouvrir le signalement de {name}",
+      "backToQueue": "Signalements",
+      "details": "Détails",
+      "handling": "Traitement",
+      "newStatus": "Nouveau statut",
+      "suspendUserDescription": "Le compte ne pourra plus se connecter. Le motif lui sera envoyé.",
+      "reactivateUserDescription": "Le compte pourra de nouveau se connecter."
     },
     "health": {
       "db": "Base de données",
@@ -622,7 +647,8 @@
       "failed": "Échouées",
       "name": "Nom",
       "up": "OK",
-      "down": "Indisponible"
+      "down": "Indisponible",
+      "services": "Services"
     }
   },
   "shell": {
