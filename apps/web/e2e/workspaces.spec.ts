@@ -2,6 +2,11 @@ import { appUrl, t, test, toast, uiLogin, expect } from './helpers';
 import { addOrgMember, seedUser } from './helpers/seed';
 import { suspendWorkspaceAsSuperAdmin } from './helpers/super-admin';
 
+/** Accessible name of a members-table row menu (`members.rowActions`). */
+function rowActions(locale: string, name: string): string {
+  return t(locale, 'members.rowActions').replace('{name}', name);
+}
+
 test.describe('workspaces (plan Task 21)', () => {
   test('AC-WS-01 UI: create an organisation, switch to it from the switcher', async ({
     page,
@@ -59,7 +64,7 @@ test.describe('workspaces (plan Task 21)', () => {
     await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}`);
     await page.getByLabel(t(locale, 'workspace.name'), { exact: true }).fill('École Renommée');
     await page.getByRole('button', { name: t(locale, 'workspace.save'), exact: true }).click();
-    await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.saved'));
+    await expect(toast(page, locale, t(locale, 'workspace.saved'))).toBeVisible();
 
     await page.reload();
     await expect(page.getByLabel(t(locale, 'workspace.name'), { exact: true })).toHaveValue(
@@ -87,15 +92,18 @@ test.describe('workspaces (plan Task 21)', () => {
     await expect(page.getByTestId('assignments-list')).toBeVisible();
     await expect(page.getByText(t(locale, 'members.noStudents'))).toBeVisible();
 
-    // Promote the TEACHER to ADMIN (persisted, then visible after reload).
-    await memberRow.getByRole('button', { name: t(locale, 'members.changeRole') }).click();
-    await expect(page.getByRole('status')).toHaveText(t(locale, 'members.roleChanged'));
+    // Promote the TEACHER to ADMIN from the row menu (persisted, then visible after reload).
+    await memberRow
+      .getByRole('button', { name: rowActions(locale, `${member.firstName} Ben Ali`) })
+      .click();
+    await page.getByRole('menuitemradio', { name: t(locale, 'members.role_ADMIN') }).click();
+    await expect(toast(page, locale, t(locale, 'members.roleChanged'))).toBeVisible();
     await page.reload();
     await expect(
       page
         .getByRole('row')
         .filter({ hasText: member.email })
-        .getByRole('cell', { name: t(locale, 'members.role_ADMIN') }),
+        .getByText(t(locale, 'members.role_ADMIN'), { exact: true }),
     ).toBeVisible();
 
     // The audit log records workspace.created and the role change with before/after.
@@ -121,8 +129,9 @@ test.describe('workspaces (plan Task 21)', () => {
     await page
       .getByRole('row')
       .filter({ hasText: member.email })
-      .getByRole('button', { name: t(locale, 'abuse.report') })
+      .getByRole('button', { name: rowActions(locale, `${member.firstName} Ben Ali`) })
       .click();
+    await page.getByRole('menuitem', { name: t(locale, 'abuse.report') }).click();
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -140,13 +149,40 @@ test.describe('workspaces (plan Task 21)', () => {
     });
   });
 
+  test('a TEACHER sees no role actions on the members page', async ({ page, uiLocale: locale }) => {
+    const owner = await seedUser({ organization: true, totp: true });
+    const teacher = await seedUser();
+    addOrgMember(owner.orgWorkspaceId!, teacher.userId, 'TEACHER');
+    await uiLogin(page, locale, teacher);
+
+    await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}/members`);
+    await expect(page.getByRole('heading', { name: t(locale, 'members.title') })).toBeVisible();
+    // Scope `own`: a teacher lists only his own students (none in SP1), so nothing to act on.
+    await expect(page.getByText(t(locale, 'members.noMatch'))).toBeVisible();
+    await expect(
+      page.getByRole('button', {
+        name: new RegExp(t(locale, 'members.rowActions').replace('{name}', '.+')),
+      }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('menuitemradio')).toHaveCount(0);
+
+    // The settings tab is read-only for him (no save button).
+    await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}`);
+    await expect(page.getByText(t(locale, 'workspace.readOnly'))).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: t(locale, 'workspace.save'), exact: true }),
+    ).toHaveCount(0);
+  });
+
   test('AC-WS-09 UI: suspended workspace shows the banner', async ({ page, uiLocale: locale }) => {
     const owner = await seedUser({ organization: true, totp: true });
     await suspendWorkspaceAsSuperAdmin(owner.orgWorkspaceId!);
     await uiLogin(page, locale, owner);
 
     await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}`);
-    await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.suspended'));
+    await expect(
+      page.getByRole('status').filter({ hasText: t(locale, 'workspace.suspended') }),
+    ).toHaveText(t(locale, 'workspace.suspended'));
     await expect(page.getByLabel(t(locale, 'workspace.name'), { exact: true })).toBeVisible();
   });
 });

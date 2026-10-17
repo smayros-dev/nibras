@@ -11,19 +11,30 @@ import { api } from '../lib/api';
 /**
  * *Signaler* a member (PRD §11.7): dialog with category + description, POSTed to the workspace
  * abuse queue (or the account-level route when there is no workspace). Later plans mount the
- * same button in rooms, messages and courses.
+ * same button in rooms, messages and courses. Controlled (`open`/`onOpenChange`), it renders no
+ * trigger of its own: a row menu item opens it (members page).
  */
 export function ReportAbuseButton({
   workspaceId,
   entityType,
   entityId,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   workspaceId: string | null;
   entityType: 'USER' | 'MESSAGE' | 'SESSION' | 'COURSE';
   entityId: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations();
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : ownOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setOwnOpen(next);
+    onOpenChange?.(next);
+  };
   const [category, setCategory] = useState<AbuseCategory>('HARASSMENT');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +61,11 @@ export function ReportAbuseButton({
 
   return (
     <>
-      <Button variant="secondary" onClick={() => setOpen(true)}>
-        {t('abuse.report')}
-      </Button>
+      {controlled ? null : (
+        <Button variant="secondary" onClick={() => setOpen(true)}>
+          {t('abuse.report')}
+        </Button>
+      )}
       {open ? (
         <div
           role="dialog"

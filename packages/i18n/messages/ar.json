@@ -478,7 +478,13 @@
     "auditTo": "إلى",
     "auditBefore": "قبل",
     "auditAfter": "بعد",
-    "auditNext": "التالي"
+    "auditNext": "التالي",
+    "readOnly": "يمكن للمالك والمديرين فقط تعديل هذه الإعدادات.",
+    "identity": "الهوية",
+    "dangerZone": "منطقة حساسة",
+    "status_ACTIVE": "نشطة",
+    "status_SUSPENDED": "موقوفة",
+    "status_DELETING": "قيد الحذف"
   },
   "members": {
     "title": "الأعضاء",
@@ -491,7 +497,6 @@
     "changeRole": "تغيير الدور",
     "toggleCanTeach": "يستطيع التدريس",
     "remove": "إزالة",
-    "removeConfirm": "إزالة {name} من المساحة؟",
     "removed": "تمت إزالة العضو.",
     "roleChanged": "تم تغيير الدور.",
     "assignments": "التعيينات",
@@ -515,7 +520,22 @@
     "status_SUSPENDED_NO_CONSENT": "موقوف — الموافقة مفقودة",
     "status_SUSPENDED_CONSENT_REVOKED": "موقوف — سُحبت الموافقة",
     "status_REMOVED": "محذوف",
-    "status_REJECTED": "مرفوض"
+    "status_REJECTED": "مرفوض",
+    "rowActions": "إجراءات لـ {name}",
+    "changeRoleFor": "تغيير دور {name}",
+    "removeFor": "إزالة {name}",
+    "assignmentOf": "{teacher} يدرّس {student}",
+    "noAssignments": "لا توجد تعيينات حاليًا.",
+    "confirmRemoveTitle": "إزالة {name} من المساحة؟",
+    "confirmRemoveDescription": "سيفقد هذا العضو الوصول إلى المساحة. يُحتفظ بسجله.",
+    "noMatch": "لا يوجد عضو يطابق هذه المرشحات.",
+    "allRoles": "كل الأدوار",
+    "allStatuses": "كل الحالات",
+    "name": "الاسم",
+    "yes": "نعم",
+    "no": "لا",
+    "canTeachChanged": "تم تعديل إذن التدريس.",
+    "filters": "المرشحات"
   },
   "abuse": {
     "report": "إبلاغ",

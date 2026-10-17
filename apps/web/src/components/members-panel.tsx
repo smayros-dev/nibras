@@ -4,133 +4,220 @@ import {
   MEMBERSHIP_ROLES,
   MEMBERSHIP_STATUSES,
   type Assignment,
+  type AssignmentsPage,
   type MemberSummary,
   type MembersPage,
   type MembershipRole,
   type MembershipStatus,
   type WorkspaceDetail,
 } from '@tt/contracts';
-import { Button, Field, Select, TextInput } from '@tt/ui';
-import { useTranslations } from 'next-intl';
-import { useCallback, useEffect, useState } from 'react';
+import { formatDate } from '@tt/i18n';
+import {
+  Alert,
+  AlertDialog,
+  Badge,
+  Button,
+  Card,
+  DropdownMenu,
+  EmptyState,
+  Field,
+  Input,
+  Select,
+  SkeletonTable,
+  Table,
+  useSubmit,
+  useToast,
+  type BadgeVariant,
+} from '@tt/ui';
+import { Flag, MoreHorizontal, UserMinus, Users } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
+import { useEffect, useRef, useState } from 'react';
 import { ReportAbuseButton } from './report-abuse-button';
 import { apiErrorMessage } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
+import { useAbortableQuery } from '../lib/paged-fetch';
+
+/** Roles that manage staff (`workspace.staff.manage`); the API stays the authority (403 → toast). */
+const MANAGER_ROLES: readonly MembershipRole[] = ['OWNER', 'ADMIN'];
+/** The API changes a role only between these two (else `422 ROLE_CHANGE_NOT_ALLOWED`). */
+const STAFF_ROLES = ['ADMIN', 'TEACHER'] as const;
+
+const ROLE_BADGE: Record<MembershipRole, BadgeVariant> = {
+  OWNER: 'brand',
+  ADMIN: 'info',
+  TEACHER: 'neutral',
+  ASSISTANT: 'neutral',
+  STUDENT: 'neutral',
+  GUARDIAN: 'neutral',
+};
+
+function statusBadge(status: MembershipStatus): BadgeVariant {
+  if (status === 'ACTIVE') return 'success';
+  if (status.startsWith('PENDING')) return 'warning';
+  if (status.startsWith('SUSPENDED')) return 'danger';
+  return 'neutral';
+}
+
+const fullName = (m: Pick<MemberSummary, 'firstName' | 'lastName'>) =>
+  `${m.firstName} ${m.lastName}`;
+
+/** `…` + the last 6 characters: an id no loaded member resolves (full id in `title`). */
+const shortId = (id: string) => `…${id.slice(-6)}`;
 
 /**
- * Workspace members (PRD §9.2/§11.1): filters, role changes (ADMIN↔TEACHER only), canTeach
- * toggle for admins, removal with confirm, per-row *Signaler* (PRD §11.7) and, for an
- * ORGANIZATION, the teacher → students assignment panel (PRD §11.2). Students join by
- * invitation in SP2, so the student list is empty in SP1.
+ * Workspace members (PRD §9.2/§11.1). Actions are gated on `detail.myRole` and render only when
+ * allowed, in one menu per row named after the member: role ADMIN↔TEACHER and *Peut enseigner*
+ * (OWNER/ADMIN, never on the OWNER or yourself), *Retirer* behind an `AlertDialog`, *Signaler*
+ * for everyone. Filters are debounced and abortable (`useAbortableQuery`). For an ORGANIZATION,
+ * the teacher ↔ student assignments are listed by name (PRD §11.2); students join by invitation
+ * in SP2, so the list is empty in SP1.
  */
-export function MembersPanel({ wid, detail }: { wid: string; detail: WorkspaceDetail }) {
+export function MembersPanel({
+  wid,
+  detail,
+  meId,
+}: {
+  wid: string;
+  detail: WorkspaceDetail;
+  /** The viewer's user id (no action on your own row). */
+  meId: string;
+}) {
   const t = useTranslations();
+  const locale = useLocale();
+  const { toast } = useToast();
   const isOrg = detail.type === 'ORGANIZATION';
+  const canManage = MANAGER_ROLES.includes(detail.myRole);
 
-  const [members, setMembers] = useState<MemberSummary[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-
+  const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<MembershipRole | ''>('');
   const [statusFilter, setStatusFilter] = useState<MembershipStatus | ''>('');
-  const [query, setQuery] = useState('');
+  const q = query.trim();
 
-  const load = useCallback(async () => {
-    const { data, error: getError } = asApiResult<MembersPage>(
-      await api.GET('/workspaces/{wid}/members', {
-        params: {
-          path: { wid },
-          query: {
-            ...(roleFilter ? { role: roleFilter } : {}),
-            ...(statusFilter ? { status: statusFilter } : {}),
-            ...(query ? { q: query } : {}),
-            limit: 100,
+  const members = useAbortableQuery([wid, q, roleFilter, statusFilter], async (signal) => {
+    let result;
+    try {
+      result = asApiResult<MembersPage>(
+        await api.GET('/workspaces/{wid}/members', {
+          params: {
+            path: { wid },
+            query: {
+              ...(q ? { q } : {}),
+              ...(roleFilter ? { role: roleFilter } : {}),
+              ...(statusFilter ? { status: statusFilter } : {}),
+              limit: 100,
+            },
           },
-        },
-      }),
-    );
-    if (getError) setError(apiErrorMessage(t, getError as unknown));
-    else setMembers(data?.items ?? []);
-    if (isOrg) {
-      const { data: page } = asApiResult<{ items: Assignment[] }>(
-        await api.GET('/workspaces/{wid}/assignments', {
-          params: { path: { wid }, query: { limit: 100 } },
+          signal,
         }),
       );
-      setAssignments(page?.items ?? []);
+    } catch {
+      throw new Error(t('errors.INTERNAL_ERROR'));
     }
-  }, [wid, roleFilter, statusFilter, query, isOrg, t]);
+    if (result.error) throw new Error(apiErrorMessage(t, result.error));
+    return result.data?.items ?? [];
+  });
 
+  const assignments = useAbortableQuery([wid, isOrg], async (signal): Promise<Assignment[]> => {
+    if (!isOrg) return [];
+    const { data } = asApiResult<AssignmentsPage>(
+      await api.GET('/workspaces/{wid}/assignments', {
+        params: { path: { wid }, query: { limit: 100 } },
+        signal,
+      }),
+    );
+    return data?.items ?? [];
+  });
+
+  // Every member seen so far (filters narrow the table, not the names assignments resolve to).
+  const [names, setNames] = useState<Record<string, string>>({});
   useEffect(() => {
-    void load();
-  }, [load]);
+    const items = members.data;
+    if (!items || items.length === 0) return;
+    setNames((prev) => {
+      const next = { ...prev };
+      for (const m of items) next[m.userId] = fullName(m);
+      return next;
+    });
+  }, [members.data]);
 
-  async function changeRole(member: MemberSummary, role: 'ADMIN' | 'TEACHER') {
-    setError(null);
-    setStatus(null);
-    const { error: patchError } = asApiResult<unknown>(
-      await api.PATCH('/workspaces/{wid}/members/{uid}', {
-        params: { path: { wid, uid: member.userId } },
-        body: { role },
-      }),
-    );
-    if (patchError) setError(apiErrorMessage(t, patchError as unknown));
-    else setStatus(t('members.roleChanged'));
-    await load();
-  }
+  // Resolved after mount: the server has no viewer time zone (no hydration mismatch).
+  const [viewerTimezone, setViewerTimezone] = useState('UTC');
+  useEffect(() => {
+    setViewerTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  }, []);
 
-  async function toggleCanTeach(member: MemberSummary) {
-    setError(null);
-    setStatus(null);
-    const { error: patchError } = asApiResult<unknown>(
-      await api.PATCH('/workspaces/{wid}/members/{uid}', {
-        params: { path: { wid, uid: member.userId } },
-        body: { canTeach: !member.canTeach },
-      }),
-    );
-    if (patchError) setError(apiErrorMessage(t, patchError as unknown));
-    else setStatus(t('members.roleChanged'));
-    await load();
-  }
-
-  async function removeMember(member: MemberSummary) {
-    if (
-      !window.confirm(
-        t('members.removeConfirm', { name: `${member.firstName} ${member.lastName}` }),
-      )
-    ) {
-      return;
+  const [removeTarget, setRemoveTarget] = useState<MemberSummary | null>(null);
+  // Dialogs opened from a row menu have no `Trigger`: focus goes back to that row's menu button.
+  const menuTriggers = useRef(new Map<string, HTMLButtonElement>());
+  const returnFocusTo = useRef<string | null>(null);
+  const restoreFocus = (event: Event) => {
+    const opener = returnFocusTo.current ? menuTriggers.current.get(returnFocusTo.current) : null;
+    if (opener?.isConnected) {
+      event.preventDefault();
+      opener.focus();
     }
-    setError(null);
-    setStatus(null);
-    const { error: deleteError } = asApiResult<unknown>(
-      await api.DELETE('/workspaces/{wid}/members/{uid}', {
-        params: { path: { wid, uid: member.userId } },
-      }),
+  };
+  const [reportTarget, setReportTarget] = useState<MemberSummary | null>(null);
+
+  const mutate = useSubmit(
+    async (
+      call: () => Promise<Parameters<typeof asApiResult>[0]>,
+      success: string,
+    ): Promise<boolean> => {
+      try {
+        const { error } = asApiResult<unknown>(await call());
+        if (error) {
+          toast({ title: apiErrorMessage(t, error), variant: 'danger' });
+          return false;
+        }
+      } catch {
+        toast({ title: t('errors.INTERNAL_ERROR'), variant: 'danger' });
+        return false;
+      } finally {
+        members.reload();
+      }
+      toast({ title: success, variant: 'success' });
+      assignments.reload();
+      return true;
+    },
+  );
+
+  const patchMember = (m: MemberSummary, body: { role?: MembershipRole; canTeach?: boolean }) =>
+    void mutate.submit(
+      () =>
+        api.PATCH('/workspaces/{wid}/members/{uid}', {
+          params: { path: { wid, uid: m.userId } },
+          body,
+        }),
+      body.role ? t('members.roleChanged') : t('members.canTeachChanged'),
     );
-    if (deleteError) setError(apiErrorMessage(t, deleteError as unknown));
-    else setStatus(t('members.removed'));
-    await load();
-  }
+
+  const columns = {
+    name: t('members.name'),
+    role: t('members.role'),
+    canTeach: t('members.canTeach'),
+    status: t('members.status'),
+    joined: t('members.joined'),
+  };
+
+  const list = members.data;
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-bold">{t('members.title')}</h1>
-      {error ? (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
-      {status ? (
-        <p role="status" className="text-sm text-success">
-          {status}
-        </p>
-      ) : null}
+      <h2 className="text-xl font-semibold text-fg">{t('members.title')}</h2>
 
-      <div className="flex flex-wrap items-end gap-3">
+      <div
+        role="group"
+        aria-label={t('members.filters')}
+        className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"
+      >
         <Field htmlFor="member-q" label={t('members.search')}>
-          <TextInput id="member-q" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Input
+            id="member-q"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </Field>
         <Field htmlFor="member-role" label={t('members.role')}>
           <Select
@@ -138,7 +225,7 @@ export function MembersPanel({ wid, detail }: { wid: string; detail: WorkspaceDe
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as MembershipRole | '')}
           >
-            <option value="">—</option>
+            <option value="">{t('members.allRoles')}</option>
             {MEMBERSHIP_ROLES.map((r) => (
               <option key={r} value={r}>
                 {t(`members.role_${r}`)}
@@ -152,7 +239,7 @@ export function MembersPanel({ wid, detail }: { wid: string; detail: WorkspaceDe
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as MembershipStatus | '')}
           >
-            <option value="">—</option>
+            <option value="">{t('members.allStatuses')}</option>
             {MEMBERSHIP_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {t(`members.status_${s}`)}
@@ -162,86 +249,240 @@ export function MembersPanel({ wid, detail }: { wid: string; detail: WorkspaceDe
         </Field>
       </div>
 
-      <table className="w-full max-w-3xl border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-gray-300 text-start">
-            <th className="py-1 text-start">{t('settings.profile.firstName')}</th>
-            <th className="py-1 text-start">{t('members.role')}</th>
-            <th className="py-1 text-start">{t('members.canTeach')}</th>
-            <th className="py-1 text-start">{t('members.status')}</th>
-            <th className="py-1 text-start">{t('members.joined')}</th>
-            <th className="py-1 text-start">{t('members.actions')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {members.map((member) => (
-            <tr
-              key={member.userId}
-              data-testid={`member-${member.userId}`}
-              className="border-b border-gray-100"
-            >
-              <td className="py-1">
-                {member.firstName} {member.lastName}
-                {member.email ? (
-                  <span className="block text-xs text-gray-500">{member.email}</span>
-                ) : null}
-              </td>
-              <td className="py-1">{t(`members.role_${member.role}`)}</td>
-              <td className="py-1">
-                {member.role === 'ADMIN' || member.role === 'OWNER' ? (
-                  <input
-                    type="checkbox"
-                    aria-label={`${t('members.toggleCanTeach')} — ${member.firstName} ${member.lastName}`}
-                    checked={member.canTeach}
-                    onChange={() => void toggleCanTeach(member)}
-                    className="size-4"
-                  />
-                ) : member.canTeach ? (
-                  '✓'
-                ) : (
-                  '—'
-                )}
-              </td>
-              <td className="py-1">{t(`members.status_${member.status}`)}</td>
-              <td className="py-1">{member.joinedAt ? member.joinedAt.slice(0, 10) : '—'}</td>
-              <td className="py-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  {member.role === 'ADMIN' || member.role === 'TEACHER' ? (
-                    <Button
-                      variant="secondary"
-                      onClick={() =>
-                        void changeRole(member, member.role === 'ADMIN' ? 'TEACHER' : 'ADMIN')
-                      }
-                    >
-                      {t('members.changeRole')}
-                    </Button>
-                  ) : null}
-                  {member.role !== 'OWNER' ? (
-                    <Button variant="danger" onClick={() => void removeMember(member)}>
-                      {t('members.remove')}
-                    </Button>
-                  ) : null}
-                  <ReportAbuseButton workspaceId={wid} entityType="USER" entityId={member.userId} />
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {members.error ? <Alert variant="danger">{members.error}</Alert> : null}
+
+      <Card padding="none" aria-busy={members.loading}>
+        {list === undefined ? (
+          members.error ? null : (
+            <SkeletonTable className="p-4" cols={5} />
+          )
+        ) : list.length === 0 ? (
+          <EmptyState as="h3" icon={<Users />} title={t('members.noMatch')} />
+        ) : (
+          <Table caption={t('members.title')} hideCaption>
+            <Table.Head>
+              <Table.Row>
+                <Table.Th>{columns.name}</Table.Th>
+                <Table.Th>{columns.role}</Table.Th>
+                <Table.Th>{columns.canTeach}</Table.Th>
+                <Table.Th>{columns.status}</Table.Th>
+                <Table.Th>{columns.joined}</Table.Th>
+                <Table.Th>
+                  <span className="sr-only">{t('members.actions')}</span>
+                </Table.Th>
+              </Table.Row>
+            </Table.Head>
+            <Table.Body>
+              {list.map((m) => {
+                const name = fullName(m);
+                const isSelf = m.userId === meId;
+                const canChangeRole =
+                  canManage &&
+                  !isSelf &&
+                  (STAFF_ROLES as readonly MembershipRole[]).includes(m.role);
+                const canToggleTeach = canManage && !isSelf && m.role === 'ADMIN';
+                const canRemove = canManage && !isSelf && m.role !== 'OWNER';
+                const canReport = !isSelf;
+                const hasMenu = canChangeRole || canToggleTeach || canRemove || canReport;
+                return (
+                  <Table.Row key={m.userId} data-testid={`member-${m.userId}`}>
+                    <Table.Td label={columns.name}>
+                      <span className="inline-flex flex-wrap items-center gap-2 font-medium">
+                        {name}
+                        {isSelf ? <Badge variant="neutral">{t('members.self')}</Badge> : null}
+                      </span>
+                      {m.email ? (
+                        <span className="block text-xs text-fg-muted">{m.email}</span>
+                      ) : null}
+                    </Table.Td>
+                    <Table.Td label={columns.role}>
+                      <Badge variant={ROLE_BADGE[m.role]}>{t(`members.role_${m.role}`)}</Badge>
+                    </Table.Td>
+                    <Table.Td label={columns.canTeach}>
+                      {m.canTeach ? t('members.yes') : t('members.no')}
+                    </Table.Td>
+                    <Table.Td label={columns.status}>
+                      <Badge variant={statusBadge(m.status)}>
+                        {t(`members.status_${m.status}`)}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td label={columns.joined}>
+                      {m.joinedAt
+                        ? formatDate(new Date(m.joinedAt), locale, viewerTimezone, {
+                            dateStyle: 'medium',
+                          })
+                        : '—'}
+                    </Table.Td>
+                    <Table.Actions>
+                      {hasMenu ? (
+                        <DropdownMenu.Root>
+                          <DropdownMenu.Trigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={t('members.rowActions', { name })}
+                              ref={(el) => {
+                                if (el) menuTriggers.current.set(m.userId, el);
+                                else menuTriggers.current.delete(m.userId);
+                              }}
+                            >
+                              <MoreHorizontal aria-hidden="true" className="size-5" />
+                            </Button>
+                          </DropdownMenu.Trigger>
+                          <DropdownMenu.Content align="end">
+                            {canChangeRole ? (
+                              <>
+                                <DropdownMenu.Label>
+                                  {t('members.changeRoleFor', { name })}
+                                </DropdownMenu.Label>
+                                <DropdownMenu.RadioGroup
+                                  value={m.role}
+                                  onValueChange={(value) => {
+                                    if (value !== m.role)
+                                      patchMember(m, { role: value as MembershipRole });
+                                  }}
+                                >
+                                  {STAFF_ROLES.map((r) => (
+                                    <DropdownMenu.RadioItem
+                                      key={r}
+                                      value={r}
+                                      disabled={mutate.busy}
+                                    >
+                                      {t(`members.role_${r}`)}
+                                    </DropdownMenu.RadioItem>
+                                  ))}
+                                </DropdownMenu.RadioGroup>
+                              </>
+                            ) : null}
+                            {canToggleTeach ? (
+                              <DropdownMenu.CheckboxItem
+                                checked={m.canTeach}
+                                disabled={mutate.busy}
+                                onCheckedChange={(checked) =>
+                                  patchMember(m, { canTeach: checked === true })
+                                }
+                              >
+                                {t('members.toggleCanTeach')}
+                              </DropdownMenu.CheckboxItem>
+                            ) : null}
+                            {(canChangeRole || canToggleTeach) && (canRemove || canReport) ? (
+                              <DropdownMenu.Separator />
+                            ) : null}
+                            {canRemove ? (
+                              <DropdownMenu.Item
+                                destructive
+                                icon={<UserMinus />}
+                                onSelect={() => {
+                                  returnFocusTo.current = m.userId;
+                                  setRemoveTarget(m);
+                                }}
+                              >
+                                {t('members.remove')}
+                              </DropdownMenu.Item>
+                            ) : null}
+                            {canReport ? (
+                              <DropdownMenu.Item
+                                icon={<Flag />}
+                                onSelect={() => {
+                                  returnFocusTo.current = m.userId;
+                                  setReportTarget(m);
+                                }}
+                              >
+                                {t('abuse.report')}
+                              </DropdownMenu.Item>
+                            ) : null}
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Root>
+                      ) : null}
+                    </Table.Actions>
+                  </Table.Row>
+                );
+              })}
+            </Table.Body>
+          </Table>
+        )}
+      </Card>
 
       {isOrg ? (
-        <section aria-label={t('members.assignments')} className="flex max-w-md flex-col gap-2">
-          <h2 className="text-lg font-semibold">{t('members.assignments')}</h2>
-          <p className="text-sm text-gray-600">{t('members.noStudents')}</p>
-          <ul className="text-sm" data-testid="assignments-list">
-            {assignments.map((assignment) => (
-              <li key={assignment.id}>
-                {assignment.teacherUserId} → {assignment.studentUserId}
-              </li>
-            ))}
-            {assignments.length === 0 ? <li>—</li> : null}
+        <Card aria-labelledby="assignments-title">
+          <Card.Header>
+            <Card.Title id="assignments-title">{t('members.assignments')}</Card.Title>
+            <Card.Description>{t('members.noStudents')}</Card.Description>
+          </Card.Header>
+          <ul className="flex flex-col gap-1 text-sm" data-testid="assignments-list">
+            {(assignments.data ?? []).map((a) => {
+              const unresolved = [a.teacherUserId, a.studentUserId].filter((id) => !names[id]);
+              return (
+                <li key={a.id} title={unresolved.length > 0 ? unresolved.join(', ') : undefined}>
+                  {t('members.assignmentOf', {
+                    teacher: names[a.teacherUserId] ?? shortId(a.teacherUserId),
+                    student: names[a.studentUserId] ?? shortId(a.studentUserId),
+                  })}
+                </li>
+              );
+            })}
+            {assignments.data && assignments.data.length === 0 ? (
+              <li className="text-fg-muted">{t('members.noAssignments')}</li>
+            ) : null}
           </ul>
-        </section>
+        </Card>
+      ) : null}
+
+      <AlertDialog.Root
+        open={removeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoveTarget(null);
+        }}
+      >
+        {removeTarget ? (
+          <AlertDialog.Content
+            title={t('members.confirmRemoveTitle', { name: fullName(removeTarget) })}
+            description={t('members.confirmRemoveDescription')}
+            onCloseAutoFocus={restoreFocus}
+          >
+            <AlertDialog.Footer>
+              <AlertDialog.Cancel>{t('common.cancel')}</AlertDialog.Cancel>
+              <AlertDialog.Action
+                destructive
+                loading={mutate.busy}
+                onClick={(event) => {
+                  // Stay open while the request runs; close on the outcome (error → toast).
+                  event.preventDefault();
+                  const target = removeTarget;
+                  void mutate
+                    .submit(
+                      () =>
+                        api.DELETE('/workspaces/{wid}/members/{uid}', {
+                          params: { path: { wid, uid: target.userId } },
+                        }),
+                      t('members.removed'),
+                    )
+                    .finally(() => setRemoveTarget(null));
+                }}
+              >
+                {t('members.removeFor', { name: fullName(removeTarget) })}
+              </AlertDialog.Action>
+            </AlertDialog.Footer>
+          </AlertDialog.Content>
+        ) : null}
+      </AlertDialog.Root>
+
+      {reportTarget ? (
+        <ReportAbuseButton
+          key={reportTarget.userId}
+          workspaceId={wid}
+          entityType="USER"
+          entityId={reportTarget.userId}
+          open
+          onOpenChange={(open) => {
+            if (open) return;
+            setReportTarget(null);
+            const opener = returnFocusTo.current
+              ? menuTriggers.current.get(returnFocusTo.current)
+              : null;
+            opener?.focus();
+          }}
+        />
       ) : null}
     </div>
   );

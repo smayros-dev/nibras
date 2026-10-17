@@ -3,17 +3,39 @@
 import {
   LOCALES,
   type MemberSummary,
+  type MembershipRole,
   type WorkspaceDetail,
   type WorkspaceSettings,
   type WorkspaceStorage,
 } from '@tt/contracts';
-import { Button, Checkbox, Field, Select, TextInput } from '@tt/ui';
+import {
+  Alert,
+  AlertDialog,
+  Button,
+  Card,
+  Checkbox,
+  Field,
+  Input,
+  Select,
+  useSubmit,
+  useToast,
+} from '@tt/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { CountrySelect } from './country-select';
 import { TimezoneSelect } from './timezone-select';
+import { useRouter } from '../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
+
+const LANGUAGE_NAMES: Record<(typeof LOCALES)[number], string> = {
+  fr: 'Français',
+  ar: 'العربية',
+  en: 'English',
+};
+
+/** Roles that may edit the workspace (`workspace.settings.manage`); the API stays the authority. */
+const EDITOR_ROLES: readonly MembershipRole[] = ['OWNER', 'ADMIN'];
 
 function formatBytes(value: string): string {
   const bytes = Number(value);
@@ -29,9 +51,10 @@ function formatBytes(value: string): string {
 }
 
 /**
- * Workspace settings (PRD §9.2/§8.2.1): identity (name, country, default locale/time zone),
- * allowPersonalWorkspaces (ORGANIZATION only), session settings form, storage bar, transfer of
- * ownership (owner, ORGANIZATION only) and deletion (owner, type-the-name confirm).
+ * Workspace settings (PRD §9.2/§8.2.1): identity (name, country, default locale/time zone,
+ * allowPersonalWorkspaces for an ORGANIZATION) and session defaults in one form, the storage
+ * card, transfer of ownership (owner, ORGANIZATION only, confirmed in an `AlertDialog`) and
+ * deletion (owner, type-the-name confirm). Members other than OWNER/ADMIN see the form read-only.
  */
 export function WorkspaceSettingsPanel({
   wid,
@@ -47,8 +70,11 @@ export function WorkspaceSettingsPanel({
   admins: MemberSummary[];
 }) {
   const t = useTranslations();
+  const router = useRouter();
+  const { toast } = useToast();
   const isOrg = detail.type === 'ORGANIZATION';
   const isOwner = detail.myRole === 'OWNER';
+  const canEdit = EDITOR_ROLES.includes(detail.myRole);
 
   const [name, setName] = useState(detail.name);
   const [country, setCountry] = useState(detail.country ?? '');
@@ -67,276 +93,324 @@ export function WorkspaceSettingsPanel({
   const [reminders, setReminders] = useState(settings.default_reminder_offsets_min.join(', '));
 
   const [transferTo, setTransferTo] = useState('');
+  const [transferOpen, setTransferOpen] = useState(false);
   const [deleteName, setDeleteName] = useState('');
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  async function save() {
+  /** Field errors inline when the API names fields, else one form-level message. */
+  function showError(error: unknown) {
+    const mapped = issuesToFieldErrors(t, error);
+    if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
+    else setFormError(apiErrorMessage(t, error));
+  }
+
+  const save = useSubmit(async () => {
     setFieldErrors({});
     setFormError(null);
-    setMessage(null);
-    setBusy(true);
     const offsets = reminders
       .split(',')
       .map((v) => Number(v.trim()))
       .filter((v) => Number.isFinite(v));
-    const { error } = asApiResult<WorkspaceDetail>(
-      await api.PATCH('/workspaces/{wid}', {
-        params: { path: { wid } },
-        body: {
-          name,
-          country: country ? country.toUpperCase() : null,
-          defaultLocale,
-          defaultTimezone,
-          ...(isOrg ? { allowPersonalWorkspaces: allowPersonal } : {}),
-        },
-      }),
-    );
-    if (error) {
-      setBusy(false);
-      const mapped = issuesToFieldErrors(t, error as unknown);
-      if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
-      else setFormError(apiErrorMessage(t, error as unknown));
+    try {
+      const { error } = asApiResult<WorkspaceDetail>(
+        await api.PATCH('/workspaces/{wid}', {
+          params: { path: { wid } },
+          body: {
+            name,
+            country: country ? country.toUpperCase() : null,
+            defaultLocale,
+            defaultTimezone,
+            ...(isOrg ? { allowPersonalWorkspaces: allowPersonal } : {}),
+          },
+        }),
+      );
+      if (error) {
+        showError(error);
+        return;
+      }
+      const { error: settingsError } = asApiResult<WorkspaceSettings>(
+        await api.PATCH('/workspaces/{wid}/settings', {
+          params: { path: { wid } },
+          body: {
+            default_timezone: defaultTimezone,
+            teacher_join_window_min: Number(teacherJoin),
+            student_join_window_min: Number(studentJoin),
+            empty_room_grace_min: Number(emptyGrace),
+            late_threshold_min: Number(lateThreshold),
+            present_ratio: Number(presentRatio),
+            partial_ratio: Number(partialRatio),
+            default_sequential_lessons: sequential,
+            default_pdf_download: pdfDownload,
+            default_reminder_offsets_min: offsets,
+          },
+        }),
+      );
+      if (settingsError) {
+        showError(settingsError);
+        return;
+      }
+    } catch {
+      setFormError(t('errors.INTERNAL_ERROR'));
       return;
     }
-    const { error: settingsError } = asApiResult<WorkspaceSettings>(
-      await api.PATCH('/workspaces/{wid}/settings', {
-        params: { path: { wid } },
-        body: {
-          default_timezone: defaultTimezone,
-          teacher_join_window_min: Number(teacherJoin),
-          student_join_window_min: Number(studentJoin),
-          empty_room_grace_min: Number(emptyGrace),
-          late_threshold_min: Number(lateThreshold),
-          present_ratio: Number(presentRatio),
-          partial_ratio: Number(partialRatio),
-          default_sequential_lessons: sequential,
-          default_pdf_download: pdfDownload,
-          default_reminder_offsets_min: offsets,
-        },
-      }),
-    );
-    setBusy(false);
-    if (settingsError) {
-      const mapped = issuesToFieldErrors(t, settingsError as unknown);
-      if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
-      else setFormError(apiErrorMessage(t, settingsError as unknown));
+    toast({ title: t('workspace.saved'), variant: 'success' });
+    // The header, switcher and sidebar show the name.
+    router.refresh();
+  });
+
+  const transfer = useSubmit(async () => {
+    setActionError(null);
+    try {
+      const { error } = asApiResult<unknown>(
+        await api.POST('/workspaces/{wid}/transfer-ownership', {
+          params: { path: { wid } },
+          body: { toUserId: transferTo },
+        }),
+      );
+      if (error) {
+        setActionError(apiErrorMessage(t, error));
+        return;
+      }
+    } catch {
+      setActionError(t('errors.INTERNAL_ERROR'));
+      return;
+    } finally {
+      setTransferOpen(false);
+    }
+    toast({ title: t('workspace.transferDone'), variant: 'success' });
+    router.refresh();
+  });
+
+  const remove = useSubmit(async () => {
+    setActionError(null);
+    try {
+      const { error } = asApiResult<unknown>(
+        await api.DELETE('/workspaces/{wid}', { params: { path: { wid } } }),
+      );
+      if (error) {
+        setActionError(apiErrorMessage(t, error));
+        return;
+      }
+    } catch {
+      setActionError(t('errors.INTERNAL_ERROR'));
       return;
     }
-    setMessage(t('workspace.saved'));
-  }
+    toast({ title: t('workspace.deleteDone'), variant: 'success' });
+    router.refresh();
+  });
 
-  async function transfer() {
-    setFormError(null);
-    setBusy(true);
-    const { error } = asApiResult<unknown>(
-      await api.POST('/workspaces/{wid}/transfer-ownership', {
-        params: { path: { wid } },
-        body: { toUserId: transferTo },
-      }),
-    );
-    setBusy(false);
-    if (error) setFormError(apiErrorMessage(t, error as unknown));
-    else setMessage(t('workspace.transferDone'));
-  }
+  const transferTarget = admins.find((member) => member.userId === transferTo);
+  const usedRatio = storage
+    ? Math.min(1, Number(storage.usedBytes) / Math.max(1, Number(storage.quotaBytes)))
+    : 0;
 
-  async function remove() {
-    setFormError(null);
-    setBusy(true);
-    const { error } = asApiResult<unknown>(
-      await api.DELETE('/workspaces/{wid}', { params: { path: { wid } } }),
-    );
-    setBusy(false);
-    if (error) setFormError(apiErrorMessage(t, error as unknown));
-    else setMessage(t('workspace.deleteDone'));
-  }
+  const numberField = (
+    id: string,
+    field: keyof WorkspaceSettings,
+    label: string,
+    value: string,
+    onChange: (value: string) => void,
+    step?: string,
+  ) => (
+    <Field htmlFor={id} label={label} error={fieldErrors[field]}>
+      <Input
+        id={id}
+        type="number"
+        inputMode="decimal"
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </Field>
+  );
 
   return (
-    <div className="flex max-w-xl flex-col gap-6">
+    <div className="flex max-w-3xl flex-col gap-6">
+      <h2 className="text-xl font-semibold text-fg">{t('workspace.settingsTitle')}</h2>
+      {canEdit ? null : <Alert variant="info">{t('workspace.readOnly')}</Alert>}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void save();
+          void save.submit();
         }}
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-6"
       >
-        <h2 className="text-xl font-bold">{t('workspace.settingsTitle')}</h2>
-        {formError ? (
-          <p role="alert" className="text-sm text-danger">
-            {formError}
-          </p>
-        ) : null}
-        {message ? (
-          <p role="status" className="text-sm text-success">
-            {message}
-          </p>
-        ) : null}
-        <Field htmlFor="ws-name" label={t('workspace.name')} error={fieldErrors.name}>
-          <TextInput
-            id="ws-name"
-            name="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </Field>
-        <Field htmlFor="ws-country" label={t('workspace.country')} error={fieldErrors.country}>
-          <CountrySelect id="ws-country" value={country} onChange={setCountry} />
-        </Field>
-        <Field htmlFor="ws-locale" label={t('workspace.defaultLocale')}>
-          <Select
-            id="ws-locale"
-            value={defaultLocale}
-            onChange={(e) => setDefaultLocale(e.target.value as typeof defaultLocale)}
-          >
-            {LOCALES.map((l) => (
-              <option key={l} value={l}>
-                {l === 'fr' ? 'Français' : l === 'ar' ? 'العربية' : 'English'}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field
-          htmlFor="ws-timezone"
-          label={t('workspace.defaultTimezone')}
-          error={fieldErrors.defaultTimezone}
-        >
-          <TimezoneSelect
-            id="ws-timezone"
-            value={defaultTimezone}
-            onChange={(e) => setDefaultTimezone(e.target.value)}
-          />
-        </Field>
-        {isOrg ? (
-          <>
-            <Checkbox
-              label={t('workspace.allowPersonal')}
-              checked={allowPersonal}
-              onChange={(e) => setAllowPersonal(e.target.checked)}
-            />
-            <p className="text-sm text-gray-500">{t('workspace.allowPersonalNote')}</p>
-          </>
-        ) : null}
+        {formError ? <Alert variant="danger">{formError}</Alert> : null}
+        <fieldset disabled={!canEdit} className="flex min-w-0 flex-col gap-6">
+          <Card>
+            <Card.Header>
+              <Card.Title as="h3">{t('workspace.identity')}</Card.Title>
+            </Card.Header>
+            <Field htmlFor="ws-name" label={t('workspace.name')} error={fieldErrors.name}>
+              <Input
+                id="ws-name"
+                name="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </Field>
+            <Field htmlFor="ws-country" label={t('workspace.country')} error={fieldErrors.country}>
+              <CountrySelect id="ws-country" value={country} onChange={setCountry} />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                htmlFor="ws-locale"
+                label={t('workspace.defaultLocale')}
+                error={fieldErrors.defaultLocale}
+              >
+                <Select
+                  id="ws-locale"
+                  value={defaultLocale}
+                  onChange={(e) => setDefaultLocale(e.target.value as typeof defaultLocale)}
+                >
+                  {LOCALES.map((l) => (
+                    <option key={l} value={l} lang={l}>
+                      {LANGUAGE_NAMES[l]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field
+                htmlFor="ws-timezone"
+                label={t('workspace.defaultTimezone')}
+                error={fieldErrors.defaultTimezone}
+              >
+                <TimezoneSelect
+                  id="ws-timezone"
+                  value={defaultTimezone}
+                  onChange={(e) => setDefaultTimezone(e.target.value)}
+                />
+              </Field>
+            </div>
+            {isOrg ? (
+              <Checkbox
+                label={t('workspace.allowPersonal')}
+                description={t('workspace.allowPersonalNote')}
+                checked={allowPersonal}
+                onCheckedChange={(checked) => setAllowPersonal(checked === true)}
+              />
+            ) : null}
+          </Card>
 
-        <h3 className="text-lg font-semibold">{t('workspace.sessionSettings')}</h3>
-        <Field
-          htmlFor="ws-teacher-join"
-          label={t('workspace.teacherJoin')}
-          error={fieldErrors.teacher_join_window_min}
-        >
-          <TextInput
-            id="ws-teacher-join"
-            type="number"
-            value={teacherJoin}
-            onChange={(e) => setTeacherJoin(e.target.value)}
-          />
-        </Field>
-        <Field
-          htmlFor="ws-student-join"
-          label={t('workspace.studentJoin')}
-          error={fieldErrors.student_join_window_min}
-        >
-          <TextInput
-            id="ws-student-join"
-            type="number"
-            value={studentJoin}
-            onChange={(e) => setStudentJoin(e.target.value)}
-          />
-        </Field>
-        <Field
-          htmlFor="ws-empty-grace"
-          label={t('workspace.emptyGrace')}
-          error={fieldErrors.empty_room_grace_min}
-        >
-          <TextInput
-            id="ws-empty-grace"
-            type="number"
-            value={emptyGrace}
-            onChange={(e) => setEmptyGrace(e.target.value)}
-          />
-        </Field>
-        <Field
-          htmlFor="ws-late"
-          label={t('workspace.lateThreshold')}
-          error={fieldErrors.late_threshold_min}
-        >
-          <TextInput
-            id="ws-late"
-            type="number"
-            value={lateThreshold}
-            onChange={(e) => setLateThreshold(e.target.value)}
-          />
-        </Field>
-        <Field
-          htmlFor="ws-present"
-          label={t('workspace.presentRatio')}
-          error={fieldErrors.present_ratio}
-        >
-          <TextInput
-            id="ws-present"
-            type="number"
-            step="0.01"
-            value={presentRatio}
-            onChange={(e) => setPresentRatio(e.target.value)}
-          />
-        </Field>
-        <Field
-          htmlFor="ws-partial"
-          label={t('workspace.partialRatio')}
-          error={fieldErrors.partial_ratio}
-        >
-          <TextInput
-            id="ws-partial"
-            type="number"
-            step="0.01"
-            value={partialRatio}
-            onChange={(e) => setPartialRatio(e.target.value)}
-          />
-        </Field>
-        <Checkbox
-          label={t('workspace.sequential')}
-          checked={sequential}
-          onChange={(e) => setSequential(e.target.checked)}
-        />
-        <Checkbox
-          label={t('workspace.pdfDownload')}
-          checked={pdfDownload}
-          onChange={(e) => setPdfDownload(e.target.checked)}
-        />
-        <Field
-          htmlFor="ws-reminders"
-          label={t('workspace.reminders')}
-          error={fieldErrors.default_reminder_offsets_min}
-        >
-          <TextInput
-            id="ws-reminders"
-            value={reminders}
-            onChange={(e) => setReminders(e.target.value)}
-          />
-        </Field>
-        <Button type="submit" variant="primary" disabled={busy}>
-          {t('workspace.save')}
-        </Button>
+          <Card>
+            <Card.Header>
+              <Card.Title as="h3">{t('workspace.sessionSettings')}</Card.Title>
+            </Card.Header>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {numberField(
+                'ws-teacher-join',
+                'teacher_join_window_min',
+                t('workspace.teacherJoin'),
+                teacherJoin,
+                setTeacherJoin,
+              )}
+              {numberField(
+                'ws-student-join',
+                'student_join_window_min',
+                t('workspace.studentJoin'),
+                studentJoin,
+                setStudentJoin,
+              )}
+              {numberField(
+                'ws-empty-grace',
+                'empty_room_grace_min',
+                t('workspace.emptyGrace'),
+                emptyGrace,
+                setEmptyGrace,
+              )}
+              {numberField(
+                'ws-late',
+                'late_threshold_min',
+                t('workspace.lateThreshold'),
+                lateThreshold,
+                setLateThreshold,
+              )}
+              {numberField(
+                'ws-present',
+                'present_ratio',
+                t('workspace.presentRatio'),
+                presentRatio,
+                setPresentRatio,
+                '0.01',
+              )}
+              {numberField(
+                'ws-partial',
+                'partial_ratio',
+                t('workspace.partialRatio'),
+                partialRatio,
+                setPartialRatio,
+                '0.01',
+              )}
+            </div>
+            <Checkbox
+              label={t('workspace.sequential')}
+              checked={sequential}
+              onCheckedChange={(checked) => setSequential(checked === true)}
+            />
+            <Checkbox
+              label={t('workspace.pdfDownload')}
+              checked={pdfDownload}
+              onCheckedChange={(checked) => setPdfDownload(checked === true)}
+            />
+            <Field
+              htmlFor="ws-reminders"
+              label={t('workspace.reminders')}
+              error={fieldErrors.default_reminder_offsets_min}
+            >
+              <Input
+                id="ws-reminders"
+                inputMode="numeric"
+                value={reminders}
+                onChange={(e) => setReminders(e.target.value)}
+              />
+            </Field>
+          </Card>
+        </fieldset>
+        {canEdit ? (
+          <div className="flex justify-end">
+            <Button type="submit" variant="primary" loading={save.busy}>
+              {t('workspace.save')}
+            </Button>
+          </div>
+        ) : null}
       </form>
 
       {storage ? (
-        <section aria-label={t('workspace.storage')} className="flex flex-col gap-1">
-          <h3 className="text-lg font-semibold">{t('workspace.storage')}</h3>
-          <p data-testid="storage-usage">
+        <Card aria-labelledby="ws-storage-title">
+          <Card.Header>
+            <Card.Title as="h3" id="ws-storage-title">
+              {t('workspace.storage')}
+            </Card.Title>
+          </Card.Header>
+          <p data-testid="storage-usage" className="tabular-nums">
             {t('workspace.storageUsed', {
               used: formatBytes(storage.usedBytes),
               quota: formatBytes(storage.quotaBytes),
             })}
           </p>
-        </section>
+          <div aria-hidden="true" className="h-2 w-full overflow-hidden rounded-full bg-bg-subtle">
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ inlineSize: `${Math.round(usedRatio * 100)}%` }}
+            />
+          </div>
+        </Card>
       ) : null}
 
+      {actionError ? <Alert variant="danger">{actionError}</Alert> : null}
+
       {isOwner && isOrg ? (
-        <section aria-label={t('workspace.transfer')} className="flex flex-col gap-2">
-          <h3 className="text-lg font-semibold">{t('workspace.transfer')}</h3>
+        <Card aria-labelledby="ws-transfer-title">
+          <Card.Header>
+            <Card.Title as="h3" id="ws-transfer-title">
+              {t('workspace.transfer')}
+            </Card.Title>
+          </Card.Header>
           <Field htmlFor="ws-transfer" label={t('workspace.transferTo')}>
             <Select
               id="ws-transfer"
@@ -351,38 +425,65 @@ export function WorkspaceSettingsPanel({
               ))}
             </Select>
           </Field>
-          <Button
-            variant="secondary"
-            disabled={!transferTo || busy}
-            onClick={() => {
-              const target = admins.find((member) => member.userId === transferTo);
-              const name = target ? `${target.firstName} ${target.lastName}` : transferTo;
-              if (window.confirm(t('workspace.transferConfirm', { name }))) void transfer();
-            }}
-          >
-            {t('workspace.transfer')}
-          </Button>
-        </section>
+          <AlertDialog.Root open={transferOpen} onOpenChange={setTransferOpen}>
+            <Card.Footer>
+              <AlertDialog.Trigger asChild>
+                <Button variant="secondary" disabled={!transferTarget}>
+                  {t('workspace.transfer')}
+                </Button>
+              </AlertDialog.Trigger>
+            </Card.Footer>
+            <AlertDialog.Content
+              title={t('workspace.transferConfirm', {
+                name: transferTarget
+                  ? `${transferTarget.firstName} ${transferTarget.lastName}`
+                  : '',
+              })}
+            >
+              <AlertDialog.Footer>
+                <AlertDialog.Cancel>{t('common.cancel')}</AlertDialog.Cancel>
+                <AlertDialog.Action
+                  destructive
+                  loading={transfer.busy}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void transfer.submit();
+                  }}
+                >
+                  {t('workspace.transfer')}
+                </AlertDialog.Action>
+              </AlertDialog.Footer>
+            </AlertDialog.Content>
+          </AlertDialog.Root>
+        </Card>
       ) : null}
 
       {isOwner ? (
-        <section aria-label={t('workspace.delete')} className="flex flex-col gap-2">
-          <h3 className="text-lg font-semibold">{t('workspace.delete')}</h3>
+        <Card aria-labelledby="ws-delete-title" className="border-danger">
+          <Card.Header>
+            <Card.Title as="h3" id="ws-delete-title">
+              {t('workspace.dangerZone')}
+            </Card.Title>
+          </Card.Header>
           <Field htmlFor="ws-delete" label={t('workspace.deleteConfirm')}>
-            <TextInput
+            <Input
               id="ws-delete"
+              autoComplete="off"
               value={deleteName}
               onChange={(e) => setDeleteName(e.target.value)}
             />
           </Field>
-          <Button
-            variant="danger"
-            disabled={deleteName !== detail.name || busy}
-            onClick={() => void remove()}
-          >
-            {t('workspace.delete')}
-          </Button>
-        </section>
+          <Card.Footer>
+            <Button
+              variant="danger"
+              disabled={deleteName !== detail.name}
+              loading={remove.busy}
+              onClick={() => void remove.submit()}
+            >
+              {t('workspace.delete')}
+            </Button>
+          </Card.Footer>
+        </Card>
       ) : null}
     </div>
   );

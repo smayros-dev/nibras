@@ -130,8 +130,13 @@ async function runJourney(page: Page, locale: string) {
   await page.goto(`/${locale}/app/w/${wid}/members`);
   const memberRow = page.getByRole('row').filter({ hasText: member.email });
   await expect(memberRow).toBeVisible();
-  await memberRow.getByRole('button', { name: t(locale, 'members.changeRole') }).click();
-  await expect(page.getByRole('status')).toHaveText(t(locale, 'members.roleChanged'));
+  await memberRow
+    .getByRole('button', {
+      name: t(locale, 'members.rowActions').replace('{name}', `${member.firstName} Ben Ali`),
+    })
+    .click();
+  await page.getByRole('menuitemradio', { name: t(locale, 'members.role_ADMIN') }).click();
+  await expect(toast(page, locale, t(locale, 'members.roleChanged'))).toBeVisible();
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
 
   // 5. The globalSetup-seeded super-admin suspends, then reactivates, the organisation.

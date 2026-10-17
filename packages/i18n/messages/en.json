@@ -478,7 +478,13 @@
     "auditTo": "To",
     "auditBefore": "Before",
     "auditAfter": "After",
-    "auditNext": "Next"
+    "auditNext": "Next",
+    "readOnly": "Only the owner and administrators can change these settings.",
+    "identity": "Identity",
+    "dangerZone": "Danger zone",
+    "status_ACTIVE": "Active",
+    "status_SUSPENDED": "Suspended",
+    "status_DELETING": "Being deleted"
   },
   "members": {
     "title": "Members",
@@ -491,7 +497,6 @@
     "changeRole": "Change role",
     "toggleCanTeach": "Can teach",
     "remove": "Remove",
-    "removeConfirm": "Remove {name} from the workspace?",
     "removed": "Member removed.",
     "roleChanged": "Role changed.",
     "assignments": "Assignments",
@@ -515,7 +520,22 @@
     "status_SUSPENDED_NO_CONSENT": "Suspended — no consent",
     "status_SUSPENDED_CONSENT_REVOKED": "Suspended — consent revoked",
     "status_REMOVED": "Removed",
-    "status_REJECTED": "Rejected"
+    "status_REJECTED": "Rejected",
+    "rowActions": "Actions for {name}",
+    "changeRoleFor": "Change the role of {name}",
+    "removeFor": "Remove {name}",
+    "assignmentOf": "{teacher} teaches {student}",
+    "noAssignments": "No assignments yet.",
+    "confirmRemoveTitle": "Remove {name} from the workspace?",
+    "confirmRemoveDescription": "This member loses access to the workspace. Their history is kept.",
+    "noMatch": "No member matches these filters.",
+    "allRoles": "All roles",
+    "allStatuses": "All statuses",
+    "name": "Name",
+    "yes": "Yes",
+    "no": "No",
+    "canTeachChanged": "Teaching permission updated.",
+    "filters": "Filters"
   },
   "abuse": {
     "report": "Report",

@@ -478,7 +478,13 @@
     "auditTo": "Au",
     "auditBefore": "Avant",
     "auditAfter": "Après",
-    "auditNext": "Suivant"
+    "auditNext": "Suivant",
+    "readOnly": "Seuls le propriétaire et les administrateurs peuvent modifier ces paramètres.",
+    "identity": "Identité",
+    "dangerZone": "Zone sensible",
+    "status_ACTIVE": "Actif",
+    "status_SUSPENDED": "Suspendu",
+    "status_DELETING": "Suppression en cours"
   },
   "members": {
     "title": "Membres",
@@ -491,7 +497,6 @@
     "changeRole": "Changer le rôle",
     "toggleCanTeach": "Peut enseigner",
     "remove": "Retirer",
-    "removeConfirm": "Retirer {name} de l’espace ?",
     "removed": "Membre retiré.",
     "roleChanged": "Rôle modifié.",
     "assignments": "Affectations",
@@ -515,7 +520,22 @@
     "status_SUSPENDED_NO_CONSENT": "Suspendu — consentement manquant",
     "status_SUSPENDED_CONSENT_REVOKED": "Suspendu — consentement retiré",
     "status_REMOVED": "Retiré",
-    "status_REJECTED": "Rejeté"
+    "status_REJECTED": "Rejeté",
+    "rowActions": "Actions pour {name}",
+    "changeRoleFor": "Changer le rôle de {name}",
+    "removeFor": "Retirer {name}",
+    "assignmentOf": "{teacher} enseigne à {student}",
+    "noAssignments": "Aucune affectation pour le moment.",
+    "confirmRemoveTitle": "Retirer {name} de l’espace ?",
+    "confirmRemoveDescription": "Ce membre perd l’accès à l’espace. Son historique est conservé.",
+    "noMatch": "Aucun membre ne correspond à ces filtres.",
+    "allRoles": "Tous les rôles",
+    "allStatuses": "Tous les statuts",
+    "name": "Nom",
+    "yes": "Oui",
+    "no": "Non",
+    "canTeachChanged": "Autorisation d’enseigner modifiée.",
+    "filters": "Filtres"
   },
   "abuse": {
     "report": "Signaler",
