@@ -1,18 +1,30 @@
+import { E2E_PROD } from './helpers';
 import { seedSuperAdmin } from './helpers/super-admin';
 
 const BASE = 'http://localhost:3000';
 const API = 'http://localhost:3001';
 
 /**
- * GlobalSetup: GET every auth/app route once so `next dev` compiles them before parallel workers
- * hit them (concurrent cold compiles of the same route race — "Unexpected end of JSON input"),
- * then seed the throwaway super-admin the smoke spec drives (plan Task 23) and expose its
- * credentials to every worker through `process.env`.
+ * GlobalSetup: in dev mode, GET every auth/app route once so `next dev` compiles them before
+ * parallel workers hit them (concurrent cold compiles of the same route race — "Unexpected end of
+ * JSON input"); the production build (`E2E_PROD`) has nothing to compile. Then seed the
+ * throwaway super-admin the smoke spec drives (plan Task 23) and expose its credentials to every
+ * worker through `process.env`.
  */
 export default async function warmup() {
   // Wait for the dev server and the API (webServer may start before or after this).
   await poll(`${BASE}/fr`);
   await poll(`${API}/health/live`);
+  if (!E2E_PROD) await warmRoutes();
+
+  // The smoke spec (e2e/smoke.spec.ts) logs in as this super-admin; unique per run.
+  const admin = await seedSuperAdmin();
+  process.env.E2E_SUPER_ADMIN_EMAIL = admin.email;
+  process.env.E2E_SUPER_ADMIN_PASSWORD = admin.password;
+  process.env.E2E_SUPER_ADMIN_TOTP_SECRET = admin.secret;
+}
+
+async function warmRoutes() {
   const routes = [
     '/',
     '/fr',
@@ -55,24 +67,19 @@ export default async function warmup() {
       }
     }
   }
-
-  // The smoke spec (e2e/smoke.spec.ts) logs in as this super-admin; unique per run.
-  const admin = await seedSuperAdmin();
-  process.env.E2E_SUPER_ADMIN_EMAIL = admin.email;
-  process.env.E2E_SUPER_ADMIN_PASSWORD = admin.password;
-  process.env.E2E_SUPER_ADMIN_TOTP_SECRET = admin.secret;
 }
 
-/** Poll a URL until it answers anything below 500 (or give up after 120 s). */
+/** Poll a URL every 250 ms until it answers anything below 500 (or give up after 120 s). */
 async function poll(url: string) {
-  for (let attempt = 0; attempt < 120; attempt++) {
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
     try {
       const res = await fetch(url, { redirect: 'manual' });
       if (res.status < 500) return;
     } catch {
       // not up yet
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`${url} never came up`);
 }

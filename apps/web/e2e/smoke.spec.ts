@@ -155,7 +155,10 @@ async function runJourney(page: Page, locale: string) {
 
   // The teacher sees the banner…
   await page.goto(`/${locale}/app/w/${wid}`);
-  await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.suspended'));
+  // Filtered: a route's loading fallback (also a `status`) may still be streaming out.
+  await expect(
+    page.getByRole('status').filter({ hasText: t(locale, 'workspace.suspended') }),
+  ).toHaveText(t(locale, 'workspace.suspended'));
 
   // …and loses it once the super-admin reactivates.
   const ctx2 = await playwrightRequest.newContext({ baseURL: API_BASE });

@@ -58,6 +58,12 @@ test('teacher signs up, verifies by email, lands on the dashboard', async ({
   await page.getByRole('link', { name: t(locale, 'auth.verify.continue') }).click();
 
   await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
+  // Registration grants the static TERMS version while the e2e API runs a bumped one: every
+  // UI-registered user meets the consent gate first (AC-GDPR-06), then the dashboard.
+  const gate = page.getByRole('dialog', { name: t(locale, 'auth.consent.title') });
+  await expect(gate).toBeVisible();
+  await gate.getByRole('button', { name: t(locale, 'auth.consent.accept') }).click();
+  await expect(gate).toBeHidden();
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Mohamed');
   // Review Focus 5: no raw message key anywhere in the rendered text.
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);

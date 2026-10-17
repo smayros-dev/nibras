@@ -78,6 +78,31 @@ Each app exposes `/health/live` and `/health/ready` (the API serves them outside
 Run a task for a single package with a filter, e.g. `pnpm --filter @tt/api test` or
 `pnpm turbo run test --filter=@tt/api`.
 
+## End-to-end tests (Playwright)
+
+Projects: `chromium-fr`, `chromium-ar` (desktop), `mobile-fr`, `mobile-ar` (Pixel 7). The docker
+stack must be up and migrated. Two modes (`apps/web/playwright.config.ts`):
+
+- **Dev mode** (default): `pnpm --filter @tt/web e2e`. Playwright starts (or reuses) the api,
+  worker and `next dev` servers; `e2e/warmup.ts` compiles every route first. The service-worker
+  test is skipped (the SW registers only on production builds).
+- **Production mode** (CI, or `E2E_PROD=1`): `pnpm build && E2E_PROD=1 pnpm --filter @tt/web e2e`.
+  Every server runs its build: the web app is the standalone server the container runs
+  (`pnpm --filter @tt/web start:standalone`, `scripts/start-standalone.mjs`: copies `public/` and
+  `.next/static` next to `server.js`, listens on 127.0.0.1:3000), and the api/worker run `dist`
+  (a `nest start --watch` server restarts when its watcher fires, failing in-flight requests).
+  The strict production CSP and HSTS apply and the SW test runs. The standalone web honours the
+  e2e TERMS override only with `APP_ENV=development` (set by the Playwright config). In CI every
+  `reuseExistingServer` is `false`: a stray server fails the run. On Windows the standalone build
+  may need Developer Mode (symlinks); when it fails, use dev mode.
+
+Rules the suite follows: no fixed sleeps for UI state (Playwright auto-waits; `expect.poll` or
+`toPass` for external systems); a `429` is retried after its `Retry-After`
+(`e2e/helpers/retry.ts`); transport retries (`postTransient`, `uiLogin`) apply to dev mode only.
+`e2e/a11y.spec.ts` runs axe (WCAG 2 A/AA, serious and critical fail) on the main pages in fr and
+ar, desktop and mobile, and saves full-page screenshots to `apps/web/test-results/screens/<project>/`
+(the CI artefact `rtl-screens`, for the RTL recette).
+
 Integration tests need the containers running (`docker compose up -d`) and migrated test databases
 (`pnpm db:migrate:test`). They read `DATABASE_URL_TEST`, `DATABASE_URL_TEST_SYSTEM` and
 `REDIS_URL_TEST` from the environment / `.env` as **bases**: turbo runs the packages' tests in
@@ -141,7 +166,7 @@ rotation, unlocking a locked account, reading dev OTPs, audit actions, tenant is
 | `check`         | ubuntu-latest  | lint, typecheck, `migrate:deploy` (tt) + `db:migrate:test`, `pnpm test`, `pnpm build`, OpenAPI drift check |
 | `windows-check` | windows-latest | lint, typecheck, tests of the DB-free packages (`@tt/config`, `@tt/contracts`, `@tt/i18n`, `@tt/ui`)       |
 | `migrate-check` | ubuntu-latest  | `pnpm --filter @tt/db migrate:check` (schema vs migrations drift)                                          |
-| `e2e`           | ubuntu-latest  | builds, starts api + worker, Playwright (`chromium` + `mobile`)                                            |
+| `e2e`           | ubuntu-latest  | `pnpm build`, Playwright against the production build (see below); artefact `rtl-screens`                  |
 | `images`        | ubuntu-latest  | `main` pushes only: builds and pushes `ghcr.io/<owner>/tt-{web,api,worker}:{sha,latest}`                   |
 
 The Linux jobs use Postgres 17, Redis 7 and Mailpit service containers; `init.sql` is applied with

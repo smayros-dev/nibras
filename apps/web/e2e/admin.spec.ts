@@ -1,6 +1,7 @@
 import { request as playwrightRequest } from '@playwright/test';
 import { appUrl, t, test, toast, uiLogin, apiLogin, expect } from './helpers';
 import { addOrgMember, seedUser } from './helpers/seed';
+import { retryOn429 } from './helpers/retry';
 import { seedSuperAdmin } from './helpers/super-admin';
 
 const BASE = 'http://localhost:3000';
@@ -53,7 +54,10 @@ test.describe('super-admin console (plan Task 22)', () => {
       const memberPage = await memberContext.newPage();
       await uiLogin(memberPage, locale, owner);
       await memberPage.goto(`/${locale}/app/w/${owner.orgWorkspaceId}`);
-      await expect(memberPage.getByRole('status')).toHaveText(t(locale, 'workspace.suspended'));
+      // Filtered: a route's loading fallback (also a `status`) may still be streaming out.
+      await expect(
+        memberPage.getByRole('status').filter({ hasText: t(locale, 'workspace.suspended') }),
+      ).toHaveText(t(locale, 'workspace.suspended'));
     } finally {
       await memberContext.close();
     }
@@ -94,6 +98,12 @@ test.describe('super-admin console (plan Task 22)', () => {
       const page = await adminContext.newPage();
       await uiLogin(page, locale, admin);
       await page.goto(`/${locale}/admin/abuse-reports`);
+      // The queue is global (parallel projects and earlier runs add reports): narrow it to this
+      // test's workspace, or `.first()` below may pick another test's report and teacher.
+      await page
+        .getByLabel(t(locale, 'admin.reports.filterWorkspace'), { exact: true })
+        .fill(owner.orgWorkspaceId!);
+      await expect(page.locator('tbody tr')).toHaveCount(2);
 
       // MINOR_SAFETY is pinned first and highlighted.
       const minorRow = page
@@ -157,15 +167,11 @@ test.describe('super-admin console (plan Task 22)', () => {
     // The teacher can no longer sign in (login is also rate-limited per IP: retry 429).
     const ctx2 = await playwrightRequest.newContext({ baseURL: BASE });
     try {
-      let login = await ctx2.post('/api/v1/auth/login', {
-        data: { email: teacher.email, password: teacher.password },
-      });
-      for (let attempt = 0; attempt < 5 && login.status() === 429; attempt++) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        login = await ctx2.post('/api/v1/auth/login', {
+      const login = await retryOn429(() =>
+        ctx2.post('/api/v1/auth/login', {
           data: { email: teacher.email, password: teacher.password },
-        });
-      }
+        }),
+      );
       expect(login.status()).toBe(403);
     } finally {
       await ctx2.dispose();

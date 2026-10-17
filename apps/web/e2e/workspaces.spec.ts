@@ -19,21 +19,10 @@ test.describe('workspaces (plan Task 21)', () => {
 
     // The create page is reachable from its settings nav tab (plan T20: "Espaces" is live).
     await page.goto(`/${locale}/app/settings/profile`);
-    // A click that lands right after the page load, before the tabs hydrate, is swallowed (no
-    // navigation); retry the click until the client-side navigation happens.
-    const workspacesTab = page.getByRole('tab', {
-      name: t(locale, 'settings.nav.workspaces'),
-      exact: true,
-    });
-    await expect(async () => {
-      await workspacesTab.click();
-      await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/workspaces`), {
-        timeout: 5_000,
-      });
-    }).toPass({ timeout: 30_000 });
-    // Full-load the page before interacting: right after a client-side nav the panel may not be
-    // hydrated yet, and a pre-hydration submit click degrades to a native GET form submit.
-    await page.goto(`/${locale}/app/settings/workspaces`);
+    await page
+      .getByRole('tab', { name: t(locale, 'settings.nav.workspaces'), exact: true })
+      .click();
+    await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/workspaces`));
     await page.getByLabel(t(locale, 'workspace.name'), { exact: true }).fill('École E2E');
     await page.getByLabel(t(locale, 'workspace.country'), { exact: true }).selectOption('TN');
     await page.getByRole('button', { name: t(locale, 'workspace.submitOrganization') }).click();

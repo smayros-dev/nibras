@@ -122,3 +122,35 @@ test('onboarding checklist shows 2/5 after email verification and phone verifica
   // "Votre espace est prêt à {done}/{total}" — the checklist counts the two done items.
   await expect(page.getByTestId('onboarding-checklist')).toContainText('2/5');
 });
+
+test('the timezone banner floats over the page: showing it after hydration shifts no content', async ({
+  browser,
+  uiLocale: locale,
+}) => {
+  const user = await seedUser();
+  const ctx = await browser.newContext({ timezoneId: 'Europe/Paris' });
+  const page = await ctx.newPage();
+  try {
+    await uiLogin(page, locale, user);
+    // The settings tabs' top as first parsed from the server HTML, before React mounts the
+    // (client-only) banner.
+    await page.addInitScript(() => {
+      document.addEventListener('DOMContentLoaded', () => {
+        const tabs = document.querySelector('[role="tablist"]');
+        (window as unknown as { __tabsTop?: number }).__tabsTop = tabs?.getBoundingClientRect().top;
+      });
+    });
+    await page.goto(`/${locale}/app/settings/profile`);
+    await expect(
+      page.getByRole('button', { name: t(locale, 'settings.timezone.accept') }),
+    ).toBeVisible();
+    const [before, after] = await page.evaluate(() => [
+      (window as unknown as { __tabsTop?: number }).__tabsTop,
+      document.querySelector('[role="tablist"]')?.getBoundingClientRect().top,
+    ]);
+    expect(before).toBeDefined();
+    expect(after).toBe(before);
+  } finally {
+    await ctx.close();
+  }
+});

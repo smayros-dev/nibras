@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { request as playwrightRequest } from '@playwright/test';
 import { TEST_CONSENT_TERMS_VERSION, postRegister, postTransient, uniqueEmail } from '../helpers';
 import { extractLink, waitForEmail } from './mailpit';
+import { retryOn429 } from './retry';
 import { totpCode } from './totp';
 
 const BASE = 'http://localhost:3000';
@@ -107,22 +108,14 @@ export async function suspendWorkspaceAsSuperAdmin(wid: string, reason = 'e2e su
   const admin = await seedSuperAdmin();
   const ctx = await playwrightRequest.newContext({ baseURL: BASE });
   try {
-    // Login (with 2FA challenge), retrying the per-IP rate limit.
-    let loginStatus = 0;
-    let loginBody: { status: string; challengeToken?: string } = { status: '' };
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const login = await ctx.post('/api/v1/auth/login', {
+    // Login (with 2FA challenge), retrying the per-IP rate limit after its `Retry-After`.
+    const login = await retryOn429(() =>
+      ctx.post('/api/v1/auth/login', {
         data: { email: admin.email, password: admin.password },
-      });
-      loginStatus = login.status();
-      if (loginStatus === 200) {
-        loginBody = (await login.json()) as typeof loginBody;
-        break;
-      }
-      if (loginStatus !== 429) throw new Error(`login ${loginStatus}: ${await login.text()}`);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-    }
-    if (loginStatus !== 200) throw new Error(`login ${loginStatus} (rate-limited)`);
+      }),
+    );
+    if (login.status() !== 200) throw new Error(`login ${login.status()}: ${await login.text()}`);
+    const loginBody = (await login.json()) as { status: string; challengeToken?: string };
     if (loginBody.status === 'TWO_FACTOR_REQUIRED') {
       if (!loginBody.challengeToken) throw new Error('missing challengeToken');
       const done = await ctx.post('/api/v1/auth/2fa/verify', {

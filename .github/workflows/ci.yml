@@ -139,10 +139,11 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # This job starts the api/worker itself (Playwright `reuseExistingServer`), so the e2e-only
-    # overrides that the local webServer env carries must be set here too: the bumped TERMS
-    # version (consent-gate specs) and a raised anon rate limit (the suite registers many
-    # accounts from one ip).
+    # Playwright starts the built api/worker and the standalone web server itself
+    # (`reuseExistingServer: false` under CI, apps/web/playwright.config.ts): the e2e runs against
+    # the production build. The api's webServer env also carries these e2e-only overrides; they
+    # are set here so every child process sees them: the bumped TERMS version (consent-gate
+    # specs) and a raised anon rate limit (the suite registers many accounts from one ip).
     env:
       TEST_CONSENT_TERMS_VERSION: terms-e2e-2026-11
       RATE_LIMIT_ANON: '10000'
@@ -173,16 +174,9 @@ jobs:
       - name: Initialise Postgres (roles and databases)
         run: psql "$PG_ADMIN_URL" -v ON_ERROR_STOP=1 -f infra/docker/postgres/init.sql
       - run: pnpm --filter @tt/db migrate:deploy
-      # Workspace packages (and the api/worker dist) must exist before the apps start.
+      # The api/worker dist and the web standalone output (`.next/standalone`) the e2e runs.
       - run: pnpm build
       - run: pnpm --filter @tt/web exec playwright install --with-deps chromium
-      - name: Start api and worker
-        run: |
-          nohup pnpm --filter @tt/api start > api.log 2>&1 &
-          nohup pnpm --filter @tt/worker start > worker.log 2>&1 &
-          for url in http://localhost:3001/health/live http://localhost:3002/health/live; do
-            timeout 60 sh -c "until curl -fsS $url > /dev/null; do sleep 1; done" || { echo "$url never came up"; exit 1; }
-          done
       - run: pnpm --filter @tt/web e2e
       - name: App logs
         if: failure()
@@ -193,6 +187,15 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
+      # Full-page screenshots of every axe-audited page per project (fr/ar, desktop/mobile) for
+      # the RTL recette (e2e/a11y.spec.ts), kept on success too.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rtl-screens
+          path: apps/web/test-results/screens
+          if-no-files-found: warn
+          retention-days: 14
 
   images:
     # Only on a push to main (never on pull requests), after every gate is green.

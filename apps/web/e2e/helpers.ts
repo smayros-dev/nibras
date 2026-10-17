@@ -7,6 +7,7 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
+import { retryOn429, sleep } from './helpers/retry';
 
 /**
  * Per-project UI language, set in `playwright.config.ts` (`use: { uiLocale: 'fr' | 'ar' }`,
@@ -65,16 +66,17 @@ export function uniqueEmail(): string {
 }
 
 /**
- * `POST /auth/register` with the per-IP rate limit retried: the full e2e suite seeds many
- * accounts back to back, and the limiter answers `429` with a small window.
+ * Production-build mode (`playwright.config.ts`): CI, or `E2E_PROD=1` locally — the web app runs
+ * as the standalone server instead of `next dev`.
+ */
+export const E2E_PROD = !!process.env.CI || process.env.E2E_PROD === '1';
+
+/**
+ * `POST /auth/register` with the per-IP rate limit retried after the API's `Retry-After`: the
+ * full e2e suite seeds many accounts back to back.
  */
 export async function postRegister(ctx: APIRequestContext, body: Record<string, unknown>) {
-  let reg = await ctx.post('/api/v1/auth/register', { data: body });
-  for (let attempt = 0; attempt < 8 && reg.status() === 429; attempt++) {
-    await new Promise((resolve) => setTimeout(resolve, 3500));
-    reg = await ctx.post('/api/v1/auth/register', { data: body });
-  }
-  return reg;
+  return retryOn429(() => ctx.post('/api/v1/auth/register', { data: body }), { attempts: 8 });
 }
 
 /**
@@ -82,19 +84,20 @@ export async function postRegister(ctx: APIRequestContext, body: Record<string, 
  * the `next dev` proxy under full-suite load (reset/failed connection, `5xx` answer): the
  * dev server stalls while compiling cold routes and drops in-flight proxied requests.
  * Idempotent targets only (e.g. `POST /me/consents/{type}` — 201 on every current-version
- * accept), never 4xx (each caller keeps its own status check; `429` keeps its bespoke loops).
+ * accept), never 4xx (each caller keeps its own status check). Against the production build
+ * (`E2E_PROD`) there are no cold compiles and nothing is retried: a failure there is real.
  * On exhaustion the last response — or the last thrown error — surfaces to the caller.
  */
 export async function postTransient(
   ctx: APIRequestContext,
   url: string,
   data: Record<string, unknown>,
-  attempts = 3,
+  attempts = E2E_PROD ? 1 : 3,
 ): Promise<APIResponse> {
   let response: APIResponse | undefined;
   let thrown: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
-    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+    if (attempt > 0) await sleep(1500 * attempt);
     try {
       response = await ctx.post(url, { data });
       if (response.status() < 500) return response;
@@ -129,10 +132,12 @@ export async function uiLogin(
   locale: string,
   user: { email: string; password: string; secret?: string },
 ) {
-  // Bounded retry: a login POST lost through the `next dev` proxy (cold compiles stall the
-  // dev server under full-suite load) leaves an alert on the login page instead of navigating.
+  // Bounded retry in dev mode only: a login POST lost through the `next dev` proxy (cold
+  // compiles stall the dev server under full-suite load) leaves an alert on the login page
+  // instead of navigating. The production build gets one attempt — a failure there is real.
   // The URL expects get an explicit timeout: the default 5 s is too tight under load.
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const attempts = E2E_PROD ? 1 : 2;
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       await page.goto(`/${locale}/login`);
       await fillLogin(page, locale, user.email, user.password || PASSWORD);
@@ -147,7 +152,7 @@ export async function uiLogin(
       await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
       return;
     } catch (error) {
-      if (attempt === 1) throw error;
+      if (attempt === attempts - 1) throw error;
       // Navigation may still be landing after the assertion timed out — don't log in twice.
       if (page.url().startsWith(appUrl(`/${locale}/app`))) return;
     }
@@ -163,18 +168,13 @@ export async function apiLogin(
   user: { email: string; password: string; secret?: string },
 ) {
   const { totpCode } = await import('./helpers/totp');
-  let body: { status: string; challengeToken?: string } = { status: '' };
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const login = await ctx.post('/api/v1/auth/login', {
+  const login = await retryOn429(() =>
+    ctx.post('/api/v1/auth/login', {
       data: { email: user.email, password: user.password || PASSWORD },
-    });
-    if (login.status() === 200) {
-      body = (await login.json()) as typeof body;
-      break;
-    }
-    if (login.status() !== 429) throw new Error(`login ${login.status()}: ${await login.text()}`);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-  }
+    }),
+  );
+  if (login.status() !== 200) throw new Error(`login ${login.status()}: ${await login.text()}`);
+  const body = (await login.json()) as { status: string; challengeToken?: string };
   if (body.status === 'TWO_FACTOR_REQUIRED') {
     if (!user.secret) throw new Error('2FA required but no TOTP secret');
     if (!body.challengeToken) throw new Error('missing challengeToken');
