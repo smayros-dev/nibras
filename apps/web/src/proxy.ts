@@ -2,6 +2,7 @@ import createMiddleware from 'next-intl/middleware';
 import { NextRequest } from 'next/server';
 import { negotiateLocale } from './i18n/negotiate';
 import { routing } from './i18n/routing';
+import { buildCsp, newNonce, securityHeaders } from './lib/security-headers';
 
 const handleI18nRouting = createMiddleware(routing);
 
@@ -15,6 +16,11 @@ const LOCALE_PREFIX = new RegExp(`^/(?:${VALID_LOCALES.join('|')})(?=/|$)`);
  *
  * The `tt_locale` cookie (set at register/login from the account's own locale) wins over both:
  * it is copied to `NEXT_LOCALE` before next-intl reads the request cookies.
+ *
+ * Security headers (spec D7): a fresh nonce per request goes into the CSP, which is set on the
+ * request headers next-intl forwards to the render (Next reads the nonce from that CSP and applies
+ * it to its scripts; the root layout reads `x-nonce` for next-themes) and on the response, with
+ * the other security headers.
  */
 export default function proxy(request: NextRequest) {
   const stored = request.cookies.get('tt_locale')?.value;
@@ -22,7 +28,14 @@ export default function proxy(request: NextRequest) {
     request.cookies.set('NEXT_LOCALE', stored);
   }
 
+  const dev = process.env.NODE_ENV === 'development';
+  const nonce = newNonce();
+  const csp = buildCsp(nonce, { dev });
+
   const headers = new Headers(request.headers);
+  // Always overwritten, so a client cannot choose the nonce.
+  headers.set('x-nonce', nonce);
+  headers.set('content-security-policy', csp);
   // The locale-less path (+ query) for server layouts that build a `?next=` deep link; always
   // overwritten, so a client cannot inject it. next-intl forwards these request headers.
   const { pathname, search } = request.nextUrl;
@@ -36,7 +49,14 @@ export default function proxy(request: NextRequest) {
   }
   // Body-less copy: next-intl only reads the URL, headers and cookies, and the original request
   // (with its body, e.g. a server action POST) is the one Next forwards, with these headers.
-  return handleI18nRouting(new NextRequest(request.url, { headers, method: request.method }));
+  const response = handleI18nRouting(
+    new NextRequest(request.url, { headers, method: request.method }),
+  );
+  response.headers.set('Content-Security-Policy', csp);
+  for (const [name, value] of Object.entries(securityHeaders({ dev }))) {
+    response.headers.set(name, value);
+  }
+  return response;
 }
 
 export const config = {

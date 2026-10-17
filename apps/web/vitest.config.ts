@@ -11,6 +11,9 @@ export default mergeConfig(
       // lands — `projects` + `mergeConfig` concatenates the base `include` into each project.
       environmentMatchGlobs: [['src/**/*.test.tsx', 'jsdom']],
       setupFiles: ['./src/test/setup.ts'],
+      // next-intl's ESM imports `next/server` without an extension, which Node's resolver rejects;
+      // inlined, Vite resolves it (proxy.test.ts).
+      server: { deps: { inline: ['next-intl'] } },
     },
   }),
 );

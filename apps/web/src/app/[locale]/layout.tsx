@@ -68,7 +68,7 @@ export default async function LocaleLayout({
   // The client provider does not inherit request config; without a timeZone use-intl reports
   // ENVIRONMENT_FALLBACK, which our dev onError turns into a render failure.
   const timeZone = await getTimeZone();
-  // CSP nonce for next-themes' inline script; set by the proxy from T15 (absent until then).
+  // CSP nonce for next-themes' inline script, set by the proxy (absent only off the matcher).
   const nonce = (await headers()).get('x-nonce') ?? undefined;
   const t = await getTranslations({ locale });
   const dir = dirOf(locale);
