@@ -1,24 +1,19 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockRouter, renderWithIntl, tr } from '../test/render';
 import { LogoutButton, UserMenu } from './user-menu';
-
-const hardNavigate = vi.fn();
-vi.mock('../lib/hard-navigate', () => ({ hardNavigate: (href: string) => hardNavigate(href) }));
 
 const user = { id: 'u1', firstName: 'Mohamed', lastName: 'Ben Ali', email: 'mb@example.com' };
 
 describe('UserMenu', () => {
-  beforeEach(() => {
-    hardNavigate.mockClear();
-  });
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
   it('opens from the avatar with the name and email, profile and security links', async () => {
     const ue = userEvent.setup();
+    const router = mockRouter({ pathname: '/app' });
     renderWithIntl(<UserMenu user={user} />);
     const trigger = screen.getByRole('button', {
       name: tr('fr', 'shell.userMenu').replace('{name}', 'Mohamed Ben Ali'),
@@ -29,7 +24,7 @@ describe('UserMenu', () => {
     expect(menu).toHaveTextContent('Mohamed Ben Ali');
     expect(menu).toHaveTextContent('mb@example.com');
     await ue.click(screen.getByRole('menuitem', { name: tr('fr', 'shell.security') }));
-    expect(hardNavigate).toHaveBeenCalledWith('/fr/app/settings/security');
+    expect(router.push).toHaveBeenCalledWith('/app/settings/security');
   });
 
   it('logs out: POST /auth/logout, then login and refresh', async () => {

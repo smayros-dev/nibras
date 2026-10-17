@@ -30,7 +30,9 @@ export function LocaleMenu() {
   const onChange = (next: string) => {
     if (!isLocale(next) || next === current) return;
     document.cookie = `tt_locale=${next}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; SameSite=Lax`;
-    router.replace(pathname, { locale: next });
+    // Same page, same query (filters, pagination) and hash in the other locale.
+    const { search, hash } = window.location;
+    router.replace(`${pathname}${search}${hash}`, { locale: next });
   };
 
   return (

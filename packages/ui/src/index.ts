@@ -28,6 +28,7 @@ export * from './page-header';
 export * from './hooks/use-submit';
 export * from './hooks/use-debounced-value';
 export * from './shell/nav';
+export * from './shell/current-path';
 export * from './shell/app-shell';
 export * from './shell/sidebar';
 export * from './shell/top-bar';

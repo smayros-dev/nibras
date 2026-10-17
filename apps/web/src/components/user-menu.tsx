@@ -2,10 +2,9 @@
 
 import { Avatar, Button, DropdownMenu, useToast } from '@tt/ui';
 import { LogOut, Shield, UserRound } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { useRouter } from '../i18n/navigation';
-import { hardNavigate } from '../lib/hard-navigate';
 import { logout } from '../lib/logout';
 
 export interface UserMenuUser {
@@ -58,7 +57,7 @@ export function LogoutButton() {
 /** Avatar menu (spec §5): name + email, *Mon profil*, *Sécurité*, *Se déconnecter*. */
 export function UserMenu({ user }: { user: UserMenuUser }) {
   const t = useTranslations('shell');
-  const locale = useLocale();
+  const router = useRouter();
   const { busy, run } = useLogout();
   const name = displayName(user);
 
@@ -80,14 +79,11 @@ export function UserMenu({ user }: { user: UserMenuUser }) {
         <DropdownMenu.Separator />
         <DropdownMenu.Item
           icon={<UserRound />}
-          onSelect={() => hardNavigate(`/${locale}/app/settings/profile`)}
+          onSelect={() => router.push('/app/settings/profile')}
         >
           {t('profile')}
         </DropdownMenu.Item>
-        <DropdownMenu.Item
-          icon={<Shield />}
-          onSelect={() => hardNavigate(`/${locale}/app/settings/security`)}
-        >
+        <DropdownMenu.Item icon={<Shield />} onSelect={() => router.push('/app/settings/security')}>
           {t('security')}
         </DropdownMenu.Item>
         <DropdownMenu.Separator />

@@ -34,6 +34,19 @@ describe('LocaleMenu', () => {
     expect(document.cookie).toContain('tt_locale=ar');
   });
 
+  it('keeps the query string and hash', async () => {
+    const ue = userEvent.setup();
+    window.history.replaceState(null, '', '/fr/admin/abuse-reports?status=OPEN&page=2#list');
+    const router = mockRouter({ pathname: '/admin/abuse-reports' });
+    renderWithIntl(<LocaleMenu />);
+    await ue.click(screen.getByRole('button', { name: tr('fr', 'shell.language') }));
+    await ue.click(screen.getByRole('menuitemradio', { name: 'English' }));
+    expect(router.replace).toHaveBeenCalledWith('/admin/abuse-reports?status=OPEN&page=2#list', {
+      locale: 'en',
+    });
+    window.history.replaceState(null, '', '/');
+  });
+
   it('does nothing when the current locale is chosen again', async () => {
     const ue = userEvent.setup();
     const router = mockRouter({ pathname: '/app' });

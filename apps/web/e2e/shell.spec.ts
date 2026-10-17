@@ -40,6 +40,48 @@ test('every nav link resolves (no 404) and the current item is marked', async ({
   }
 });
 
+test('client navigation: clicking nav links moves aria-current without a page load', async ({
+  page,
+  isMobile,
+  uiLocale: locale,
+}) => {
+  test.skip(isMobile, 'the sidebar is hidden below lg');
+  const user = await seedUser({ organization: true, totp: true });
+  await uiLogin(page, locale, user);
+  await page.goto(`/${locale}/app/settings/profile`);
+  // Survives client navigations only: a full page load would drop it.
+  await page.evaluate(() => {
+    (window as unknown as { __ttNoReload?: boolean }).__ttNoReload = true;
+  });
+  const nav = page.getByRole('navigation', { name: t(locale, 'nav.primaryNav') });
+  const settings = nav.getByRole('link', { name: t(locale, 'nav.settings') });
+  const workspaces = nav.getByRole('link', { name: t(locale, 'nav.workspaces') });
+  await expect(settings).toHaveAttribute('aria-current', 'page');
+
+  await workspaces.click();
+  await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/workspaces`));
+  await expect(workspaces).toHaveAttribute('aria-current', 'page');
+  await expect(settings).not.toHaveAttribute('aria-current', 'page');
+
+  await settings.click();
+  await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/profile`));
+  await expect(settings).toHaveAttribute('aria-current', 'page');
+  await expect(workspaces).not.toHaveAttribute('aria-current', 'page');
+
+  // The switcher navigates client-side too, and the workspace section follows the path.
+  const orgSettings = nav.getByRole('link', { name: t(locale, 'workspace.navSettings') });
+  await expect(orgSettings).toHaveCount(0);
+  await page.getByRole('button', { name: t(locale, 'nav.currentWorkspace') }).click();
+  await page.getByRole('menuitemradio', { name: /École Test/ }).click();
+  await expect(page).toHaveURL(appUrl(`/${locale}/app/w/${user.orgWorkspaceId}`));
+  await expect(orgSettings).toHaveAttribute('aria-current', 'page');
+  await expect(settings).not.toHaveAttribute('aria-current', 'page');
+
+  expect(
+    await page.evaluate(() => (window as unknown as { __ttNoReload?: boolean }).__ttNoReload),
+  ).toBe(true);
+});
+
 test('user menu logs out', async ({ page, uiLocale: locale }) => {
   const user = await seedUser();
   await uiLogin(page, locale, user);

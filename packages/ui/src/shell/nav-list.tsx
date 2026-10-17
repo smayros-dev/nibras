@@ -1,6 +1,7 @@
-import { Fragment } from 'react';
+import type { ReactNode } from 'react';
 import { cn } from '../cn';
-import { renderNavIcon, type NavItem, type NavSection } from './nav';
+import { NavSectionGate, ShellNavLink } from './current-path';
+import { navMatch, renderNavIcon, type NavItem, type NavSection } from './nav';
 
 export interface NavListProps {
   sections: NavSection[];
@@ -13,9 +14,10 @@ export interface NavListProps {
 function NavLink({ item, collapsible }: { item: NavItem; collapsible: boolean }) {
   const textClasses = collapsible ? 'lg:sr-only xl:not-sr-only' : undefined;
   return (
-    <a
+    <ShellNavLink
+      match={navMatch(item)}
       href={item.href}
-      aria-current={item.current ? 'page' : undefined}
+      fallbackCurrent={item.current === true}
       className={cn(
         'flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-fg-muted',
         'hover:bg-bg-subtle hover:text-fg focus-visible:outline-2 focus-visible:outline-focus',
@@ -35,7 +37,16 @@ function NavLink({ item, collapsible }: { item: NavItem; collapsible: boolean })
           {item.badge}
         </span>
       ) : null}
-    </a>
+    </ShellNavLink>
+  );
+}
+
+/** A section scoped to a path (`visibleUnder`) is rendered only while the live path is under it. */
+function Gate({ section, children }: { section: NavSection; children: ReactNode }) {
+  return section.visibleUnder ? (
+    <NavSectionGate path={section.visibleUnder}>{children}</NavSectionGate>
+  ) : (
+    children
   );
 }
 
@@ -44,10 +55,10 @@ export function NavList({ sections, headingLevel = 'h2', collapsible = false }: 
   const Heading = headingLevel;
   return (
     <div className="flex flex-col gap-3">
-      {sections.map((section, index) => (
-        <Fragment key={section.id}>
-          {index > 0 ? <hr className="border-border" /> : null}
-          <div className="flex flex-col gap-1">
+      {sections.map((section) => (
+        <Gate key={section.id} section={section}>
+          {/* A rule between rendered sections (a hidden scoped section leaves no stray rule). */}
+          <div className="flex flex-col gap-1 border-t border-border pt-3 first:border-t-0 first:pt-0">
             {section.label ? (
               <Heading
                 className={cn(
@@ -66,7 +77,7 @@ export function NavList({ sections, headingLevel = 'h2', collapsible = false }: 
               ))}
             </ul>
           </div>
-        </Fragment>
+        </Gate>
       ))}
     </div>
   );

@@ -1,4 +1,5 @@
 import type { MyWorkspace } from '@tt/contracts';
+import { currentNavId, matchesNavPath, navMatches, type NavSection } from '@tt/ui';
 import { describe, expect, it } from 'vitest';
 import { buildNavModel, workspaceIdFromPath, type NavModelInput } from './navigation';
 
@@ -21,24 +22,37 @@ function model(overrides: Partial<NavModelInput> = {}) {
   return buildNavModel({
     t,
     user: { platformRole: 'NONE' },
-    pathname: '/app',
     workspaces: [w1],
-    currentWid: null,
     locale: 'fr',
     ...overrides,
   });
 }
 
-function currentIds(sections: ReturnType<typeof model>) {
-  return sections.flatMap((s) => s.items.filter((i) => i.current).map((i) => i.id));
+/** The sections the shell renders at `pathname` (locale-less here, `fr` prefixed). */
+function visibleAt(sections: NavSection[], pathname: string, locale = 'fr') {
+  return sections.filter(
+    (s) => !s.visibleUnder || matchesNavPath(`/${locale}${pathname}`, s.visibleUnder),
+  );
+}
+
+/** The item the shell marks current at `pathname`, as `AppShell` derives it. */
+function currentAt(sections: NavSection[], pathname: string, locale = 'fr') {
+  return currentNavId(navMatches(visibleAt(sections, pathname, locale)), `/${locale}${pathname}`);
 }
 
 describe('buildNavModel', () => {
-  it('shows only existing routes and the workspace section when inside one', () => {
-    const sections = model({ pathname: '/app/w/w1/members', currentWid: 'w1' });
-    expect(sections.map((s) => s.id)).toEqual(['main', 'workspace']);
+  it('links only existing routes, the workspace section shown only inside it', () => {
+    const sections = model();
+    expect(sections.map((s) => s.id)).toEqual(['main', 'workspace-w1']);
     expect(sections[1]!.label).toBe('Espace de Mohamed');
-    expect(currentIds(sections)).toEqual(['workspace-members']);
+    expect(sections[1]!.visibleUnder).toBe('/fr/app/w/w1');
+    expect(visibleAt(sections, '/app').map((s) => s.id)).toEqual(['main']);
+    expect(visibleAt(sections, '/app/w/w1/members').map((s) => s.id)).toEqual([
+      'main',
+      'workspace-w1',
+    ]);
+    expect(visibleAt(sections, '/app/w/w12').map((s) => s.id)).toEqual(['main']);
+    expect(currentAt(sections, '/app/w/w1/members')).toBe('workspace-w1-members');
     for (const item of sections.flatMap((s) => s.items)) {
       expect(item.href.startsWith('/fr/')).toBe(true);
       const path = item.href.slice('/fr'.length);
@@ -49,32 +63,20 @@ describe('buildNavModel', () => {
     }
   });
 
-  it('has no workspace section outside a workspace or for an unknown workspace id', () => {
-    expect(model().map((s) => s.id)).toEqual(['main']);
-    expect(model({ pathname: '/app/w/zz', currentWid: 'zz' }).map((s) => s.id)).toEqual(['main']);
+  it('has no workspace section without workspaces', () => {
+    expect(model({ workspaces: [] }).map((s) => s.id)).toEqual(['main']);
   });
 
-  it('adds the admin section for SUPER_ADMIN only', () => {
-    const admin = model({
-      user: { platformRole: 'SUPER_ADMIN' },
-      pathname: '/admin/abuse-reports/r1',
-    });
-    expect(admin.map((s) => s.id)).toEqual(['main', 'admin']);
-    expect(currentIds(admin)).toEqual(['admin-reports']);
-    expect(admin[1]!.items.map((i) => i.href)).toEqual([
+  it('adds the admin section for SUPER_ADMIN only, last', () => {
+    const admin = model({ user: { platformRole: 'SUPER_ADMIN' } });
+    expect(admin.map((s) => s.id)).toEqual(['main', 'workspace-w1', 'admin']);
+    expect(currentAt(admin, '/admin/abuse-reports/r1')).toBe('admin-reports');
+    expect(admin[2]!.items.map((i) => i.href)).toEqual([
       '/fr/admin/workspaces',
       '/fr/admin/abuse-reports',
       '/fr/admin/health',
     ]);
     expect(model().some((s) => s.id === 'admin')).toBe(false);
-    // Inside a workspace too, the admin section comes last.
-    expect(
-      model({
-        user: { platformRole: 'SUPER_ADMIN' },
-        pathname: '/app/w/w1',
-        currentWid: 'w1',
-      }).map((s) => s.id),
-    ).toEqual(['main', 'workspace', 'admin']);
   });
 
   it.each([
@@ -82,14 +84,17 @@ describe('buildNavModel', () => {
     ['/app/settings/profile', 'settings'],
     ['/app/settings/security?tab=1', 'settings'],
     ['/app/settings/workspaces', 'workspaces'],
+    ['/app/w/w1', 'workspace-w1-settings'],
+    ['/app/w/w1/audit-log', 'workspace-w1-audit'],
   ])('marks %s as %s only', (pathname, id) => {
-    expect(currentIds(model({ pathname }))).toEqual([id]);
+    expect(currentAt(model(), pathname)).toBe(id);
   });
 
-  it('matches the workspace settings item exactly and prefixes the locale', () => {
-    const sections = model({ pathname: '/app/w/w1', currentWid: 'w1', locale: 'ar' });
-    expect(currentIds(sections)).toEqual(['workspace-settings']);
+  it('prefixes hrefs and matches with the locale', () => {
+    const sections = model({ locale: 'ar' });
     expect(sections[1]!.items[0]!.href).toBe('/ar/app/w/w1');
+    expect(sections[0]!.items.find((i) => i.id === 'settings')!.match).toBe('/ar/app/settings');
+    expect(currentAt(sections, '/app/w/w1', 'ar')).toBe('workspace-w1-settings');
   });
 });
 

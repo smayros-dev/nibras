@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { createElement, isValidElement, type ReactNode } from 'react';
+import type { NavMatch } from './current-path';
 
 /** One destination of the shell navigation (labels already translated by the caller). */
 export interface NavItem {
@@ -8,10 +9,13 @@ export interface NavItem {
   label: string;
   /** A lucide icon component or an already rendered node (`null` for none). */
   icon: LucideIcon | ReactNode;
+  /** Static current state, used only when no live path is provided (`CurrentPathProvider`). */
   current?: boolean;
+  /** Path that makes the item current (and below it, unless `exact`); defaults to `href`. */
+  match?: string;
   /** Unread or pending count shown next to the label. */
   badge?: number;
-  /** For the web nav model: `current` only on an exact path match (not used for rendering). */
+  /** Current only on an exact path match. Among matching items, the longest path wins. */
   exact?: boolean;
 }
 
@@ -20,6 +24,18 @@ export interface NavSection {
   id: string;
   label?: string;
   items: NavItem[];
+  /** Rendered only while the live path is under this path (e.g. the current workspace's section). */
+  visibleUnder?: string;
+}
+
+/** The serialisable match data of every item, for `NavCurrentScope`. */
+export function navMatches(sections: readonly NavSection[]): NavMatch[] {
+  return sections.flatMap((section) => section.items.map(navMatch));
+}
+
+/** The match data of one item, for `ShellNavLink`. */
+export function navMatch(item: NavItem): NavMatch {
+  return { id: item.id, path: item.match ?? item.href, ...(item.exact ? { exact: true } : {}) };
 }
 
 /** Translated by the caller. */

@@ -18,22 +18,12 @@ export type NavTranslate = (key: string) => string;
 export interface NavModelInput {
   t: NavTranslate;
   user: Pick<MeUser, 'platformRole'>;
-  /** Locale-less current path (`/app/w/w1/members`); a query or hash is ignored. */
-  pathname: string;
   workspaces: MyWorkspace[];
-  /** The workspace in the URL (`/app/w/{wid}`), if any. */
-  currentWid: string | null;
-  /** Prefixes every `href` (`/fr/app`): the shell renders plain links. */
+  /** Prefixes every `href` and `match` (`/fr/app`), the form of the shell's live path. */
   locale: string;
 }
 
 type ItemSpec = Omit<NavItem, 'current'>;
-
-/** `current` from the locale-less path: exact match, or the item's path and below. */
-function isCurrent(pathname: string, href: string, exact = false): boolean {
-  if (exact) return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
 
 /** The `{wid}` of a `/app/w/{wid}/...` path. */
 export function workspaceIdFromPath(pathname: string): string | null {
@@ -42,25 +32,20 @@ export function workspaceIdFromPath(pathname: string): string | null {
 
 /**
  * The shell navigation (spec §5, PRD §9.1) built from the routes that exist today and the user's
- * role. Pure: `href`s are locale-prefixed, `current` is computed from the locale-less `pathname`.
+ * role. Pure and path-independent: the layout stays mounted across client navigations, so the
+ * current item (longest `match`) and the workspace section shown (`visibleUnder`) are derived on
+ * the client from the live path (`ShellPathProvider`). `href`s and matches are locale-prefixed.
  *
  * PRD §9.1 order; future items are added by their owning sub-project and not rendered before:
  * Dashboard · Cours (SP3) · Étudiants (SP4) · Sessions (SP5) · Messages (SP8) · Notifications (SP9)
  * · Espaces · Paramètres.
  */
-export function buildNavModel({
-  t,
-  user,
-  pathname: rawPathname,
-  workspaces,
-  currentWid,
-  locale,
-}: NavModelInput): NavSection[] {
-  const pathname = rawPathname.replace(/[?#].*$/, '') || '/';
-  const make = (
-    spec: ItemSpec,
-    current = isCurrent(pathname, spec.href, spec.exact === true),
-  ): NavItem => ({ ...spec, href: `/${locale}${spec.href}`, current });
+export function buildNavModel({ t, user, workspaces, locale }: NavModelInput): NavSection[] {
+  const make = (spec: ItemSpec): NavItem => ({
+    ...spec,
+    href: `/${locale}${spec.href}`,
+    ...(spec.match ? { match: `/${locale}${spec.match}` } : {}),
+  });
 
   const sections: NavSection[] = [
     {
@@ -80,43 +65,41 @@ export function buildNavModel({
           label: t('nav.workspaces'),
           icon: Building2,
         }),
-        make(
-          {
-            id: 'settings',
-            href: '/app/settings/profile',
-            label: t('nav.settings'),
-            icon: Settings,
-          },
-          isCurrent(pathname, '/app/settings') && !isCurrent(pathname, '/app/settings/workspaces'),
-        ),
+        // Every settings page except Espaces (a longer, so winning, match).
+        make({
+          id: 'settings',
+          href: '/app/settings/profile',
+          match: '/app/settings',
+          label: t('nav.settings'),
+          icon: Settings,
+        }),
       ],
     },
   ];
 
-  const current = currentWid
-    ? workspaces.find((membership) => membership.workspace.id === currentWid)
-    : undefined;
-  if (current) {
-    const base = `/app/w/${current.workspace.id}`;
+  // One section per workspace, shown only inside it (`/app/w/{wid}`).
+  for (const { workspace } of workspaces) {
+    const base = `/app/w/${workspace.id}`;
     sections.push({
-      id: 'workspace',
-      label: current.workspace.name,
+      id: `workspace-${workspace.id}`,
+      label: workspace.name,
+      visibleUnder: `/${locale}${base}`,
       items: [
         make({
-          id: 'workspace-settings',
+          id: `workspace-${workspace.id}-settings`,
           href: base,
           label: t('workspace.navSettings'),
           icon: SlidersHorizontal,
           exact: true,
         }),
         make({
-          id: 'workspace-members',
+          id: `workspace-${workspace.id}-members`,
           href: `${base}/members`,
           label: t('workspace.navMembers'),
           icon: Users,
         }),
         make({
-          id: 'workspace-audit',
+          id: `workspace-${workspace.id}-audit`,
           href: `${base}/audit-log`,
           label: t('workspace.navAudit'),
           icon: ScrollText,

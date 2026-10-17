@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { cn } from '../cn';
 import { MoreSheet } from './more-sheet';
-import { renderNavIcon, type NavSection, type ShellLabels } from './nav';
+import { ShellNavLink } from './current-path';
+import { navMatch, renderNavIcon, type NavSection, type ShellLabels } from './nav';
 import { NavList } from './nav-list';
 
 /** Items of the first section shown in the bar; everything else goes to the "More" sheet. */
@@ -40,14 +41,15 @@ export function BottomNav({ sections, labels, moreSheetExtra }: BottomNavProps) 
       <ul className="grid auto-cols-fr grid-flow-col">
         {shown.map((item) => (
           <li key={item.id}>
-            <a
+            <ShellNavLink
+              match={navMatch(item)}
               href={item.href}
-              aria-current={item.current ? 'page' : undefined}
+              fallbackCurrent={item.current === true}
               className={itemClasses}
             >
               {renderNavIcon(item.icon)}
               <span className="max-w-full truncate">{item.label}</span>
-            </a>
+            </ShellNavLink>
           </li>
         ))}
         {hasMore ? (

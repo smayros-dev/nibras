@@ -3,20 +3,19 @@
 import type { MyWorkspace } from '@tt/contracts';
 import { Badge, DropdownMenu, VisuallyHidden } from '@tt/ui';
 import { ChevronDown } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
-import { usePathname } from '../i18n/navigation';
-import { hardNavigate } from '../lib/hard-navigate';
+import { useTranslations } from 'next-intl';
+import { usePathname, useRouter } from '../i18n/navigation';
 import { workspaceIdFromPath } from '../lib/navigation';
 
 /**
  * PRD §9.1 *[Sélecteur d'espace ▾]*: the current workspace (from the URL `/app/w/[wid]`, else the
  * first) with its type badge; the menu lists every workspace and navigates to the chosen one (a
- * full navigation, so the layout's nav model follows; see `hardNavigate`).
+ * client navigation: the shell derives the workspace section from the live path).
  * The trigger is named "Espace actuel <name> <type>" (visible text included, WCAG 2.5.3).
  */
 export function WorkspaceSwitcher({ workspaces }: { workspaces: MyWorkspace[] }) {
   const t = useTranslations();
-  const locale = useLocale();
+  const router = useRouter();
   const pathname = usePathname();
   if (workspaces.length === 0) return null;
   const currentId = workspaceIdFromPath(pathname);
@@ -43,7 +42,7 @@ export function WorkspaceSwitcher({ workspaces }: { workspaces: MyWorkspace[] })
         <DropdownMenu.Label>{t('workspace.switcherLabel')}</DropdownMenu.Label>
         <DropdownMenu.RadioGroup
           value={currentId ?? ''}
-          onValueChange={(wid) => hardNavigate(`/${locale}/app/w/${encodeURIComponent(wid)}`)}
+          onValueChange={(wid) => router.push(`/app/w/${encodeURIComponent(wid)}`)}
         >
           {workspaces.map((m) => (
             <DropdownMenu.RadioItem key={m.workspace.id} value={m.workspace.id}>
