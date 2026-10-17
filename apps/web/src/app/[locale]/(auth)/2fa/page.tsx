@@ -68,7 +68,7 @@ export default function TwoFactorPage() {
     setBusy(false);
     if (error) {
       const body = error as unknown;
-      const mapped = issuesToFieldErrors(body);
+      const mapped = issuesToFieldErrors(t, body);
       if (Object.keys(mapped).length > 0) {
         setFieldErrors(mapped);
       } else {

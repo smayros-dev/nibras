@@ -71,6 +71,22 @@
     "CANNOT_SUSPEND_SUPER_ADMIN": "Un super-administrateur ne peut pas être suspendu.",
     "TENANT_CONTEXT_MISSING": "Une erreur interne est survenue. Veuillez réessayer."
   },
+  "validation": {
+    "invalid": "Valeur invalide.",
+    "required": "Ce champ est obligatoire.",
+    "too_small_string": "{min, plural, one {Minimum {min} caractère.} other {Minimum {min} caractères.}}",
+    "too_small_number": "Valeur minimale : {min}.",
+    "too_small_array": "{min, plural, one {Sélectionnez au moins {min} élément.} other {Sélectionnez au moins {min} éléments.}}",
+    "too_big_string": "{max, plural, one {Maximum {max} caractère.} other {Maximum {max} caractères.}}",
+    "too_big_number": "Valeur maximale : {max}.",
+    "too_big_array": "{max, plural, one {Sélectionnez au plus {max} élément.} other {Sélectionnez au plus {max} éléments.}}",
+    "invalid_format_email": "Adresse email invalide.",
+    "invalid_format_url": "Adresse web invalide.",
+    "invalid_format_uuid": "Identifiant invalide.",
+    "invalid_format_date": "Date invalide.",
+    "invalid_format_regex": "Format invalide.",
+    "invalid_value": "Cette valeur n’est pas autorisée."
+  },
   "health": {
     "ok": "Service opérationnel"
   },

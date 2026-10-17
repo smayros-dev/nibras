@@ -1,15 +1,10 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
-import type { ApiErrorBody, ErrorCode } from '@tt/contracts';
+import type { ApiErrorBody, ErrorCode, ValidationIssue } from '@tt/contracts';
 import type { Request, Response } from 'express';
 import { ApiError } from './api-error';
 import { RequestContext } from './request-context';
 import { REQUEST_ID_HEADER, requestIdOf } from './request-id.middleware';
 import { ZodValidationException } from './zod-validation.pipe';
-
-interface ValidationIssue {
-  path: PropertyKey[];
-  message: string;
-}
 
 type Rendered = { status: number; body: Omit<ApiErrorBody, 'requestId'> };
 
@@ -26,7 +21,7 @@ const CLIENT_ERRORS: Record<number, { code: ErrorCode; message: string }> = {
 /**
  * Renders every error as `{ code, message, details?, requestId }`:
  * - `ApiError` → its own status, code, message and details;
- * - zod validation → 422 `VALIDATION_FAILED` with `details.issues[{ path, message }]`;
+ * - zod validation → 422 `VALIDATION_FAILED` with `details.issues[{ path, message, code, … }]`;
  * - other 400s (malformed body, parse pipes) → 422 `VALIDATION_FAILED`;
  * - 401/403/404/413/415/429 → their code; any other 4xx → 400 `VALIDATION_FAILED`;
  * - 503 → `SERVICE_UNAVAILABLE`; anything else → 500 `INTERNAL_ERROR`.
@@ -129,12 +124,64 @@ function validationFailed(message: string, details?: { issues: ValidationIssue[]
   return { status: 422, body };
 }
 
-/** Keeps only `path` and `message` from zod issues (no received values echoed back). */
+/** Raw zod 4 issue fields the filter may read; anything else (`input`, `values`, …) is dropped. */
+interface RawZodIssue {
+  path?: PropertyKey[];
+  message?: string;
+  code?: unknown;
+  minimum?: unknown;
+  maximum?: unknown;
+  origin?: unknown;
+  expected?: unknown;
+  format?: unknown;
+}
+
+/**
+ * Whitelists zod issue fields: `path`, `message`, `code`, and per code the bounds or type/format
+ * names (`too_small` → `minimum` + `origin`, `too_big` → `maximum` + `origin`, `invalid_type` →
+ * `expected`, `invalid_format` → `format`). Received values are never echoed back.
+ */
 function zodIssues(zodError: unknown): ValidationIssue[] {
   const issues = (zodError as { issues?: unknown } | undefined)?.issues;
   if (!Array.isArray(issues)) return [];
-  return issues.map((issue: { path?: PropertyKey[]; message?: string }) => ({
-    path: issue.path ?? [],
-    message: issue.message ?? 'Invalid value',
-  }));
+  return issues.map((issue: RawZodIssue) => {
+    const out: ValidationIssue = {
+      path: (issue.path ?? []).map((key) => (typeof key === 'symbol' ? String(key) : key)),
+      message: issue.message ?? 'Invalid value',
+    };
+    if (typeof issue.code !== 'string') return out;
+    out.code = issue.code;
+    switch (issue.code) {
+      case 'too_small':
+        setBound(out, 'minimum', issue.minimum);
+        setName(out, 'origin', issue.origin);
+        break;
+      case 'too_big':
+        setBound(out, 'maximum', issue.maximum);
+        setName(out, 'origin', issue.origin);
+        break;
+      case 'invalid_type':
+        setName(out, 'expected', issue.expected);
+        break;
+      case 'invalid_format':
+        setName(out, 'format', issue.format);
+        break;
+    }
+    return out;
+  });
+}
+
+/** A schema bound (number or bigint) as a finite JSON number; anything else is dropped. */
+function setBound(out: ValidationIssue, key: 'minimum' | 'maximum', value: unknown): void {
+  const n = typeof value === 'bigint' ? Number(value) : value;
+  if (typeof n === 'number' && Number.isFinite(n)) out[key] = n;
+}
+
+/** A schema-defined name (type, origin, format): a short identifier, never user input. */
+function setName(
+  out: ValidationIssue,
+  key: 'origin' | 'expected' | 'format',
+  value: unknown,
+): void {
+  if (typeof value === 'string' && /^[A-Za-z0-9_]{1,32}$/.test(value)) out[key] = value;
 }

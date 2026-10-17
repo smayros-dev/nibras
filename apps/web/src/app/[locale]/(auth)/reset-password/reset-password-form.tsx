@@ -42,7 +42,7 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
         setTokenInvalid(true);
         return;
       }
-      const mapped = issuesToFieldErrors(body);
+      const mapped = issuesToFieldErrors(t, body);
       if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
       else setFormError(apiErrorMessage(t, body));
       return;

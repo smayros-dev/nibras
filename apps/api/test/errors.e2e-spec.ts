@@ -111,7 +111,13 @@ describe('error envelope', () => {
   it('returns 422 VALIDATION_FAILED with field paths', async () => {
     const res = await http.post('/api/v1/__test/echo').send({ name: 'a' }).expect(422);
     expect(res.body.code).toBe('VALIDATION_FAILED');
-    expect(res.body.details.issues[0].path).toEqual(['name']);
+    expect(res.body.details.issues[0]).toEqual({
+      path: ['name'],
+      message: expect.any(String),
+      code: 'too_small',
+      minimum: 2,
+      origin: 'string',
+    });
     expect(ApiErrorBodySchema.safeParse(res.body).success).toBe(true);
   });
 

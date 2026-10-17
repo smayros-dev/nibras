@@ -40,7 +40,7 @@ export function VerificationPanel({ initialPhoneE164 }: { initialPhoneE164: stri
     const { error } = await api.POST('/me/phone/request-otp', { body: { phoneE164 } });
     setBusy(false);
     if (error) {
-      const mapped = issuesToFieldErrors(error as unknown);
+      const mapped = issuesToFieldErrors(t, error as unknown);
       if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
       else setFormError(apiErrorMessage(t, error as unknown));
       return;
@@ -55,7 +55,7 @@ export function VerificationPanel({ initialPhoneE164 }: { initialPhoneE164: stri
     const { error } = await api.POST('/me/phone/verify-otp', { body: { otpCode } });
     setBusy(false);
     if (error) {
-      const mapped = issuesToFieldErrors(error as unknown);
+      const mapped = issuesToFieldErrors(t, error as unknown);
       if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
       else setFormError(apiErrorMessage(t, error as unknown));
       return;

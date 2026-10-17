@@ -71,6 +71,22 @@
     "CANNOT_SUSPEND_SUPER_ADMIN": "A super administrator cannot be suspended.",
     "TENANT_CONTEXT_MISSING": "An internal error occurred. Please try again."
   },
+  "validation": {
+    "invalid": "Invalid value.",
+    "required": "This field is required.",
+    "too_small_string": "{min, plural, one {Minimum {min} character.} other {Minimum {min} characters.}}",
+    "too_small_number": "Minimum value: {min}.",
+    "too_small_array": "{min, plural, one {Select at least {min} item.} other {Select at least {min} items.}}",
+    "too_big_string": "{max, plural, one {Maximum {max} character.} other {Maximum {max} characters.}}",
+    "too_big_number": "Maximum value: {max}.",
+    "too_big_array": "{max, plural, one {Select at most {max} item.} other {Select at most {max} items.}}",
+    "invalid_format_email": "Invalid email address.",
+    "invalid_format_url": "Invalid web address.",
+    "invalid_format_uuid": "Invalid identifier.",
+    "invalid_format_date": "Invalid date.",
+    "invalid_format_regex": "Invalid format.",
+    "invalid_value": "This value is not allowed."
+  },
   "health": {
     "ok": "Service is up"
   },

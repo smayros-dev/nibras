@@ -97,7 +97,7 @@ export function WorkspaceSettingsPanel({
     );
     if (error) {
       setBusy(false);
-      const mapped = issuesToFieldErrors(error as unknown);
+      const mapped = issuesToFieldErrors(t, error as unknown);
       if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
       else setFormError(apiErrorMessage(t, error as unknown));
       return;
@@ -121,7 +121,7 @@ export function WorkspaceSettingsPanel({
     );
     setBusy(false);
     if (settingsError) {
-      const mapped = issuesToFieldErrors(settingsError as unknown);
+      const mapped = issuesToFieldErrors(t, settingsError as unknown);
       if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
       else setFormError(apiErrorMessage(t, settingsError as unknown));
       return;

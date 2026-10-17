@@ -64,7 +64,7 @@ export function ProfileForm({ user }: { user: MeUser }) {
     );
     setBusy(false);
     if (error) {
-      const mapped = issuesToFieldErrors(error as unknown);
+      const mapped = issuesToFieldErrors(t, error as unknown);
       if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
       else setFormError(apiErrorMessage(t, error as unknown));
       return;

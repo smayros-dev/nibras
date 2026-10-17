@@ -40,7 +40,7 @@ export function LoginForm({ next }: { next: string | null }) {
     setBusy(false);
     if (error) {
       const body = error as unknown;
-      const mapped = issuesToFieldErrors(body);
+      const mapped = issuesToFieldErrors(t, body);
       if (Object.keys(mapped).length > 0) {
         setFieldErrors(mapped);
       } else {
