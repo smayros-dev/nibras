@@ -1,21 +1,43 @@
 /*
- * @tt/ui design system entry: Tailwind 4 + the shared @tt/config preset.
+ * @tt/ui design system entry: Tailwind 4 + the design tokens (`tokens.css`).
  * Direction comes from `<html dir>`; use logical properties only (`padding-inline`,
  * `margin-inline-start`, `ps-*`/`me-*`...), never left/right.
  */
 @import 'tailwindcss';
-@config '@tt/config/tailwind/preset';
+@import './tokens.css';
 /* Scan this package's components for class names (consumers do not scan node_modules). */
 @source '.';
 
 @layer base {
   html {
+    color-scheme: light;
     -webkit-text-size-adjust: 100%;
+    font-family: var(--font-sans);
   }
 
+  html[data-theme='dark'] {
+    color-scheme: dark;
+  }
+
+  /* No inline padding here: the shell's content container owns the 16px gutter. */
   body {
     margin: 0;
-    padding-inline: 16px;
+    background: var(--color-bg);
+    color: var(--color-fg);
     overflow-wrap: anywhere;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  /* PRD §14.5 floor for native controls; components enforce their own `min-h-11`. */
+  @media (pointer: coarse) {
+    button,
+    [role='button'],
+    select {
+      min-height: var(--size-touch);
+    }
   }
 }

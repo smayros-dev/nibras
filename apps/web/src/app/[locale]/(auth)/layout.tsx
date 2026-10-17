@@ -16,5 +16,5 @@ export default async function AuthLayout({
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
 
-  return <div className="flex min-h-dvh items-center justify-center py-8">{children}</div>;
+  return <div className="flex min-h-dvh items-center justify-center px-4 py-8">{children}</div>;
 }

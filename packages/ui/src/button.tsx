@@ -9,10 +9,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-brand-600',
+  primary: 'bg-primary text-primary-fg hover:bg-primary-hover focus-visible:outline-focus',
   secondary:
-    'border border-brand-600 bg-white text-brand-700 hover:bg-brand-50 focus-visible:outline-brand-600',
-  danger: 'bg-danger text-white hover:opacity-90 focus-visible:outline-danger',
+    'border border-primary bg-surface text-primary hover:bg-primary-subtle focus-visible:outline-focus',
+  danger: 'bg-danger text-danger-fg hover:bg-danger-hover focus-visible:outline-focus',
 };
 
 // `px-*` compiles to `padding-inline` in Tailwind 4: mirrored automatically in RTL.

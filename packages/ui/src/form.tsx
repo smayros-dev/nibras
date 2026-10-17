@@ -1,7 +1,7 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
 
 const CONTROL_CLASSES =
-  'w-full rounded-md border border-gray-300 px-3 py-2 bg-white focus-visible:outline-2 focus-visible:outline-brand-600';
+  'w-full rounded-md border border-border-strong px-3 py-2 bg-surface text-fg focus-visible:outline-2 focus-visible:outline-focus';
 
 /** Label + control + optional error. The error is a live region (`role="alert"`). */
 export function Field({
@@ -67,7 +67,7 @@ export function Alert({
   className?: string;
 }) {
   const variantClasses =
-    variant === 'error' ? 'border-danger text-danger' : 'border-brand-300 text-brand-800';
+    variant === 'error' ? 'border-danger text-danger' : 'border-info text-info';
   return (
     <p
       role="alert"

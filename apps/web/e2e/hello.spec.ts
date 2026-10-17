@@ -75,21 +75,22 @@ test('locale switcher keeps the page and flips direction', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 });
 
-test('mobile: 16px inline padding and no horizontal scroll at 360px', async ({ page }) => {
+test('mobile: 16px inline gutter and no horizontal scroll at 360px', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 });
   for (const locale of ['fr', 'ar', 'en']) {
     await page.goto(`/${locale}`);
     const layout = await page.evaluate(() => {
-      const body = getComputedStyle(document.body);
+      // The gutter lives on the shell's content container, not on <body> (SP1.5 T1).
+      const main = document.getElementById('main')!.getBoundingClientRect();
       return {
-        paddingInlineStart: body.paddingInlineStart,
-        paddingInlineEnd: body.paddingInlineEnd,
+        gutterStart: main.left,
+        gutterEnd: document.documentElement.clientWidth - main.right,
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
       };
     });
-    expect(layout.paddingInlineStart).toBe('16px');
-    expect(layout.paddingInlineEnd).toBe('16px');
+    expect(layout.gutterStart).toBe(16);
+    expect(layout.gutterEnd).toBe(16);
     expect(layout.scrollWidth, `horizontal overflow in ${locale}`).toBeLessThanOrEqual(
       layout.clientWidth,
     );

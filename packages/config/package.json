@@ -7,7 +7,6 @@
     "./tsconfig/*": "./tsconfig/*.json",
     "./eslint/*": "./eslint/*.mjs",
     "./vitest/base": "./vitest/base.ts",
-    "./tailwind/preset": "./tailwind/preset.ts",
     "./vitest/test-env": {
       "types": "./vitest/test-env.d.mts",
       "default": "./vitest/test-env.mjs"
@@ -24,7 +23,6 @@
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",
-    "tailwindcss": "^4.3.3",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.71.1",
     "vitest": "^3.2.7"

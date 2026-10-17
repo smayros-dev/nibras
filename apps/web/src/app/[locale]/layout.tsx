@@ -1,6 +1,7 @@
 import { dirOf } from '@tt/contracts';
 import { getMessages } from '@tt/i18n';
-import type { Metadata } from 'next';
+import { BRAND } from '@tt/ui';
+import type { Metadata, Viewport } from 'next';
 import { hasLocale } from 'next-intl';
 import { getTimeZone, getTranslations, setRequestLocale } from 'next-intl/server';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
@@ -22,6 +23,15 @@ type Params = Promise<{ locale: string }>;
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
+
+/** `<meta name="color-scheme">` and the per-scheme `theme-color` (browser chrome, PWA). */
+export const viewport: Viewport = {
+  colorScheme: 'light dark',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: BRAND.themeColor },
+    { media: '(prefers-color-scheme: dark)', color: BRAND.darkThemeColor },
+  ],
+};
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { locale } = await params;
@@ -45,7 +55,8 @@ export default async function LocaleLayout({
   const timeZone = await getTimeZone();
 
   return (
-    <html lang={locale} dir={dirOf(locale)}>
+    // `suppressHydrationWarning`: the theme script sets `data-theme` on <html> before hydration.
+    <html lang={locale} dir={dirOf(locale)} suppressHydrationWarning>
       <body className={plexArabic.className}>
         <IntlProvider locale={locale} messages={getMessages(locale)} timeZone={timeZone}>
           {children}
