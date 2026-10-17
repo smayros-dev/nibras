@@ -9,6 +9,10 @@
   "nav": {
     "skipToContent": "Skip to content",
     "primaryNav": "Primary navigation",
+    "secondaryNav": "Secondary navigation",
+    "more": "More",
+    "closeMenu": "Close menu",
+    "brandHome": "Home",
     "dashboard": "Dashboard",
     "courses": "Courses",
     "students": "Students",

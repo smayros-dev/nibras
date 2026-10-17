@@ -9,6 +9,10 @@
   "nav": {
     "skipToContent": "تخطَّ إلى المحتوى",
     "primaryNav": "التنقل الرئيسي",
+    "secondaryNav": "التنقل الثانوي",
+    "more": "المزيد",
+    "closeMenu": "إغلاق القائمة",
+    "brandHome": "الصفحة الرئيسية",
     "dashboard": "لوحة التحكم",
     "courses": "الدروس",
     "students": "الطلاب",

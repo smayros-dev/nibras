@@ -5,7 +5,7 @@ import {
   type CurrentConsentType,
   type MyWorkspace,
 } from '@tt/contracts';
-import { AppShell, type NavItem } from '@tt/ui';
+import { AppShell, type NavSection } from '@tt/ui';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound, redirect } from 'next/navigation';
@@ -17,8 +17,6 @@ import { routing } from '../../../i18n/routing';
 import { appGateRedirect } from '../../../lib/auth-redirects';
 import { getSession } from '../../../lib/session';
 import { asApiResult, serverApi } from '../../../lib/api';
-
-const NAV_KEYS = ['dashboard', 'courses', 'sessions', 'messages', 'settings'] as const;
 
 /** Current version of a consent the ConsentGate must show and grant (server-side env override). */
 function consentVersion(type: CurrentConsentType): string {
@@ -50,10 +48,21 @@ export default async function AppLayout({
   if (gate) redirect(`/${locale}/${gate}`);
 
   const t = await getTranslations();
-  const nav: NavItem[] = NAV_KEYS.map((key) => ({
-    href: `/${locale}/${key}`,
-    label: t(`nav.${key}`),
-  }));
+  // Temporary single-section nav of the routes that exist; T8 replaces it with the nav model.
+  const sections: NavSection[] = [
+    {
+      id: 'main',
+      items: [
+        { id: 'dashboard', href: `/${locale}/app`, label: t('nav.dashboard'), icon: null },
+        {
+          id: 'settings',
+          href: `/${locale}/app/settings/profile`,
+          label: t('nav.settings'),
+          icon: null,
+        },
+      ],
+    },
+  ];
   const { data: workspaces } = asApiResult<MyWorkspace[]>(
     await (await serverApi()).GET('/me/workspaces'),
   );
@@ -62,9 +71,17 @@ export default async function AppLayout({
     <AppShell
       locale={locale}
       dir={dirOf(locale)}
-      nav={nav}
-      labels={{ skipToContent: t('nav.skipToContent'), primaryNav: t('nav.primaryNav') }}
-      headerSlot={<WorkspaceSwitcher workspaces={workspaces ?? []} />}
+      brand={{ name: t('common.appName'), href: `/${locale}/app` }}
+      sections={sections}
+      labels={{
+        skipToContent: t('nav.skipToContent'),
+        primaryNav: t('nav.primaryNav'),
+        secondaryNav: t('nav.secondaryNav'),
+        more: t('nav.more'),
+        closeMenu: t('nav.closeMenu'),
+        brandHome: t('nav.brandHome'),
+      }}
+      topBarStart={<WorkspaceSwitcher workspaces={workspaces ?? []} />}
     >
       <TimezoneBanner timezone={user.timezone} />
       {children}
