@@ -295,7 +295,10 @@
       "terms": "Terms of use",
       "privacy": "Privacy policy",
       "coc": "Code of conduct",
-      "accept": "Accept and continue"
+      "accept": "Accept and continue",
+      "readTerms": "Read the terms of use",
+      "readPrivacy": "Read the privacy policy",
+      "readCoc": "Read the code of conduct"
     },
     "resume": {
       "loading": "Resuming your session…"
@@ -553,6 +556,7 @@
     "category_MINOR_SAFETY": "Minor safety",
     "category_OTHER": "Other",
     "description": "Description",
+    "descriptionCounter": "{count}/{min} characters minimum",
     "submit": "Send the report",
     "sent": "Report sent.",
     "status_OPEN": "Open",
@@ -681,7 +685,20 @@
   },
   "legal": {
     "termsTitle": "Terms of use",
-    "privacyTitle": "Privacy policy"
+    "privacyTitle": "Privacy policy",
+    "cocTitle": "Code of conduct",
+    "version": "Version {version}",
+    "placeholderTitle": "Text to be provided by the publisher",
+    "placeholder": "This provisional text will be replaced by the final version before the public launch.",
+    "terms": {
+      "body": "These terms govern the use of {appName} by teachers, students and their parents.\n\nThey set out everyone’s rights and obligations, the rules for publishing courses and live sessions, and the conditions under which an account may be suspended.\n\nThe final version will be published here."
+    },
+    "privacy": {
+      "body": "This policy explains which data {appName} collects, why, how long it is kept and how to exercise your rights.\n\nIt covers in particular the data of minor students and their parents’ consent.\n\nThe final version will be published here."
+    },
+    "codeOfConduct": {
+      "body": "This code of conduct sets the rules of mutual respect in the courses, live sessions and messages of {appName}.\n\nAny breach can be reported from the app and may lead to the suspension of an account.\n\nThe final version will be published here."
+    }
   },
   "landing": {
     "eyebrow": "For independent teachers and schools",

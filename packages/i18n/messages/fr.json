@@ -295,7 +295,10 @@
       "terms": "Conditions générales d’utilisation",
       "privacy": "Politique de confidentialité",
       "coc": "Code de conduite",
-      "accept": "Accepter et continuer"
+      "accept": "Accepter et continuer",
+      "readTerms": "Lire les conditions d’utilisation",
+      "readPrivacy": "Lire la politique de confidentialité",
+      "readCoc": "Lire le code de conduite"
     },
     "resume": {
       "loading": "Reprise de votre session…"
@@ -553,6 +556,7 @@
     "category_MINOR_SAFETY": "Sécurité d’un mineur",
     "category_OTHER": "Autre",
     "description": "Description",
+    "descriptionCounter": "{count}/{min} caractères minimum",
     "submit": "Envoyer le signalement",
     "sent": "Signalement envoyé.",
     "status_OPEN": "Ouvert",
@@ -681,7 +685,20 @@
   },
   "legal": {
     "termsTitle": "Conditions d’utilisation",
-    "privacyTitle": "Politique de confidentialité"
+    "privacyTitle": "Politique de confidentialité",
+    "cocTitle": "Code de conduite",
+    "version": "Version {version}",
+    "placeholderTitle": "Texte à fournir par l’éditeur",
+    "placeholder": "Ce texte provisoire sera remplacé par la version définitive avant l’ouverture au public.",
+    "terms": {
+      "body": "Les présentes conditions encadrent l’utilisation de {appName} par les professeurs, les élèves et leurs parents.\n\nElles précisent les droits et obligations de chacun, les règles de publication des cours et des sessions en direct, ainsi que les conditions de suspension d’un compte.\n\nLa version définitive sera publiée ici."
+    },
+    "privacy": {
+      "body": "Cette politique explique quelles données {appName} collecte, pourquoi, combien de temps elles sont conservées et comment exercer vos droits.\n\nElle couvre en particulier les données des élèves mineurs et le consentement de leurs parents.\n\nLa version définitive sera publiée ici."
+    },
+    "codeOfConduct": {
+      "body": "Ce code de conduite fixe les règles de respect mutuel dans les cours, les sessions en direct et les messages de {appName}.\n\nTout manquement peut être signalé depuis l’application et peut conduire à la suspension d’un compte.\n\nLa version définitive sera publiée ici."
+    }
   },
   "landing": {
     "eyebrow": "Pour les professeurs indépendants et les écoles",

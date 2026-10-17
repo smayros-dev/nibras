@@ -21,10 +21,13 @@ import { WorkspaceSwitcher } from './workspace-switcher';
 export async function AppFrame({
   locale,
   user,
+  inert = false,
   children,
 }: {
   locale: Locale;
   user: MeUser;
+  /** The whole frame is inert while a blocking dialog (the consent gate) is open next to it. */
+  inert?: boolean;
   children: ReactNode;
 }) {
   const t = await getTranslations();
@@ -42,6 +45,7 @@ export async function AppFrame({
       <AppShell
         locale={locale}
         dir={dirOf(locale)}
+        inert={inert}
         brand={{ name: t('common.appName'), href: `/${locale}/app` }}
         sections={sections}
         labels={{

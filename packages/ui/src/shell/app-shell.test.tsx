@@ -79,6 +79,27 @@ describe('AppShell', () => {
     );
   });
 
+  it('makes the whole frame inert on request (a blocking dialog is open), not otherwise', () => {
+    const { container, rerender } = renderShell();
+    const root = container.querySelector('#main')!.closest('[dir]')!;
+    expect(root).not.toHaveAttribute('inert');
+    rerender(
+      <AppShell
+        dir="ltr"
+        locale="fr"
+        brand={{ name: 'Nibras', href: '/fr/app' }}
+        sections={sections}
+        labels={labels}
+        inert
+      >
+        <h1>Membres</h1>
+      </AppShell>,
+    );
+    const inertRoot = container.querySelector('#main')!.closest('[dir]')!;
+    expect(inertRoot).toHaveAttribute('inert');
+    expect(inertRoot.contains(screen.getByRole('banner', { hidden: true }))).toBe(true);
+  });
+
   it('adds no unnamed complementary landmark and clears the bottom nav plus the safe area', () => {
     renderShell();
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();

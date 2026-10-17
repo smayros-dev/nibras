@@ -171,10 +171,21 @@ test('consent gate blocks the app after a version bump until accepted', async ({
   await uiLogin(page, locale, user);
   // The gate lists the current (bumped) TERMS version the user must accept.
   await expect(page.getByText(TEST_CONSENT_TERMS_VERSION)).toBeVisible();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  const gate = page.getByRole('dialog');
+  await expect(gate).toBeVisible();
+  // Each pending document links to its (placeholder) legal page, opened in a new tab.
+  await expect(
+    gate.getByRole('link', { name: t(locale, 'auth.consent.readTerms') }),
+  ).toHaveAttribute('href', /\/legal\/terms$/);
+  // The whole shell behind the gate is inert, and the gate cannot be dismissed.
+  const frame = page.locator('div[inert]').filter({ has: page.locator('#main') });
+  await expect(frame).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(gate).toBeVisible();
 
   await page.getByRole('button', { name: t(locale, 'auth.consent.accept') }).click();
-  await expect(page.getByRole('dialog')).toBeHidden();
+  await expect(gate).toBeHidden();
+  await expect(frame).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 1 })).toContainText(user.firstName);
 });
 

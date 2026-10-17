@@ -22,7 +22,7 @@ function consentVersion(type: CurrentConsentType): string {
 /**
  * Authenticated app frame. Gate order mirrors `AccountGatesGuard`: no session -> login;
  * unverified email -> verify-email; mandatory 2FA setup -> 2fa/setup; pending consents are
- * rendered in place by the ConsentGate (blocking dialog, grants re-run this layout).
+ * rendered by the ConsentGate next to an inert frame (blocking dialog, grants re-run this layout).
  */
 export default async function AppLayout({
   children,
@@ -53,11 +53,16 @@ export default async function AppLayout({
   const gate = appGateRedirect(user);
   if (gate) redirect(`/${locale}/${gate}`);
 
+  const gated = user.pendingConsents.length > 0;
+  // The gate is a sibling after the frame, which is inert while it is open: the SSR'd frame is
+  // unreachable before the dialog hydrates, and Radix also hides it once it has.
   return (
-    <AppFrame locale={locale} user={user}>
-      <TimezoneBanner timezone={user.timezone} />
-      {children}
-      {user.pendingConsents.length > 0 ? (
+    <>
+      <AppFrame locale={locale} user={user} inert={gated}>
+        <TimezoneBanner timezone={user.timezone} />
+        {children}
+      </AppFrame>
+      {gated ? (
         <ConsentGate
           pending={user.pendingConsents}
           versions={Object.fromEntries(
@@ -65,6 +70,6 @@ export default async function AppLayout({
           )}
         />
       ) : null}
-    </AppFrame>
+    </>
   );
 }

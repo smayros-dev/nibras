@@ -161,6 +161,12 @@ test.describe('workspaces (plan Task 21)', () => {
     await expect(dialog.getByRole('status')).toHaveText(t(locale, 'abuse.sent'), {
       timeout: 20_000,
     });
+    // The success state closes from its footer button (the icon close button comes last).
+    await dialog
+      .getByRole('button', { name: t(locale, 'common.close') })
+      .first()
+      .click();
+    await expect(dialog).toBeHidden();
   });
 
   test('a TEACHER sees no role actions on the members page', async ({ page, uiLocale: locale }) => {

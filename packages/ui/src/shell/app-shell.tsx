@@ -17,6 +17,12 @@ export interface AppShellProps {
   topBarEnd?: ReactNode;
   /** Locale, theme and logout in the mobile "More" sheet. */
   moreSheetExtra?: ReactNode;
+  /**
+   * Makes the whole frame (nav, top bar, main) inert while a blocking dialog rendered as a sibling
+   * is open, e.g. the consent gate: no focus, no clicks, hidden from assistive tech, even before
+   * the dialog's own script runs.
+   */
+  inert?: boolean;
   children: ReactNode;
 }
 
@@ -37,6 +43,7 @@ export function AppShell({
   topBarStart,
   topBarEnd,
   moreSheetExtra,
+  inert = false,
   children,
 }: AppShellProps) {
   return (
@@ -44,6 +51,7 @@ export function AppShell({
       <div
         lang={locale}
         dir={dir}
+        inert={inert || undefined}
         className="min-h-dvh bg-bg text-fg lg:grid lg:grid-cols-[4.5rem_1fr] xl:grid-cols-[16rem_1fr]"
       >
         <a
