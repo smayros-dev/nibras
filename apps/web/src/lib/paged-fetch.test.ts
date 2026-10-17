@@ -64,6 +64,39 @@ describe('useAbortableQuery', () => {
     expect(signals[1]?.aborted).toBe(false);
   });
 
+  it('swallows the AbortError of an aborted run: error stays null', async () => {
+    const pending: Deferred<string>[] = [];
+    const run = vi.fn((signal: AbortSignal) => {
+      const d = deferred<string>();
+      // What `fetch` does: an aborted request rejects with a DOMException named AbortError.
+      signal.addEventListener('abort', () =>
+        d.reject(new DOMException('The operation was aborted.', 'AbortError')),
+      );
+      pending.push(d);
+      return d.promise;
+    });
+    const { result, rerender } = renderHook(
+      ({ q }) => useAbortableQuery([q], run, { debounceMs: 300 }),
+      { initialProps: { q: '' } },
+    );
+    rerender({ q: 'a' });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(run).toHaveBeenCalledTimes(2);
+    const aborted = run.mock.calls[0]?.[0];
+    expect(aborted?.aborted).toBe(true);
+    await expect(pending[0]?.promise).rejects.toMatchObject({ name: 'AbortError' });
+    await act(async () => {});
+    expect(result.current.error).toBeNull();
+    // The newer run is still in flight.
+    expect(result.current.loading).toBe(true);
+    await act(async () => {
+      pending[1]?.resolve('ok');
+    });
+    expect(result.current).toMatchObject({ data: 'ok', error: null, loading: false });
+  });
+
   it('ignores a stale result that resolves after a newer one (sequence guard)', async () => {
     const calls: Deferred<string>[] = [];
     // A run that ignores its signal: only the sequence guard can drop the stale value.

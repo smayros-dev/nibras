@@ -1,4 +1,5 @@
-import { appUrl, t, test, toast, uiLogin, expect } from './helpers';
+import { request as playwrightRequest } from '@playwright/test';
+import { apiLogin, appUrl, t, test, toast, uiLogin, expect } from './helpers';
 import { addOrgMember, seedUser } from './helpers/seed';
 import { suspendWorkspaceAsSuperAdmin } from './helpers/super-admin';
 
@@ -106,9 +107,22 @@ test.describe('workspaces (plan Task 21)', () => {
         .getByText(t(locale, 'members.role_ADMIN'), { exact: true }),
     ).toBeVisible();
 
-    // The audit log records workspace.created and the role change with before/after.
+    // The audit log records workspace.created and the role change with before/after, under a
+    // "Date" column, with two-way pagination (a single page here: both buttons disabled).
     await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}/audit-log`);
     await expect(page.getByTestId('audit-workspace.created')).toBeVisible();
+    await expect(
+      page.getByRole('columnheader', { name: t(locale, 'workspace.auditDate'), exact: true }),
+    ).toBeAttached();
+    const pagination = page.getByRole('navigation', {
+      name: t(locale, 'workspace.auditPagination'),
+    });
+    await expect(
+      pagination.getByRole('button', { name: t(locale, 'workspace.auditPrevious') }),
+    ).toBeDisabled();
+    await expect(
+      pagination.getByRole('button', { name: t(locale, 'workspace.auditNext') }),
+    ).toBeDisabled();
     const roleRow = page.getByTestId('audit-member.role_changed').first();
     await expect(roleRow).toBeVisible();
     await expect(roleRow.getByText('TEACHER')).toBeVisible();
@@ -152,19 +166,36 @@ test.describe('workspaces (plan Task 21)', () => {
   test('a TEACHER sees no role actions on the members page', async ({ page, uiLocale: locale }) => {
     const owner = await seedUser({ organization: true, totp: true });
     const teacher = await seedUser();
+    const student = await seedUser();
     addOrgMember(owner.orgWorkspaceId!, teacher.userId, 'TEACHER');
+    // SP1: students join by invitation in SP2 — the seed inserts the membership directly.
+    addOrgMember(owner.orgWorkspaceId!, student.userId, 'STUDENT');
+    // The owner assigns the student to the teacher through the API (`student.assign`).
+    const ctx = await playwrightRequest.newContext({ baseURL: appUrl('') });
+    try {
+      await apiLogin(ctx, owner);
+      const res = await ctx.post(`/api/v1/workspaces/${owner.orgWorkspaceId}/assignments`, {
+        data: { teacherUserId: teacher.userId, studentUserId: student.userId },
+      });
+      if (res.status() !== 201) throw new Error(`assign ${res.status()}: ${await res.text()}`);
+    } finally {
+      await ctx.dispose();
+    }
     await uiLogin(page, locale, teacher);
 
     await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}/members`);
     await expect(page.getByRole('heading', { name: t(locale, 'members.title') })).toBeVisible();
-    // Scope `own`: a teacher lists only his own students (none in SP1), so nothing to act on.
-    await expect(page.getByText(t(locale, 'members.noMatch'))).toBeVisible();
-    await expect(
-      page.getByRole('button', {
-        name: new RegExp(t(locale, 'members.rowActions').replace('{name}', '.+')),
-      }),
-    ).toHaveCount(0);
-    await expect(page.getByRole('menuitemradio')).toHaveCount(0);
+    // Scope `own`: the teacher lists his assigned student; his row menu only reports.
+    await page
+      .getByRole('row')
+      .filter({ hasText: student.email })
+      .getByRole('button', { name: rowActions(locale, `${student.firstName} Ben Ali`) })
+      .click();
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem', { name: t(locale, 'abuse.report') })).toBeVisible();
+    await expect(menu.getByRole('menuitemradio')).toHaveCount(0);
+    await expect(menu.getByRole('menuitem', { name: t(locale, 'members.remove') })).toHaveCount(0);
+    await page.keyboard.press('Escape');
 
     // The settings tab is read-only for him (no save button).
     await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}`);

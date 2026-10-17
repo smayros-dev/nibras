@@ -1,9 +1,9 @@
 'use client';
 
 import {
+  grantFor,
   LOCALES,
   type MemberSummary,
-  type MembershipRole,
   type WorkspaceDetail,
   type WorkspaceSettings,
   type WorkspaceStorage,
@@ -34,9 +34,6 @@ const LANGUAGE_NAMES: Record<(typeof LOCALES)[number], string> = {
   en: 'English',
 };
 
-/** Roles that may edit the workspace (`workspace.settings.manage`); the API stays the authority. */
-const EDITOR_ROLES: readonly MembershipRole[] = ['OWNER', 'ADMIN'];
-
 function formatBytes(value: string): string {
   const bytes = Number(value);
   if (!Number.isFinite(bytes)) return value;
@@ -54,7 +51,10 @@ function formatBytes(value: string): string {
  * Workspace settings (PRD §9.2/§8.2.1): identity (name, country, default locale/time zone,
  * allowPersonalWorkspaces for an ORGANIZATION) and session defaults in one form, the storage
  * card, transfer of ownership (owner, ORGANIZATION only, confirmed in an `AlertDialog`) and
- * deletion (owner, type-the-name confirm). Members other than OWNER/ADMIN see the form read-only.
+ * deletion (owner, type-the-name confirm). Gates come from the §7 matrix (`grantFor`); members
+ * without `workspace.settings.update` see the form read-only. A SUSPENDED/DELETING workspace
+ * refuses every write (423, AC-WS-06): the form stays readable and no write action is offered
+ * (the layout's banner says why). The API stays the authority.
  */
 export function WorkspaceSettingsPanel({
   wid,
@@ -73,8 +73,12 @@ export function WorkspaceSettingsPanel({
   const router = useRouter();
   const { toast } = useToast();
   const isOrg = detail.type === 'ORGANIZATION';
-  const isOwner = detail.myRole === 'OWNER';
-  const canEdit = EDITOR_ROLES.includes(detail.myRole);
+  const writable = detail.status === 'ACTIVE';
+  const grant = { role: detail.myRole, canTeach: detail.myCanTeach, workspaceType: detail.type };
+  const mayEdit = grantFor(grant, 'workspace.settings.update') !== 'none';
+  const canEdit = writable && mayEdit;
+  const canTransfer = writable && isOrg && grantFor(grant, 'workspace.transfer') !== 'none';
+  const canDelete = writable && grantFor(grant, 'workspace.delete') !== 'none';
 
   const [name, setName] = useState(detail.name);
   const [country, setCountry] = useState(detail.country ?? '');
@@ -230,7 +234,7 @@ export function WorkspaceSettingsPanel({
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <h2 className="text-xl font-semibold text-fg">{t('workspace.settingsTitle')}</h2>
-      {canEdit ? null : <Alert variant="info">{t('workspace.readOnly')}</Alert>}
+      {mayEdit ? null : <Alert variant="info">{t('workspace.readOnly')}</Alert>}
 
       <form
         onSubmit={(e) => {
@@ -404,7 +408,7 @@ export function WorkspaceSettingsPanel({
 
       {actionError ? <Alert variant="danger">{actionError}</Alert> : null}
 
-      {isOwner && isOrg ? (
+      {canTransfer ? (
         <Card aria-labelledby="ws-transfer-title">
           <Card.Header>
             <Card.Title as="h3" id="ws-transfer-title">
@@ -458,7 +462,7 @@ export function WorkspaceSettingsPanel({
         </Card>
       ) : null}
 
-      {isOwner ? (
+      {canDelete ? (
         <Card aria-labelledby="ws-delete-title" className="border-danger">
           <Card.Header>
             <Card.Title as="h3" id="ws-delete-title">

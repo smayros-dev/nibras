@@ -57,13 +57,16 @@ const ASSIGNMENTS: Assignment[] = [
   },
 ];
 
-function detail(myRole: MembershipRole): WorkspaceDetail {
+function detail(
+  myRole: MembershipRole,
+  extra: Partial<Pick<WorkspaceDetail, 'status' | 'type'>> = {},
+): WorkspaceDetail {
   return {
     id: 'w1',
     name: 'École Atlas',
     slug: 'ecole-atlas',
-    type: 'ORGANIZATION',
-    status: 'ACTIVE',
+    type: extra.type ?? 'ORGANIZATION',
+    status: extra.status ?? 'ACTIVE',
     country: 'TN',
     defaultTimezone: 'Africa/Tunis',
     defaultLocale: 'fr',
@@ -76,10 +79,15 @@ function detail(myRole: MembershipRole): WorkspaceDetail {
 
 const ME: Record<'OWNER' | 'ADMIN' | 'TEACHER', string> = { OWNER, ADMIN, TEACHER };
 
-function renderPanel(myRole: 'OWNER' | 'ADMIN' | 'TEACHER', locale: 'fr' | 'ar' = 'fr') {
-  return renderWithIntl(<MembersPanel wid="w1" detail={detail(myRole)} meId={ME[myRole]} />, {
-    locale,
-  });
+function renderPanel(
+  myRole: 'OWNER' | 'ADMIN' | 'TEACHER',
+  locale: 'fr' | 'ar' = 'fr',
+  extra: Partial<Pick<WorkspaceDetail, 'status' | 'type'>> = {},
+) {
+  return renderWithIntl(
+    <MembersPanel wid="w1" detail={detail(myRole, extra)} meId={ME[myRole]} />,
+    { locale },
+  );
 }
 
 const fullName = (first: string) => `${first} Test`;
@@ -141,6 +149,48 @@ describe('MembersPanel', () => {
       within(menu).queryByRole('menuitem', { name: tr('fr', 'members.remove') }),
     ).not.toBeInTheDocument();
     expect(within(menu).getByRole('menuitem', { name: tr('fr', 'abuse.report') })).toBeVisible();
+  });
+
+  it.each(['SUSPENDED', 'DELETING'] as const)(
+    'offers no member write action in a %s workspace, only *Signaler*',
+    async (status) => {
+      api.POST.mockResolvedValue({ data: { id: 'r1', status: 'OPEN' } });
+      renderPanel('OWNER', 'fr', { status });
+      const { ue, menu } = await openRowMenu('Sara');
+      expect(within(menu).queryByRole('menuitemradio')).not.toBeInTheDocument();
+      expect(within(menu).queryByRole('menuitemcheckbox')).not.toBeInTheDocument();
+      expect(
+        within(menu).queryByRole('menuitem', { name: tr('fr', 'members.remove') }),
+      ).not.toBeInTheDocument();
+      // The workspace queue refuses writes (423): the report goes to the account-level queue.
+      await ue.click(within(menu).getByRole('menuitem', { name: tr('fr', 'abuse.report') }));
+      await ue.type(
+        await screen.findByLabelText(tr('fr', 'abuse.description')),
+        'Insultes répétées en séance',
+      );
+      await ue.click(screen.getByRole('button', { name: tr('fr', 'abuse.submit') }));
+      await waitFor(() =>
+        expect(api.POST).toHaveBeenCalledWith('/abuse-reports', {
+          body: expect.objectContaining({ entityType: 'USER', entityId: TEACHER }),
+        }),
+      );
+    },
+  );
+
+  it('derives the gates from the permission matrix (PERSONAL owner: remove a student only)', async () => {
+    renderPanel('OWNER', 'fr', { type: 'PERSONAL' });
+    // `student.remove` is granted to a personal owner, `workspace.staff.manage` is not.
+    const { ue, menu } = await openRowMenu('Yasmine');
+    expect(
+      within(menu).getByRole('menuitem', { name: tr('fr', 'members.remove') }),
+    ).toBeInTheDocument();
+    await ue.keyboard('{Escape}');
+    const { menu: staffMenu } = await openRowMenu('Karim');
+    expect(within(staffMenu).queryByRole('menuitemradio')).not.toBeInTheDocument();
+    expect(within(staffMenu).queryByRole('menuitemcheckbox')).not.toBeInTheDocument();
+    expect(
+      within(staffMenu).queryByRole('menuitem', { name: tr('fr', 'members.remove') }),
+    ).not.toBeInTheDocument();
   });
 
   it('confirms a removal in an alert dialog before calling the API', async () => {

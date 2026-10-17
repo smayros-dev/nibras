@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  grantFor,
   MEMBERSHIP_ROLES,
   MEMBERSHIP_STATUSES,
   type Assignment,
@@ -37,8 +38,6 @@ import { apiErrorMessage } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
 import { useAbortableQuery } from '../lib/paged-fetch';
 
-/** Roles that manage staff (`workspace.staff.manage`); the API stays the authority (403 → toast). */
-const MANAGER_ROLES: readonly MembershipRole[] = ['OWNER', 'ADMIN'];
 /** The API changes a role only between these two (else `422 ROLE_CHANGE_NOT_ALLOWED`). */
 const STAFF_ROLES = ['ADMIN', 'TEACHER'] as const;
 
@@ -64,11 +63,18 @@ const fullName = (m: Pick<MemberSummary, 'firstName' | 'lastName'>) =>
 /** `…` + the last 6 characters: an id no loaded member resolves (full id in `title`). */
 const shortId = (id: string) => `…${id.slice(-6)}`;
 
+/** Members a removal of whom is `student.remove`; any other role is `workspace.staff.manage`. */
+const STUDENT_SIDE_ROLES: readonly MembershipRole[] = ['STUDENT', 'GUARDIAN'];
+
 /**
- * Workspace members (PRD §9.2/§11.1). Actions are gated on `detail.myRole` and render only when
- * allowed, in one menu per row named after the member: role ADMIN↔TEACHER and *Peut enseigner*
- * (OWNER/ADMIN, never on the OWNER or yourself), *Retirer* behind an `AlertDialog`, *Signaler*
- * for everyone. Filters are debounced and abortable (`useAbortableQuery`). For an ORGANIZATION,
+ * Workspace members (PRD §9.2/§11.1). Actions come from the §7 matrix (`grantFor` with the
+ * viewer's role, `can_teach` and the workspace type) and render only when allowed, in one menu per
+ * row named after the member: role ADMIN↔TEACHER and *Peut enseigner* (`workspace.staff.manage`),
+ * *Retirer* behind an `AlertDialog` (`student.remove` for a STUDENT/GUARDIAN, else
+ * `workspace.staff.manage`), never on the OWNER or yourself; *Signaler* for everyone. A
+ * SUSPENDED/DELETING workspace refuses every write (423): no write action is offered there, and
+ * reports go to the account-level queue instead of the workspace's. The API stays the authority
+ * (403 → toast). Filters are debounced and abortable (`useAbortableQuery`). For an ORGANIZATION,
  * the teacher ↔ student assignments are listed by name (PRD §11.2); students join by invitation
  * in SP2, so the list is empty in SP1.
  */
@@ -86,7 +92,11 @@ export function MembersPanel({
   const locale = useLocale();
   const { toast } = useToast();
   const isOrg = detail.type === 'ORGANIZATION';
-  const canManage = MANAGER_ROLES.includes(detail.myRole);
+  /** AC-WS-06: a SUSPENDED/DELETING workspace is read-only (the API answers 423). */
+  const writable = detail.status === 'ACTIVE';
+  const grant = { role: detail.myRole, canTeach: detail.myCanTeach, workspaceType: detail.type };
+  const canManageStaff = writable && grantFor(grant, 'workspace.staff.manage') !== 'none';
+  const canRemoveStudents = writable && grantFor(grant, 'student.remove') !== 'none';
 
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<MembershipRole | ''>('');
@@ -277,11 +287,14 @@ export function MembersPanel({
                 const name = fullName(m);
                 const isSelf = m.userId === meId;
                 const canChangeRole =
-                  canManage &&
+                  canManageStaff &&
                   !isSelf &&
                   (STAFF_ROLES as readonly MembershipRole[]).includes(m.role);
-                const canToggleTeach = canManage && !isSelf && m.role === 'ADMIN';
-                const canRemove = canManage && !isSelf && m.role !== 'OWNER';
+                const canToggleTeach = canManageStaff && !isSelf && m.role === 'ADMIN';
+                const canRemove =
+                  !isSelf &&
+                  m.role !== 'OWNER' &&
+                  (STUDENT_SIDE_ROLES.includes(m.role) ? canRemoveStudents : canManageStaff);
                 const canReport = !isSelf;
                 const hasMenu = canChangeRole || canToggleTeach || canRemove || canReport;
                 return (
@@ -470,7 +483,7 @@ export function MembersPanel({
       {reportTarget ? (
         <ReportAbuseButton
           key={reportTarget.userId}
-          workspaceId={wid}
+          workspaceId={writable ? wid : null}
           entityType="USER"
           entityId={reportTarget.userId}
           open
