@@ -30,6 +30,56 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   return doc;
 }
 
+/** One registered HTTP route: upper-case method and the path as Express stores it. */
+export interface RouteInfo {
+  method: string;
+  path: string;
+}
+
+/** The bits of an Express layer this walk needs; the real objects are not typed by `@types/express`. */
+interface ExpressLayer {
+  route?: { path: string | string[] | RegExp; methods: Record<string, boolean | undefined> };
+  name?: string;
+  handle?: { stack?: ExpressLayer[] };
+}
+
+/**
+ * Every route the app's Express router serves, as `{ method, path }` — the enumeration behind
+ * the generic tenant-isolation suite (`test/isolation`), which must cover every
+ * `/workspaces/{wid}` route a routing refactor might add or rename. Walks the router stack that
+ * Nest registered the (globally prefixed) routes on, recursing into mounted sub-routers.
+ */
+export function listRoutes(app: INestApplication): RouteInfo[] {
+  const instance = app.getHttpAdapter().getInstance() as {
+    router?: { stack?: ExpressLayer[] };
+    _router?: { stack?: ExpressLayer[] };
+  };
+  const stack = (instance.router ?? instance._router)?.stack;
+  if (!stack) throw new Error('listRoutes: Express router stack not found');
+
+  const out: RouteInfo[] = [];
+  const walk = (layers: ExpressLayer[]): void => {
+    for (const layer of layers) {
+      const route = layer.route;
+      if (route) {
+        const paths = Array.isArray(route.path) ? route.path : [route.path];
+        for (const path of paths) {
+          if (typeof path !== 'string') continue;
+          for (const [method, enabled] of Object.entries(route.methods)) {
+            if (enabled && method !== '_all') {
+              out.push({ method: method.toUpperCase(), path });
+            }
+          }
+        }
+      } else if (layer.name === 'router' && layer.handle?.stack) {
+        walk(layer.handle.stack);
+      }
+    }
+  };
+  walk(stack);
+  return out;
+}
+
 /** 2-space JSON with recursively sorted keys and a trailing newline, so CI can diff it. */
 export function toStableJson(value: unknown): string {
   return `${JSON.stringify(sortKeys(value), null, 2)}\n`;

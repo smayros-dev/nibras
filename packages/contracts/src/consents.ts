@@ -19,3 +19,15 @@ export const REQUIRED_CONSENTS = [
   'TERMS',
   'PRIVACY',
 ] as const satisfies readonly CurrentConsentType[];
+
+/**
+ * E2E override for the TERMS version (server-side only, never in production): lets tests register
+ * a user and then observe a "bumped" TERMS version that must be re-accepted by the consent gate.
+ * Returns the env value only — callers decide the fallback (the API reads the `CONSENT_VERSIONS`
+ * import binding so a stubbed export still applies; the web layout falls back here).
+ */
+export function testConsentTermsVersion(): string | undefined {
+  if (typeof process === 'undefined') return undefined;
+  if (process.env.NODE_ENV === 'production') return undefined;
+  return process.env.TEST_CONSENT_TERMS_VERSION || undefined;
+}

@@ -1,4 +1,4 @@
-import { createApiClient } from '@tt/contracts';
+import { createApiClient, type ApiErrorBody } from '@tt/contracts';
 import { forwardHeaders } from './forwarded-headers';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3001';
@@ -19,4 +19,18 @@ export async function serverApi() {
     forwardHeaders(incoming, request.headers);
     return fetch(request);
   });
+}
+
+/**
+ * The generated OpenAPI document has no response schemas (`content?: never` — the Nest swagger
+ * plugin cannot infer zod DTO return types), so `openapi-fetch` types both `data` and `error`
+ * as `never`. The runtime shapes are the contracts' types; every call site casts through this.
+ */
+export interface ApiResult<T> {
+  data?: T;
+  error?: ApiErrorBody;
+}
+
+export function asApiResult<T>(result: { data?: never; error?: never }): ApiResult<T> {
+  return result as unknown as ApiResult<T>;
 }

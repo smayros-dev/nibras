@@ -2,6 +2,7 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   CONSENT_VERSIONS,
   REQUIRED_CONSENTS,
+  testConsentTermsVersion,
   type ConsentRecord,
   type CurrentConsentType,
 } from '@tt/contracts';
@@ -24,10 +25,16 @@ const REVOCABLE: readonly CurrentConsentType[] = ['MARKETING'];
 const UNKNOWN_IP = '0.0.0.0';
 
 /**
- * `CONSENT_VERSIONS[type]`, read from the module binding at call time (never captured at boot),
- * so a version bump — or a test stubbing the export — applies at the very next request.
+ * Today's version of `type`. TERMS first consults the e2e override (`TEST_CONSENT_TERMS_VERSION`,
+ * absent in production), then falls back to the `CONSENT_VERSIONS` module binding, read from the
+ * binding at call time (never captured at boot) — so a version bump, or a test stubbing the
+ * export, applies at the very next request.
  */
 function currentVersion(type: CurrentConsentType): string {
+  if (type === 'TERMS') {
+    const override = testConsentTermsVersion();
+    if (override) return override;
+  }
   return CONSENT_VERSIONS[type];
 }
 

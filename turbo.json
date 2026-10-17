@@ -57,7 +57,10 @@
         "SMTP_URL",
         "SMS_PROVIDER",
         "HIBP_ENABLED",
-        "COOKIE_SECURE"
+        "COOKIE_SECURE",
+        // SP1 rate limits (env.ts defaults apply when unset; listed so tests see a .env value).
+        "RATE_LIMIT_USER",
+        "RATE_LIMIT_ANON"
       ]
     },
     // Playwright starts the web dev server (`webServer`), which imports the workspace packages'

@@ -12,3 +12,4 @@ export * from './workspaces';
 export * from './members';
 export * from './permissions';
 export * from './abuse';
+export * from './admin';
