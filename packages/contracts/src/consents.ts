@@ -21,13 +21,25 @@ export const REQUIRED_CONSENTS = [
 ] as const satisfies readonly CurrentConsentType[];
 
 /**
- * E2E override for the TERMS version (server-side only, never in production): lets tests register
- * a user and then observe a "bumped" TERMS version that must be re-accepted by the consent gate.
- * Returns the env value only — callers decide the fallback (the API reads the `CONSENT_VERSIONS`
- * import binding so a stubbed export still applies; the web layout falls back here).
+ * Deployment tiers (`APP_ENV`) allowed to honour `TEST_CONSENT_TERMS_VERSION`. An explicit
+ * allow-list: an unset, empty, misspelt, `staging` or `production` tier never enables it.
+ */
+const TERMS_OVERRIDE_TIERS: readonly string[] = ['development'];
+
+/**
+ * E2E override for the TERMS version (server-side only, never outside development): lets tests
+ * register a user and then observe a "bumped" TERMS version that must be re-accepted by the
+ * consent gate. Returns the env value only — callers decide the fallback (the API reads the
+ * `CONSENT_VERSIONS` import binding so a stubbed export still applies; the web layout falls back
+ * here).
+ *
+ * Gated on `APP_ENV` alone, never on `NODE_ENV`: the e2e suite runs the production web build
+ * (Next always sets `NODE_ENV=production` there) with `APP_ENV=development`, while images default
+ * to `APP_ENV=production` and staging pins `APP_ENV=staging`. API and web share this function, so
+ * they always agree on the version.
  */
 export function testConsentTermsVersion(): string | undefined {
   if (typeof process === 'undefined') return undefined;
-  if (process.env.NODE_ENV === 'production') return undefined;
+  if (!TERMS_OVERRIDE_TIERS.includes(process.env.APP_ENV ?? '')) return undefined;
   return process.env.TEST_CONSENT_TERMS_VERSION || undefined;
 }

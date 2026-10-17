@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { Button } from './button';
+import { expectNoPhysicalClasses } from './test/logical-classes';
+import { renderWithDir } from './test/render';
 
 describe('Button', () => {
   it('renders a primary button with the label and type=button by default', () => {
@@ -17,5 +19,146 @@ describe('Button', () => {
     const button = screen.getByRole('button', { name: 'Supprimer' });
     expect(button).toHaveAttribute('type', 'submit');
     expect(button).toBeDisabled();
+  });
+
+  it('loading state keeps the label, sets aria-busy and disables', () => {
+    render(
+      <Button variant="primary" loading>
+        Enregistrer
+      </Button>,
+    );
+    const b = screen.getByRole('button', { name: 'Enregistrer' });
+    expect(b).toBeDisabled();
+    expect(b).toHaveAttribute('aria-busy', 'true');
+    expect(b.querySelector('svg')).not.toBeNull();
+  });
+
+  it('is not busy by default', () => {
+    render(<Button variant="ghost">x</Button>);
+    expect(screen.getByRole('button')).not.toHaveAttribute('aria-busy');
+  });
+
+  it('renders every variant, with a 44 px minimum for md and icon', () => {
+    for (const variant of ['primary', 'secondary', 'ghost', 'danger', 'link'] as const) {
+      render(<Button variant={variant}>{variant}</Button>);
+    }
+    expect(screen.getByRole('button', { name: 'primary' }).className).toContain('min-h-11');
+    render(
+      <Button variant="ghost" size="icon" aria-label="Menu">
+        <svg />
+      </Button>,
+    );
+    expect(screen.getByRole('button', { name: 'Menu' }).className).toContain('size-11');
+  });
+
+  it('asChild renders the child element with the button styles', () => {
+    render(
+      <Button variant="secondary" asChild iconStart={<svg data-testid="icon" />}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Accueil' });
+    expect(link).toHaveAttribute('href', '/app');
+    expect(link).not.toHaveAttribute('type');
+    expect(link.className).toContain('inline-flex');
+    expect(screen.getByTestId('icon')).toBeInTheDocument();
+  });
+
+  it('sm is 36 px on fine pointers and 44 px on coarse pointers; other sizes are ≥ 44 px', () => {
+    render(
+      <>
+        <Button variant="primary" size="sm">
+          sm
+        </Button>
+        <Button variant="primary" size="lg">
+          lg
+        </Button>
+      </>,
+    );
+    const sm = screen.getByRole('button', { name: 'sm' }).className.split(' ');
+    expect(sm).toContain('min-h-9');
+    expect(sm).toContain('pointer-coarse:min-h-11');
+    expect(screen.getByRole('button', { name: 'lg' }).className).toContain('min-h-12');
+  });
+
+  it('asChild + disabled exposes aria-disabled and blocks activation', () => {
+    const onClick = vi.fn();
+    render(
+      <Button variant="primary" asChild disabled onClick={onClick}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Accueil' });
+    expect(link).toHaveAttribute('aria-disabled', 'true');
+    expect(link.className).toContain('aria-disabled:opacity-50');
+    const allowed = fireEvent.click(link);
+    expect(allowed).toBe(false); // default (navigation) prevented
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('asChild + loading is busy and inert; enabled asChild stays clickable', () => {
+    const onClick = vi.fn();
+    const { rerender } = render(
+      <Button variant="primary" asChild loading onClick={onClick}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Accueil' });
+    expect(link).toHaveAttribute('aria-busy', 'true');
+    expect(link).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(link);
+    expect(onClick).not.toHaveBeenCalled();
+    rerender(
+      <Button variant="primary" asChild onClick={onClick}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    expect(link).not.toHaveAttribute('aria-disabled');
+    fireEvent.click(link);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('enabled asChild forwards a caller onClickCapture; inert asChild does not call it', () => {
+    const onClickCapture = vi.fn();
+    const { rerender } = render(
+      <Button variant="primary" asChild onClickCapture={onClickCapture}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Accueil' });
+    fireEvent.click(link);
+    expect(onClickCapture).toHaveBeenCalledTimes(1);
+    rerender(
+      <Button variant="primary" asChild disabled onClickCapture={onClickCapture}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    fireEvent.click(link);
+    expect(onClickCapture).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards the ref', () => {
+    let node: HTMLButtonElement | null = null;
+    render(
+      <Button
+        variant="primary"
+        ref={(el) => {
+          node = el;
+        }}
+      >
+        x
+      </Button>,
+    );
+    expect(node).toBeInstanceOf(HTMLButtonElement);
+  });
+
+  it('uses only logical utilities', () => {
+    const { container } = renderWithDir(
+      <Button variant="secondary" loading iconStart={<svg />} iconEnd={<svg />}>
+        x
+      </Button>,
+      { dir: 'rtl' },
+    );
+    expectNoPhysicalClasses(container);
   });
 });

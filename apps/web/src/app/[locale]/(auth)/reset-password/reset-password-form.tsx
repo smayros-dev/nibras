@@ -1,10 +1,13 @@
 'use client';
 
-import { Button, Field, TextInput } from '@tt/ui';
-import { useLocale, useTranslations } from 'next-intl';
+import { Alert, Button, Field, Input, useSubmit, useToast } from '@tt/ui';
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
+import { AuthCard } from '../../../../components/auth-card';
+import { Link, useRouter } from '../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../lib/api-error';
 import { api } from '../../../../lib/api';
+import { useErrorFocus } from '../../../../lib/use-error-focus';
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -15,80 +18,77 @@ function isTokenInvalid(body: unknown): boolean {
 
 export function ResetPasswordForm({ token }: { token: string | null }) {
   const t = useTranslations();
-  const locale = useLocale();
+  const router = useRouter();
+  const { toast } = useToast();
   const [newPassword, setNewPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
   const [tokenInvalid, setTokenInvalid] = useState(false);
-  const [done, setDone] = useState(false);
-  const [busy, setBusy] = useState(false);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  const reset = useSubmit(async () => {
     setFieldErrors({});
     setFormError(null);
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
       setFieldErrors({ newPassword: t('errors.PASSWORD_TOO_SHORT') });
       return;
     }
-    setBusy(true);
-    const { error } = await api.POST('/auth/password/reset', {
-      body: { token: token ?? '', newPassword },
-    });
-    setBusy(false);
-    if (error) {
-      const body = error as unknown;
-      if (isTokenInvalid(body)) {
-        setTokenInvalid(true);
+    try {
+      const { error } = await api.POST('/auth/password/reset', {
+        body: { token: token ?? '', newPassword },
+      });
+      if (error) {
+        if (isTokenInvalid(error)) {
+          setTokenInvalid(true);
+          return;
+        }
+        const mapped = issuesToFieldErrors(t, error);
+        if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
+        else setFormError(apiErrorMessage(t, error));
         return;
       }
-      const mapped = issuesToFieldErrors(body);
-      if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
-      else setFormError(apiErrorMessage(t, body));
+    } catch {
+      setFormError(t('errors.INTERNAL_ERROR'));
       return;
     }
-    setDone(true);
-  }
+    // The toast outlives the client navigation (provider in the locale layout).
+    toast({ title: t('auth.reset.success'), variant: 'success' });
+    router.push('/login');
+  });
 
   if (!token || tokenInvalid) {
     return (
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
-        <h1 className="mb-4 text-2xl font-bold">{t('auth.reset.tokenInvalid')}</h1>
-        <a href={`/${locale}/forgot-password`} className="text-brand-700 hover:underline">
-          {t('auth.reset.requestNew')}
-        </a>
-      </div>
-    );
-  }
-
-  if (done) {
-    return (
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
-        <p role="status" className="text-lg">
-          {t('auth.reset.success')}
-        </p>
-        <a href={`/${locale}/login`} className="mt-4 inline-block text-brand-700 hover:underline">
-          {t('auth.login.title')}
-        </a>
-      </div>
+      <AuthCard title={t('auth.reset.tokenInvalid')}>
+        <Button asChild variant="primary">
+          <Link href="/forgot-password">{t('auth.reset.requestNew')}</Link>
+        </Button>
+      </AuthCard>
     );
   }
 
   return (
-    <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
-      <h1 className="mb-4 text-2xl font-bold">{t('auth.reset.title')}</h1>
+    <AuthCard title={t('auth.reset.title')}>
       {formError ? (
-        <p role="alert" className="mb-3 text-sm text-danger">
+        <Alert ref={alertRef} tabIndex={-1} variant="danger">
           {formError}
-        </p>
+        </Alert>
       ) : null}
-      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+      <form
+        method="post"
+        ref={formRef}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void reset.submit();
+        }}
+        className="flex flex-col gap-4"
+      >
         <Field
           htmlFor="newPassword"
           label={t('auth.reset.newPassword')}
+          description={t('auth.register.passwordHint')}
           error={fieldErrors.newPassword}
         >
-          <TextInput
+          <Input
             id="newPassword"
             name="newPassword"
             type="password"
@@ -98,10 +98,10 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
             required
           />
         </Field>
-        <Button type="submit" variant="primary" disabled={busy}>
+        <Button type="submit" variant="primary" loading={reset.busy}>
           {t('auth.reset.submit')}
         </Button>
       </form>
-    </div>
+    </AuthCard>
   );
 }

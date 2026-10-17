@@ -1,5 +1,8 @@
 import type { MyWorkspace } from '@tt/contracts';
+import { Badge, Card } from '@tt/ui';
+import { CircleCheck, Circle } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
+import { Link } from '../i18n/navigation';
 
 export interface OnboardingChecklistProps {
   emailVerified: boolean;
@@ -9,9 +12,9 @@ export interface OnboardingChecklistProps {
 }
 
 /**
- * PRD §8.1.3: *Votre espace est prêt à {done}/5* on the dashboard while incomplete. Hidden for
- * users with no PERSONAL workspace and no teaching membership. The last three items link to
- * routes later plans create; they render disabled (*Bientôt*) until then.
+ * PRD §8.1.3: *Votre espace est prêt à {done}/5* on the dashboard while incomplete, with a
+ * progress bar. Hidden for users with no PERSONAL workspace and no teaching membership. The last
+ * three items link to routes later plans create; they render as text with a *Bientôt* badge.
  */
 export async function OnboardingChecklist({
   emailVerified,
@@ -34,40 +37,56 @@ export async function OnboardingChecklist({
   ] as const;
   const done = items.filter((item) => item.done).length;
   if (done === items.length) return null;
+  const title = t('onboarding.title', { done, total: items.length });
 
   return (
-    <section
-      data-testid="onboarding-checklist"
-      className="mt-6 rounded-lg bg-white p-4 shadow-md"
-      aria-labelledby="onboarding-title"
-    >
-      <h2 id="onboarding-title" className="mb-3 text-lg font-bold">
-        {t('onboarding.title', { done, total: items.length })}
-      </h2>
-      <ul className="flex flex-col gap-2 text-sm">
+    <Card data-testid="onboarding-checklist">
+      <Card.Header>
+        <Card.Title>{title}</Card.Title>
+        <div
+          role="progressbar"
+          aria-label={title}
+          aria-valuemin={0}
+          aria-valuemax={items.length}
+          aria-valuenow={done}
+          className="flex w-full gap-1"
+        >
+          {/* One segment per item: no inline `style` (the CSP forbids style attributes). */}
+          {items.map((item, index) => (
+            <div
+              key={item.key}
+              className={
+                index < done
+                  ? 'h-2 flex-1 rounded-full bg-primary'
+                  : 'h-2 flex-1 rounded-full bg-bg-subtle'
+              }
+            />
+          ))}
+        </div>
+      </Card.Header>
+      <ul className="flex flex-col gap-1 text-sm">
         {items.map((item) => (
-          <li key={item.key} className="flex items-center gap-2">
+          <li key={item.key} className="flex min-h-11 items-center gap-3">
             {item.done ? (
-              <span aria-hidden="true">✓</span>
-            ) : item.live ? (
-              <span aria-hidden="true">○</span>
+              <CircleCheck aria-hidden="true" className="size-5 shrink-0 text-success" />
             ) : (
-              <span aria-hidden="true">·</span>
+              <Circle aria-hidden="true" className="size-5 shrink-0 text-fg-subtle" />
             )}
             {item.done ? (
-              <span>{t(`onboarding.${item.key}`)}</span>
+              <span className="text-fg-muted line-through">{t(`onboarding.${item.key}`)}</span>
             ) : item.live ? (
-              <a href={item.href} className="text-brand-700 hover:underline">
+              <Link href={item.href} className="text-primary hover:underline">
                 {t(`onboarding.${item.key}`)}
-              </a>
+              </Link>
             ) : (
-              <span>
-                {t(`onboarding.${item.key}`)} — {t('onboarding.soon')}
+              <span className="flex flex-wrap items-center gap-2 text-fg-muted">
+                {t(`onboarding.${item.key}`)}
+                <Badge variant="neutral">{t('onboarding.soon')}</Badge>
               </span>
             )}
           </li>
         ))}
       </ul>
-    </section>
+    </Card>
   );
 }

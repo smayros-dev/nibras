@@ -1,13 +1,18 @@
 import type { WorkspaceDetail } from '@tt/contracts';
+import { Badge, PageHeader } from '@tt/ui';
 import { hasLocale } from 'next-intl';
 import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { routing } from '../../../../../../i18n/routing';
 import { asApiResult, serverApi } from '../../../../../../lib/api';
 import { SuspendedBanner } from '../../../../../../components/suspended-banner';
-import type { ReactNode } from 'react';
+import { WorkspaceTabs } from './workspace-tabs';
 
-/** Sub-navigation of a workspace (PRD §9.2): Paramètres, Membres, Journal d'audit. */
+/**
+ * A workspace (PRD §9.2): header with its name, type and status, the suspended banner, and the
+ * sub-navigation Paramètres · Membres · Journal d'audit.
+ */
 export default async function WorkspaceLayout({
   children,
   params,
@@ -30,29 +35,28 @@ export default async function WorkspaceLayout({
   if (!detail) notFound();
 
   const t = await getTranslations();
-  const base = `/${locale}/app/w/${wid}`;
-  const links = [
-    { href: base, label: t('workspace.navSettings') },
-    { href: `${base}/members`, label: t('workspace.navMembers') },
-    { href: `${base}/audit-log`, label: t('workspace.navAudit') },
-  ];
+  const suspended = detail.status === 'SUSPENDED' || detail.status === 'DELETING';
 
   return (
-    <div>
-      {detail.status === 'SUSPENDED' || detail.status === 'DELETING' ? (
-        <SuspendedBanner status={detail.status} />
-      ) : null}
-      <nav
-        aria-label={detail.name}
-        className="mb-4 flex gap-4 border-b border-gray-200 pb-2 text-sm"
-      >
-        {links.map((link) => (
-          <a key={link.href} href={link.href} className="text-brand-700 hover:underline">
-            {link.label}
-          </a>
-        ))}
-      </nav>
-      {children}
+    <div className="flex flex-col gap-6">
+      {suspended ? <SuspendedBanner status={detail.status as 'SUSPENDED' | 'DELETING'} /> : null}
+      <PageHeader
+        title={detail.name}
+        description={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <Badge variant="neutral">
+              {detail.type === 'ORGANIZATION'
+                ? t('workspace.typeOrganization')
+                : t('workspace.typePersonal')}
+            </Badge>
+            <Badge variant={suspended ? 'warning' : 'success'}>
+              {t(`workspace.status_${detail.status}`)}
+            </Badge>
+          </span>
+        }
+      />
+      <WorkspaceTabs wid={wid} label={detail.name} />
+      <div>{children}</div>
     </div>
   );
 }

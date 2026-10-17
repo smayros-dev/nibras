@@ -29,7 +29,7 @@ export async function waitForEmail(to: string, templateHint: string): Promise<Re
         if (`${email.subject} ${email.html} ${email.text}`.includes(templateHint)) return email;
       }
     }
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`No email to ${to} matching "${templateHint}" within 30 s`);
 }

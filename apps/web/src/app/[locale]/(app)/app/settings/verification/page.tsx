@@ -3,7 +3,6 @@ import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '../../../../../../i18n/routing';
 import { getSession } from '../../../../../../lib/session';
-import type { MeUser } from '@tt/contracts';
 import { VerificationPanel } from './verification-panel';
 
 export default async function VerificationSettingsPage({
@@ -14,7 +13,9 @@ export default async function VerificationSettingsPage({
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
-  const user = (await getSession()) as MeUser;
+  // The (app) layout redirects a missing session; render nothing if it lapsed in between.
+  const user = await getSession();
+  if (!user) return null;
 
   return <VerificationPanel initialPhoneE164={user.phoneE164} />;
 }

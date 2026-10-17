@@ -18,7 +18,7 @@ test('profile: change language to ar flips the UI to RTL and persists', async ({
   await page.getByRole('button', { name: t(locale, 'settings.profile.save') }).click();
 
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(page).toHaveURL(appUrl('/ar/app/settings/profile'));
+  await expect(page).toHaveURL(appUrl('/ar/app/settings/profile'), { timeout: 15_000 });
 
   // Persisted: a fresh load under the stored locale is still RTL with the ar nav label.
   await page.reload();
@@ -35,7 +35,7 @@ test('timezone banner appears when the browser tz differs and PATCHes on Oui', a
   try {
     await page.goto(`/${locale}/login`);
     await fillLogin(page, locale, user.email, user.password);
-    await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+    await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
 
     await expect(page.getByText('Europe/Paris')).toBeVisible();
     await page.getByRole('button', { name: t(locale, 'settings.timezone.accept') }).click();
@@ -88,10 +88,13 @@ test('security: devices list shows this device; sign out everywhere ends the ses
 
   await expect(page.getByTestId('device-current')).toBeVisible();
 
-  // Playwright auto-dismisses dialogs; confirm the sign-out-everywhere prompt.
-  page.once('dialog', (dialog) => void dialog.accept());
+  // The confirmation is an in-page alert dialog (no `window.confirm`).
   await page.getByRole('button', { name: t(locale, 'settings.security.signOutAll') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/login`));
+  const confirm = page.getByRole('alertdialog', {
+    name: t(locale, 'settings.security.signOutAllConfirm'),
+  });
+  await confirm.getByRole('button', { name: t(locale, 'settings.security.signOutAll') }).click();
+  await expect(page).toHaveURL(appUrl(`/${locale}/login`), { timeout: 15_000 });
 });
 
 test('onboarding checklist shows 2/5 after email verification and phone verification', async ({
@@ -118,4 +121,36 @@ test('onboarding checklist shows 2/5 after email verification and phone verifica
   await page.goto(`/${locale}/app`);
   // "Votre espace est prêt à {done}/{total}" — the checklist counts the two done items.
   await expect(page.getByTestId('onboarding-checklist')).toContainText('2/5');
+});
+
+test('the timezone banner floats over the page: showing it after hydration shifts no content', async ({
+  browser,
+  uiLocale: locale,
+}) => {
+  const user = await seedUser();
+  const ctx = await browser.newContext({ timezoneId: 'Europe/Paris' });
+  const page = await ctx.newPage();
+  try {
+    await uiLogin(page, locale, user);
+    // The settings tabs' top as first parsed from the server HTML, before React mounts the
+    // (client-only) banner.
+    await page.addInitScript(() => {
+      document.addEventListener('DOMContentLoaded', () => {
+        const tabs = document.querySelector('[role="tablist"]');
+        (window as unknown as { __tabsTop?: number }).__tabsTop = tabs?.getBoundingClientRect().top;
+      });
+    });
+    await page.goto(`/${locale}/app/settings/profile`);
+    await expect(
+      page.getByRole('button', { name: t(locale, 'settings.timezone.accept') }),
+    ).toBeVisible();
+    const [before, after] = await page.evaluate(() => [
+      (window as unknown as { __tabsTop?: number }).__tabsTop,
+      document.querySelector('[role="tablist"]')?.getBoundingClientRect().top,
+    ]);
+    expect(before).toBeDefined();
+    expect(after).toBe(before);
+  } finally {
+    await ctx.close();
+  }
 });

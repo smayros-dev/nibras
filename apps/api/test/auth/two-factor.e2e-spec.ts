@@ -55,7 +55,7 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
     expect(secret).toMatch(/^[A-Z2-7]+$/);
     expect(otpauthUrl).toMatch(/^otpauth:\/\/totp\//);
     expect(decodeURIComponent(otpauthUrl)).toContain(u.email);
-    expect(decodeURIComponent(otpauthUrl)).toContain('issuer=Plateforme cours');
+    expect(decodeURIComponent(otpauthUrl)).toContain('issuer=Nibras');
     // Pending: the seed is stored sealed, 2FA not enabled yet.
     const pending = await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } });
     expect(pending.totpEnabledAt).toBeNull();

@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, LOCALES } from '@tt/contracts';
+import { DEFAULT_LOCALE, LOCALES } from '@tt/contracts/web';
 import { defineRouting } from 'next-intl/routing';
 
 /**

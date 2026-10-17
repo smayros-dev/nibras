@@ -1,26 +1,24 @@
 {
   "common": {
-    "appName": "Course platform",
+    "appName": "Nibras",
     "loading": "Loading…",
     "retry": "Retry",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "newTab": "(opens in a new tab)"
   },
   "nav": {
     "skipToContent": "Skip to content",
     "primaryNav": "Primary navigation",
+    "secondaryNav": "Secondary navigation",
+    "more": "More",
+    "closeMenu": "Close menu",
+    "brandHome": "Home",
     "dashboard": "Dashboard",
-    "courses": "Courses",
-    "students": "Students",
-    "sessions": "Sessions",
-    "messages": "Messages",
-    "notifications": "Notifications",
-    "settings": "Settings"
-  },
-  "hello": {
-    "title": "Hello",
-    "subtitle": "Online course platform — development environment",
-    "switchLocale": "Change language"
+    "settings": "Settings",
+    "workspaces": "Workspaces",
+    "console": "Console",
+    "currentWorkspace": "Current workspace"
   },
   "errors": {
     "VALIDATION_FAILED": "The submitted data is invalid.",
@@ -67,8 +65,23 @@
     "CANNOT_SUSPEND_SUPER_ADMIN": "A super administrator cannot be suspended.",
     "TENANT_CONTEXT_MISSING": "An internal error occurred. Please try again."
   },
-  "health": {
-    "ok": "Service is up"
+  "validation": {
+    "invalid": "Invalid value.",
+    "required": "This field is required.",
+    "not_integer": "Enter a whole number.",
+    "not_number": "Enter a number.",
+    "too_small_string": "{min, plural, one {Minimum {min} character.} other {Minimum {min} characters.}}",
+    "too_small_number": "Minimum value: {min}.",
+    "too_small_array": "{min, plural, one {Select at least {min} item.} other {Select at least {min} items.}}",
+    "too_big_string": "{max, plural, one {Maximum {max} character.} other {Maximum {max} characters.}}",
+    "too_big_number": "Maximum value: {max}.",
+    "too_big_array": "{max, plural, one {Select at most {max} item.} other {Select at most {max} items.}}",
+    "invalid_format_email": "Invalid email address.",
+    "invalid_format_url": "Invalid web address.",
+    "invalid_format_uuid": "Invalid identifier.",
+    "invalid_format_date": "Invalid date.",
+    "invalid_format_regex": "Invalid format.",
+    "invalid_value": "This value is not allowed."
   },
   "emails": {
     "footer": {
@@ -200,10 +213,13 @@
       "password": "Password",
       "locale": "Language",
       "timezone": "Time zone",
-      "acceptTerms": "I accept the terms of use",
+      "acceptTerms": "I accept the <terms>terms of use</terms> and the <privacy>privacy policy</privacy>",
       "submit": "Sign up",
       "haveAccount": "Already have an account?",
-      "loginLink": "Sign in"
+      "loginLink": "Sign in",
+      "subtitle": "Start teaching in minutes.",
+      "passwordHint": "At least 12 characters.",
+      "timezoneHint": "Detected from your device. Session times are shown in this time zone."
     },
     "login": {
       "title": "Sign in",
@@ -213,7 +229,8 @@
       "submit": "Sign in",
       "forgot": "Forgot your password?",
       "noAccount": "No account yet?",
-      "registerLink": "Create an account"
+      "registerLink": "Create an account",
+      "subtitle": "Welcome back."
     },
     "verify": {
       "pending": "Verify your email",
@@ -227,7 +244,9 @@
       "title": "Forgot your password",
       "email": "Email",
       "submit": "Send reset link",
-      "always": "If an account exists with this address, an email has been sent."
+      "always": "If an account exists with this address, an email has been sent.",
+      "subtitle": "Enter your email and we will send you a link to choose a new password.",
+      "backToLogin": "Back to login"
     },
     "reset": {
       "title": "New password",
@@ -243,7 +262,9 @@
       "submit": "Verify",
       "useRecovery": "Use a recovery code",
       "recoveryCode": "Recovery code",
-      "submitRecovery": "Sign in"
+      "submitRecovery": "Sign in",
+      "subtitle": "Enter the 6-digit code from your authenticator app.",
+      "recoverySubtitle": "Enter one of your recovery codes. Each one works only once."
     },
     "setup": {
       "title": "Enable two-factor verification",
@@ -255,7 +276,11 @@
       "recoveryHint": "Keep these codes somewhere safe: each one works only once.",
       "download": "Download codes",
       "savedAck": "I saved my codes",
-      "continue": "Continue to the app"
+      "continue": "Continue to the app",
+      "qrAlt": "QR code to scan with your authenticator app",
+      "copy": "Copy codes",
+      "copied": "Codes copied to the clipboard.",
+      "copyFailed": "Copying failed. Download the codes instead."
     },
     "consent": {
       "title": "Updated terms",
@@ -263,12 +288,20 @@
       "terms": "Terms of use",
       "privacy": "Privacy policy",
       "coc": "Code of conduct",
-      "accept": "Accept and continue"
+      "accept": "Accept and continue",
+      "readTerms": "Read the terms of use",
+      "readPrivacy": "Read the privacy policy",
+      "readCoc": "Read the code of conduct"
+    },
+    "resume": {
+      "loading": "Resuming your session…"
+    },
+    "layout": {
+      "preferences": "Display preferences"
     }
   },
   "settings": {
     "title": "Settings",
-    "comingSoon": "Coming soon",
     "nav": {
       "profile": "Profile",
       "security": "Security",
@@ -296,7 +329,6 @@
       "dismiss": "No"
     },
     "security": {
-      "title": "Security",
       "twoFactor": "Two-factor authentication (2FA)",
       "twoFactorOn": "Two-factor authentication is enabled on your account.",
       "twoFactorOff": "Two-factor authentication is not enabled on your account.",
@@ -312,12 +344,19 @@
       "passwordChanged": "Password changed. Other devices were signed out.",
       "devices": "Connected devices",
       "thisDevice": "This device",
-      "disconnect": "Sign out",
       "signOutAll": "Sign out everywhere",
-      "signOutAllConfirm": "Sign out of all devices, including this one?"
+      "signOutAllConfirm": "Sign out of all devices, including this one?",
+      "twoFactorStatusOn": "On",
+      "twoFactorStatusOff": "Off",
+      "twoFactorDisabled": "Two-factor authentication disabled.",
+      "device": "Device",
+      "ip": "IP address",
+      "lastSeen": "Last active",
+      "revoke": "Revoke",
+      "revokeDevice": "Revoke {device}",
+      "deviceRevoked": "Device signed out."
     },
     "verification": {
-      "title": "Verification",
       "email": "Email",
       "phoneNumber": "Phone number",
       "phone": "Phone",
@@ -325,21 +364,47 @@
       "otpCode": "Received code",
       "verifyOtp": "Verify",
       "otpSent": "A code was sent by SMS (and by email in development).",
-      "otpInvalid": "Incorrect code.",
       "phoneDone": "Phone verified: {phone}",
       "coc": "Code of conduct",
       "cocBody": "I commit to respecting the other members of the platform, not to post harassing, discriminatory or illegal content, and to use live sessions in an educational spirit. Any violation may lead to account suspension.",
       "cocAccept": "I accept the code of conduct",
       "acceptCoc": "Accept the code of conduct",
       "done": "Verified",
-      "todo": "To do"
+      "todo": "To do",
+      "steps": "Verification steps",
+      "phoneVerified": "Phone verified.",
+      "cocAccepted": "Code of conduct accepted."
     },
     "consents": {
       "title": "Consents",
       "version": "Version",
-      "grantedAt": "Accepted on {date}",
       "revoke": "Revoke",
-      "none": "No consents recorded."
+      "none": "No consents recorded.",
+      "type": "Consent",
+      "grantedOn": "Accepted on",
+      "status": "Status",
+      "statusCurrent": "Current",
+      "statusOutdated": "Previous version",
+      "statusRevoked": "Withdrawn",
+      "actions": "Actions",
+      "revokeConfirm": "Withdraw your consent to “{name}”?",
+      "revoked": "Consent withdrawn.",
+      "types": {
+        "TERMS": "Terms of use",
+        "PRIVACY": "Privacy policy",
+        "CODE_OF_CONDUCT": "Code of conduct",
+        "MARKETING": "Marketing communications"
+      }
+    },
+    "soon": "Soon",
+    "workspaces": {
+      "createTitle": "Create a workspace",
+      "tabsLabel": "Type of workspace to create",
+      "tabOrganization": "Organization",
+      "tabPersonal": "Personal workspace",
+      "emptyTitle": "No workspaces yet",
+      "emptyDescription": "Create an organization or your personal workspace to get started.",
+      "manage": "Manage workspaces"
     }
   },
   "onboarding": {
@@ -356,8 +421,6 @@
     "typePersonal": "Personal",
     "typeOrganization": "Organization",
     "createTitle": "Your workspaces",
-    "createOrganization": "Create an organization",
-    "createPersonal": "Create my personal workspace",
     "personalForbidden": "{organizationName} does not allow personal workspaces",
     "personalExists": "You already have a personal workspace.",
     "name": "Name",
@@ -397,13 +460,24 @@
     "navSettings": "Settings",
     "navMembers": "Members",
     "navAudit": "Audit log",
-    "soon": "Soon",
     "auditAction": "Action",
     "auditFrom": "From",
     "auditTo": "To",
     "auditBefore": "Before",
     "auditAfter": "After",
-    "auditNext": "Next"
+    "auditNext": "Next",
+    "readOnly": "Only the owner and administrators can change these settings.",
+    "identity": "Identity",
+    "dangerZone": "Danger zone",
+    "status_ACTIVE": "Active",
+    "status_SUSPENDED": "Suspended",
+    "status_DELETING": "Being deleted",
+    "auditDate": "Date",
+    "auditPrevious": "Previous",
+    "auditEmpty": "No entries match these filters.",
+    "auditPagination": "Audit log pagination",
+    "auditFilters": "Audit log filters",
+    "auditActor": "Actor role"
   },
   "members": {
     "title": "Members",
@@ -413,20 +487,12 @@
     "canTeach": "Can teach",
     "joined": "Joined",
     "actions": "Actions",
-    "changeRole": "Change role",
     "toggleCanTeach": "Can teach",
     "remove": "Remove",
-    "removeConfirm": "Remove {name} from the workspace?",
     "removed": "Member removed.",
     "roleChanged": "Role changed.",
     "assignments": "Assignments",
-    "assignTeacher": "Teacher",
-    "assignStudents": "Students",
-    "assignSubmit": "Assign",
-    "assigned": "Assignment saved.",
     "noStudents": "Students join by invitation (next version).",
-    "studentsTab": "Students",
-    "pendingInvitation": "Invitation pending",
     "self": "you",
     "role_OWNER": "Owner",
     "role_ADMIN": "Admin",
@@ -440,7 +506,22 @@
     "status_SUSPENDED_NO_CONSENT": "Suspended — no consent",
     "status_SUSPENDED_CONSENT_REVOKED": "Suspended — consent revoked",
     "status_REMOVED": "Removed",
-    "status_REJECTED": "Rejected"
+    "status_REJECTED": "Rejected",
+    "rowActions": "Actions for {name}",
+    "changeRoleFor": "Change the role of {name}",
+    "removeFor": "Remove {name}",
+    "assignmentOf": "{teacher} teaches {student}",
+    "noAssignments": "No assignments yet.",
+    "confirmRemoveTitle": "Remove {name} from the workspace?",
+    "confirmRemoveDescription": "This member loses access to the workspace. Their history is kept.",
+    "noMatch": "No member matches these filters.",
+    "allRoles": "All roles",
+    "allStatuses": "All statuses",
+    "name": "Name",
+    "yes": "Yes",
+    "no": "No",
+    "canTeachChanged": "Teaching permission updated.",
+    "filters": "Filters"
   },
   "abuse": {
     "report": "Report",
@@ -452,6 +533,7 @@
     "category_MINOR_SAFETY": "Minor safety",
     "category_OTHER": "Other",
     "description": "Description",
+    "descriptionCounter": "{count}/{min} characters minimum",
     "submit": "Send the report",
     "sent": "Report sent.",
     "status_OPEN": "Open",
@@ -477,15 +559,21 @@
       "quota": "Quota",
       "quotaGiB": "Quota (GiB)",
       "reason": "Reason",
-      "confirm": "Confirm",
       "saveQuota": "Save quota",
-      "saved": "Changes saved.",
       "suspended": "Workspace suspended.",
       "reactivated": "Workspace reactivated.",
       "quotaSaved": "Quota updated.",
       "confirmSuspend": "Suspend this workspace?",
       "confirmReactivate": "Reactivate this workspace?",
-      "empty": "No workspaces."
+      "empty": "No workspaces.",
+      "filters": "Workspace filters",
+      "allTypes": "All types",
+      "allStatuses": "All statuses",
+      "rowActions": "Actions for {name}",
+      "suspendDescription": "“{name}” becomes read-only for its members.",
+      "reactivateDescription": "“{name}” becomes editable again for its members.",
+      "quotaTitle": "Storage quota",
+      "quotaDescription": "“{name}” currently uses {used}."
     },
     "workspaceStatus": {
       "ACTIVE": "Active",
@@ -514,7 +602,18 @@
       "empty": "No abuse reports.",
       "openDetail": "Open",
       "snapshot": "Snapshot",
-      "userAccount": "Reported account"
+      "userAccount": "Reported account",
+      "filters": "Report filters",
+      "allStatuses": "All statuses",
+      "allCategories": "All categories",
+      "createdAt": "Received",
+      "openDetailFor": "Open the report from {name}",
+      "backToQueue": "Reports",
+      "details": "Details",
+      "handling": "Handling",
+      "newStatus": "New status",
+      "suspendUserDescription": "The account can no longer sign in. The reason is sent to them.",
+      "reactivateUserDescription": "The account can sign in again."
     },
     "health": {
       "db": "Database",
@@ -525,9 +624,83 @@
       "active": "Active",
       "delayed": "Delayed",
       "failed": "Failed",
-      "name": "Name",
       "up": "OK",
-      "down": "Down"
+      "down": "Down",
+      "services": "Services"
     }
+  },
+  "shell": {
+    "userMenu": "Account menu for {name}",
+    "profile": "My profile",
+    "security": "Security",
+    "logout": "Log out",
+    "logoutFailed": "Logging out failed. Check your connection and try again.",
+    "language": "Language",
+    "notifications": "Notifications",
+    "notification": "Notification",
+    "legalNav": "Legal information"
+  },
+  "theme": {
+    "toggle": "Theme",
+    "toggleCurrent": "Theme: {theme}",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "errorPages": {
+    "title": "Something went wrong",
+    "description": "The page could not be displayed. Try again in a moment.",
+    "requestId": "Error reference: {id}",
+    "retry": "Try again",
+    "home": "Back to home",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "This page does not exist or has moved.",
+    "loading": "Loading the page…"
+  },
+  "legal": {
+    "termsTitle": "Terms of use",
+    "privacyTitle": "Privacy policy",
+    "cocTitle": "Code of conduct",
+    "version": "Version {version}",
+    "placeholderTitle": "Text to be provided by the publisher",
+    "placeholder": "This provisional text will be replaced by the final version before the public launch.",
+    "terms": {
+      "body": "These terms govern the use of {appName} by teachers, students and their parents.\n\nThey set out everyone’s rights and obligations, the rules for publishing courses and live sessions, and the conditions under which an account may be suspended.\n\nThe final version will be published here."
+    },
+    "privacy": {
+      "body": "This policy explains which data {appName} collects, why, how long it is kept and how to exercise your rights.\n\nIt covers in particular the data of minor students and their parents’ consent.\n\nThe final version will be published here."
+    },
+    "codeOfConduct": {
+      "body": "This code of conduct sets the rules of mutual respect in the courses, live sessions and messages of {appName}.\n\nAny breach can be reported from the app and may lead to the suspension of an account.\n\nThe final version will be published here."
+    }
+  },
+  "landing": {
+    "eyebrow": "For independent teachers and schools",
+    "title": "One app to teach online",
+    "subtitle": "Publish your courses, run live sessions and follow each student’s progress, without juggling four tools.",
+    "login": "Log in",
+    "register": "Create a teacher account",
+    "openApp": "Open the app",
+    "highlights": "Highlights",
+    "trustMobile": "Built for mobile",
+    "trustLanguages": "In French, Arabic and English",
+    "trustPrivacy": "Your data protected",
+    "valuesTitle": "Everything you need to teach",
+    "value1Title": "Recorded courses",
+    "value1Body": "Videos, PDFs and text organised into modules and lessons, available from any phone.",
+    "value2Title": "Live sessions",
+    "value2Body": "One-to-one or group classes scheduled in a calendar, with automatic reminders.",
+    "value3Title": "Progress tracking",
+    "value3Body": "Attendance, progress and history for every student, no spreadsheet needed.",
+    "preferences": "Display preferences"
+  },
+  "pwa": {
+    "offlineTitle": "You are offline",
+    "offlineDescription": "This page needs a connection. Check your network, then try again.",
+    "offlineSessionsSoon": "Soon, your upcoming sessions will show here even without a connection.",
+    "retry": "Try again",
+    "updateAvailable": "A new version is available",
+    "updateDescription": "Save any changes in progress, then reload the page.",
+    "reload": "Reload"
   }
 }

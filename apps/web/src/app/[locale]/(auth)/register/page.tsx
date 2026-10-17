@@ -1,37 +1,41 @@
 'use client';
 
-import { LOCALES, type MeUser } from '@tt/contracts';
-import { Button, Checkbox, Field, Select, TextInput } from '@tt/ui';
+import { LOCALES } from '@tt/contracts/web';
+import type { MeUser } from '@tt/contracts';
+import { Alert, Button, Checkbox, Field, Input, Select, useSubmit } from '@tt/ui';
 import { useLocale, useTranslations } from 'next-intl';
-import { useState } from 'react';
-import { useRouter } from '../../../../i18n/navigation';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { AuthCard } from '../../../../components/auth-card';
+import { NATIVE_NAMES } from '../../../../components/locale-menu';
+import { TimezoneSelect } from '../../../../components/timezone-select';
+import { Link, useRouter } from '../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../lib/api-error';
 import { api, asApiResult } from '../../../../lib/api';
+import { useErrorFocus } from '../../../../lib/use-error-focus';
+import { useTimezones } from '../../../../lib/timezones';
 
 const MIN_PASSWORD_LENGTH = 12;
-
-/** PRD §8.1.1 regions first, then whatever the runtime can resolve; the resolved zone is added if missing. */
-const TIME_ZONES = [
-  'Africa/Tunis',
-  'Africa/Algiers',
-  'Africa/Cairo',
-  'Africa/Casablanca',
-  'Europe/Paris',
-  'UTC',
-];
-
-function timezoneOptions(): string[] {
-  const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const supported =
-    typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
-  const all = [...TIME_ZONES, ...supported];
-  if (resolved && !all.includes(resolved)) all.unshift(resolved);
-  return Array.from(new Set(all));
-}
 
 /** `tt_locale` cookie: the proxy prefers it over `Accept-Language` on the next request. */
 function setLocaleCookie(locale: string) {
   document.cookie = `tt_locale=${locale}; path=/; max-age=31536000`;
+}
+
+/** Legal page link inside the terms checkbox label; a new tab keeps the half-filled form. */
+function legalLink(href: '/legal/terms' | '/legal/privacy') {
+  function LegalLink(chunks: ReactNode) {
+    return (
+      <Link
+        href={href}
+        target="_blank"
+        rel="noopener"
+        className="font-semibold text-primary underline-offset-4 hover:underline"
+      >
+        {chunks}
+      </Link>
+    );
+  }
+  return LegalLink;
 }
 
 export default function RegisterPage() {
@@ -44,47 +48,53 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [formLocale, setFormLocale] = useState(locale);
-  const [timezone, setTimezone] = useState(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
-  );
+  // Empty on the server and in the first client render (hydration-safe, audit #7); filled with the
+  // browser's zone once known, unless the user already picked one.
+  const [timezone, setTimezone] = useState('');
+  const timezoneTouched = useRef(false);
+  const { resolved, ready } = useTimezones();
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  useEffect(() => {
+    if (ready && !timezoneTouched.current) setTimezone(resolved ?? 'UTC');
+  }, [ready, resolved]);
+
+  const register = useSubmit(async () => {
     setFieldErrors({});
     setFormError(null);
     if (password.length < MIN_PASSWORD_LENGTH) {
       setFieldErrors({ password: t('errors.PASSWORD_TOO_SHORT') });
       return;
     }
-    setBusy(true);
-    const { data, error } = asApiResult<{ user: MeUser }>(
-      await api.POST('/auth/register', {
-        body: {
-          kind: 'TEACHER',
-          firstName,
-          lastName,
-          email,
-          password,
-          locale: formLocale,
-          timezone,
-          acceptTerms: true,
-          acceptPrivacy: true,
-        },
-      }),
-    );
-    setBusy(false);
+    let result: { data?: { user: MeUser }; error?: unknown };
+    try {
+      result = asApiResult<{ user: MeUser }>(
+        await api.POST('/auth/register', {
+          body: {
+            kind: 'TEACHER',
+            firstName,
+            lastName,
+            email,
+            password,
+            locale: formLocale,
+            timezone: timezone || 'UTC',
+            acceptTerms: true,
+            acceptPrivacy: true,
+          },
+        }),
+      );
+    } catch {
+      setFormError(t('errors.INTERNAL_ERROR'));
+      return;
+    }
+    const { data, error } = result;
     if (error) {
-      const body = error as unknown;
-      const mapped = issuesToFieldErrors(body);
-      if (Object.keys(mapped).length > 0) {
-        setFieldErrors(mapped);
-      } else {
-        setFormError(apiErrorMessage(t, body));
-      }
+      const mapped = issuesToFieldErrors(t, error);
+      if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
+      else setFormError(apiErrorMessage(t, error));
       return;
     }
     if (!data) {
@@ -93,37 +103,67 @@ export default function RegisterPage() {
     }
     setLocaleCookie(data.user.locale);
     router.push('/verify-email');
-  }
+  });
 
   return (
-    <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
-      <h1 className="mb-4 text-2xl font-bold">{t('auth.register.title')}</h1>
-      {formError ? (
-        <p role="alert" className="mb-3 text-sm text-danger">
-          {formError}
+    <AuthCard
+      title={t('auth.register.title')}
+      description={t('auth.register.subtitle')}
+      footer={
+        <p>
+          {t('auth.register.haveAccount')}{' '}
+          <Link href="/login" className="font-semibold text-primary hover:underline">
+            {t('auth.register.loginLink')}
+          </Link>
         </p>
+      }
+    >
+      {formError ? (
+        <Alert ref={alertRef} tabIndex={-1} variant="danger">
+          {formError}
+        </Alert>
       ) : null}
-      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
-        <Field htmlFor="firstName" label={t('auth.register.firstName')} error={fieldErrors.firstName}>
-          <TextInput
-            id="firstName"
-            name="firstName"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            required
-          />
-        </Field>
-        <Field htmlFor="lastName" label={t('auth.register.lastName')} error={fieldErrors.lastName}>
-          <TextInput
-            id="lastName"
-            name="lastName"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            required
-          />
-        </Field>
+      <form
+        method="post"
+        ref={formRef}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void register.submit();
+        }}
+        className="flex flex-col gap-4"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            htmlFor="firstName"
+            label={t('auth.register.firstName')}
+            error={fieldErrors.firstName}
+          >
+            <Input
+              id="firstName"
+              name="firstName"
+              autoComplete="given-name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required
+            />
+          </Field>
+          <Field
+            htmlFor="lastName"
+            label={t('auth.register.lastName')}
+            error={fieldErrors.lastName}
+          >
+            <Input
+              id="lastName"
+              name="lastName"
+              autoComplete="family-name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+            />
+          </Field>
+        </div>
         <Field htmlFor="email" label={t('auth.register.email')} error={fieldErrors.email}>
-          <TextInput
+          <Input
             id="email"
             name="email"
             type="email"
@@ -133,8 +173,13 @@ export default function RegisterPage() {
             required
           />
         </Field>
-        <Field htmlFor="password" label={t('auth.register.password')} error={fieldErrors.password}>
-          <TextInput
+        <Field
+          htmlFor="password"
+          label={t('auth.register.password')}
+          description={t('auth.register.passwordHint')}
+          error={fieldErrors.password}
+        >
+          <Input
             id="password"
             name="password"
             type="password"
@@ -152,42 +197,41 @@ export default function RegisterPage() {
             onChange={(e) => setFormLocale(e.target.value as typeof formLocale)}
           >
             {LOCALES.map((l) => (
-              <option key={l} value={l}>
-                {l === 'fr' ? 'Français' : l === 'ar' ? 'العربية' : 'English'}
+              <option key={l} value={l} lang={l}>
+                {NATIVE_NAMES[l]}
               </option>
             ))}
           </Select>
         </Field>
-        <Field htmlFor="timezone" label={t('auth.register.timezone')} error={fieldErrors.timezone}>
-          <Select
+        <Field
+          htmlFor="timezone"
+          label={t('auth.register.timezone')}
+          description={t('auth.register.timezoneHint')}
+          error={fieldErrors.timezone}
+        >
+          <TimezoneSelect
             id="timezone"
             name="timezone"
             value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-          >
-            {timezoneOptions().map((tz) => (
-              <option key={tz} value={tz}>
-                {tz}
-              </option>
-            ))}
-          </Select>
+            onChange={(e) => {
+              timezoneTouched.current = true;
+              setTimezone(e.target.value);
+            }}
+          />
         </Field>
         <Checkbox
-          label={t('auth.register.acceptTerms')}
+          label={t.rich('auth.register.acceptTerms', {
+            terms: legalLink('/legal/terms'),
+            privacy: legalLink('/legal/privacy'),
+          })}
           checked={acceptTerms}
-          onChange={(e) => setAcceptTerms(e.target.checked)}
+          onCheckedChange={(checked) => setAcceptTerms(checked === true)}
           required
         />
-        <Button type="submit" variant="primary" disabled={busy || !acceptTerms}>
+        <Button type="submit" variant="primary" loading={register.busy} disabled={!acceptTerms}>
           {t('auth.register.submit')}
         </Button>
       </form>
-      <p className="mt-4 text-sm">
-        {t('auth.register.haveAccount')}{' '}
-        <a href={`/${locale}/login`} className="text-brand-700 hover:underline">
-          {t('auth.register.loginLink')}
-        </a>
-      </p>
-    </div>
+    </AuthCard>
   );
 }

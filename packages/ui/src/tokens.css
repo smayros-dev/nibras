@@ -1,0 +1,337 @@
+/*
+ * Design tokens — single source of truth (spec §3, PRD §8.16.1). Three layers:
+ *   1. Brand (swappable, PRD Q1): the `@theme` block below + `brand.ts`.
+ *   2. Semantic (what components use): raw values as `--tt-*` in `:root` (light) and
+ *      `[data-theme='dark']`, exposed to Tailwind as `--color-*` through `@theme inline`
+ *      (`bg-surface`, `text-fg-muted`, ...). Plain CSS reads `var(--tt-*)` directly.
+ *   3. Scales: type, radius, shadow, motion, touch size.
+ * Contrast of every semantic pair is enforced by `tokens.test.ts` (WCAG AA, both themes).
+ * Components never reference the raw brand/accent scales — only semantic tokens.
+ */
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme {
+  --font-sans: 'IBM Plex Sans Arabic', 'IBM Plex Sans', system-ui, sans-serif;
+
+  /* Brand: lagoon teal (primary = 600). */
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #0d9488;
+  --color-brand-600: #0f766e;
+  --color-brand-700: #115e59;
+  --color-brand-800: #134e4a;
+  --color-brand-900: #123f3b;
+  --color-brand-950: #042f2e;
+
+  /* Accent: warm amber (warnings, onboarding checklist). */
+  --color-accent-50: #fffbeb;
+  --color-accent-100: #fef3c7;
+  --color-accent-200: #fde68a;
+  --color-accent-300: #fcd34d;
+  --color-accent-400: #fbbf24;
+  --color-accent-500: #f59e0b;
+  --color-accent-600: #d97706;
+  --color-accent-700: #b45309;
+  --color-accent-800: #92400e;
+  --color-accent-900: #78350f;
+  --color-accent-950: #451a03;
+
+  /* Type scale (px/line-height): 12/16 · 14/20 · 16/24 · 18/28 · 20/28 · 24/32 · 30/36 · 36/40. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px 0 rgb(28 25 23 / 0.06);
+  --shadow-md: 0 4px 12px -2px rgb(28 25 23 / 0.1), 0 2px 4px -2px rgb(28 25 23 / 0.06);
+  --shadow-lg: 0 12px 32px -8px rgb(28 25 23 / 0.18), 0 4px 8px -4px rgb(28 25 23 / 0.08);
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+
+  --size-touch: 44px;
+
+  /*
+   * Overlay motion (200 ms in, 150 ms out). Sheet slides are direction-aware without physical
+   * utilities: `--motion-inline-sign` is 1 in ltr and -1 under `[dir='rtl']` (below), so
+   * `start` enters from the inline-start edge in both directions.
+   */
+  --animate-fade-in: tt-fade-in var(--duration-base) var(--ease-out);
+  --animate-fade-out: tt-fade-out var(--duration-fast) var(--ease-out) forwards;
+  --animate-dialog-in: tt-dialog-in var(--duration-base) var(--ease-out);
+  --animate-toast-in: tt-toast-in var(--duration-base) var(--ease-out);
+  --animate-sheet-in-start: tt-sheet-in-start var(--duration-base) var(--ease-out);
+  --animate-sheet-out-start: tt-sheet-in-start var(--duration-fast) var(--ease-out) reverse forwards;
+  --animate-sheet-in-end: tt-sheet-in-end var(--duration-base) var(--ease-out);
+  --animate-sheet-out-end: tt-sheet-in-end var(--duration-fast) var(--ease-out) reverse forwards;
+  --animate-sheet-in-bottom: tt-sheet-in-bottom var(--duration-base) var(--ease-out);
+  --animate-sheet-out-bottom: tt-sheet-in-bottom var(--duration-fast) var(--ease-out) reverse
+    forwards;
+
+  @keyframes tt-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes tt-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes tt-dialog-in {
+    from {
+      opacity: 0;
+      translate: 0 0.5rem;
+      scale: 0.98;
+    }
+  }
+  @keyframes tt-toast-in {
+    from {
+      opacity: 0;
+      translate: 0 0.5rem;
+    }
+  }
+  @keyframes tt-sheet-in-start {
+    from {
+      translate: calc(var(--motion-inline-sign, 1) * -100%) 0;
+    }
+  }
+  @keyframes tt-sheet-in-end {
+    from {
+      translate: calc(var(--motion-inline-sign, 1) * 100%) 0;
+    }
+  }
+  @keyframes tt-sheet-in-bottom {
+    from {
+      translate: 0 100%;
+    }
+  }
+}
+
+/* Read by the sheet keyframes above (1 in ltr, the default). Both are set so a nested `dir`
+   subtree overrides an ancestor's sign. */
+[dir='ltr'] {
+  --motion-inline-sign: 1;
+}
+[dir='rtl'] {
+  --motion-inline-sign: -1;
+}
+
+:root {
+  --tt-bg: #faf9f7;
+  --tt-bg-subtle: #f3f1ee;
+  --tt-surface: #ffffff;
+  --tt-surface-raised: #ffffff;
+  --tt-fg: #1c1917;
+  --tt-fg-muted: #57534e;
+  --tt-fg-subtle: #78716c;
+  --tt-border: #e7e5e4;
+  --tt-border-strong: #8a827c;
+  --tt-primary: #0f766e;
+  --tt-primary-hover: #115e59;
+  --tt-primary-fg: #ffffff;
+  --tt-primary-subtle: #f0fdfa;
+  --tt-danger: #b91c1c;
+  --tt-danger-hover: #991b1b;
+  --tt-danger-fg: #ffffff;
+  --tt-danger-subtle: #fef2f2;
+  --tt-warning: #b45309;
+  --tt-warning-fg: #ffffff;
+  --tt-warning-subtle: #fffbeb;
+  --tt-success: #15803d;
+  --tt-success-fg: #ffffff;
+  --tt-success-subtle: #f0fdf4;
+  --tt-info: #0369a1;
+  --tt-info-fg: #ffffff;
+  --tt-info-subtle: #f0f9ff;
+  --tt-focus: #0d9488;
+  --tt-overlay: rgb(28 25 23 / 0.5);
+  /* Avatar tones (initials fallback), text is `fg`: picked by hash(id) % 8. */
+  --tt-avatar-0: #ccfbf1;
+  --tt-avatar-1: #fde68a;
+  --tt-avatar-2: #bae6fd;
+  --tt-avatar-3: #fecdd3;
+  --tt-avatar-4: #ddd6fe;
+  --tt-avatar-5: #d9f99d;
+  --tt-avatar-6: #fed7aa;
+  --tt-avatar-7: #e2e8f0;
+}
+
+/* Any element can carry the dark theme (matches the `dark:` variant), not only `:root`. */
+[data-theme='dark'] {
+  --tt-bg: #0c1116;
+  --tt-bg-subtle: #10171d;
+  --tt-surface: #141b22;
+  --tt-surface-raised: #1b242d;
+  --tt-fg: #f1f5f9;
+  --tt-fg-muted: #a8b0ba;
+  --tt-fg-subtle: #7d8794;
+  --tt-border: #263039;
+  --tt-border-strong: #66717d;
+  --tt-primary: #2dd4bf;
+  --tt-primary-hover: #5eead4;
+  --tt-primary-fg: #042f2e;
+  --tt-primary-subtle: #0f2e2b;
+  --tt-danger: #f87171;
+  --tt-danger-hover: #fca5a5;
+  --tt-danger-fg: #2a0707;
+  --tt-danger-subtle: #2c1416;
+  --tt-warning: #fbbf24;
+  --tt-warning-fg: #261703;
+  --tt-warning-subtle: #2a2110;
+  --tt-success: #4ade80;
+  --tt-success-fg: #052e16;
+  --tt-success-subtle: #10261a;
+  --tt-info: #38bdf8;
+  --tt-info-fg: #082f49;
+  --tt-info-subtle: #0f2433;
+  --tt-focus: #5eead4;
+  --tt-overlay: rgb(0 0 0 / 0.6);
+  --tt-avatar-0: #134e4a;
+  --tt-avatar-1: #78350f;
+  --tt-avatar-2: #0c4a6e;
+  --tt-avatar-3: #881337;
+  --tt-avatar-4: #4c1d95;
+  --tt-avatar-5: #365314;
+  --tt-avatar-6: #7c2d12;
+  --tt-avatar-7: #334155;
+}
+
+@theme inline {
+  --color-bg: var(--tt-bg);
+  --color-bg-subtle: var(--tt-bg-subtle);
+  --color-surface: var(--tt-surface);
+  --color-surface-raised: var(--tt-surface-raised);
+  --color-fg: var(--tt-fg);
+  --color-fg-muted: var(--tt-fg-muted);
+  --color-fg-subtle: var(--tt-fg-subtle);
+  --color-border: var(--tt-border);
+  --color-border-strong: var(--tt-border-strong);
+  --color-primary: var(--tt-primary);
+  --color-primary-hover: var(--tt-primary-hover);
+  --color-primary-fg: var(--tt-primary-fg);
+  --color-primary-subtle: var(--tt-primary-subtle);
+  --color-danger: var(--tt-danger);
+  --color-danger-hover: var(--tt-danger-hover);
+  --color-danger-fg: var(--tt-danger-fg);
+  --color-danger-subtle: var(--tt-danger-subtle);
+  --color-warning: var(--tt-warning);
+  --color-warning-fg: var(--tt-warning-fg);
+  --color-warning-subtle: var(--tt-warning-subtle);
+  --color-success: var(--tt-success);
+  --color-success-fg: var(--tt-success-fg);
+  --color-success-subtle: var(--tt-success-subtle);
+  --color-info: var(--tt-info);
+  --color-info-fg: var(--tt-info-fg);
+  --color-info-subtle: var(--tt-info-subtle);
+  --color-focus: var(--tt-focus);
+  --color-overlay: var(--tt-overlay);
+  --color-avatar-0: var(--tt-avatar-0);
+  --color-avatar-1: var(--tt-avatar-1);
+  --color-avatar-2: var(--tt-avatar-2);
+  --color-avatar-3: var(--tt-avatar-3);
+  --color-avatar-4: var(--tt-avatar-4);
+  --color-avatar-5: var(--tt-avatar-5);
+  --color-avatar-6: var(--tt-avatar-6);
+  --color-avatar-7: var(--tt-avatar-7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * Responsive `Table` (spec §4): below `md` each row of `.tt-table[data-stack]` becomes a card and
+ * each cell shows its column header through `data-label` (no duplicate markup). Logical properties
+ * only, so the layout mirrors in RTL.
+ */
+@layer components {
+  /* Cell spacing and row rules live here (not in utilities) so the stacked layout can override
+     them; a caller's `className` (utilities layer) still wins over both. */
+  .tt-table > tbody > tr > td {
+    padding: 0.75rem;
+  }
+  .tt-table > tbody > tr > td[data-actions] {
+    padding-block: 0.5rem;
+  }
+  .tt-table > tbody > tr + tr {
+    border-block-start: 1px solid var(--tt-border);
+  }
+
+  @media (width < 48rem) {
+    .tt-table[data-stack],
+    .tt-table[data-stack] > tbody,
+    .tt-table[data-stack] > caption {
+      display: block;
+    }
+    .tt-table[data-stack] > thead {
+      @apply sr-only;
+    }
+    .tt-table[data-stack] > tbody > tr {
+      display: block;
+      margin-block-end: 0.75rem;
+      padding: 0.75rem;
+      border: 1px solid var(--tt-border);
+      border-radius: var(--radius-md);
+      background: var(--tt-surface);
+    }
+    .tt-table[data-stack] > tbody > tr > td {
+      display: grid;
+      grid-template-columns: minmax(6rem, 40%) 1fr;
+      gap: 0.5rem;
+      padding-block: 0.25rem;
+      padding-inline: 0;
+      border: 0;
+      text-align: start;
+    }
+    .tt-table[data-stack] > tbody > tr > td::before {
+      /* Alt text "": visual only, assistive tech already announces the column header. */
+      content: attr(data-label) / '';
+      color: var(--tt-fg-muted);
+      font-weight: 500;
+    }
+    .tt-table[data-stack] > tbody > tr > td:not([data-label]) {
+      display: block;
+    }
+    .tt-table[data-stack] > tbody > tr > td:not([data-label])::before {
+      content: none;
+    }
+    .tt-table[data-stack] > tbody > tr > td[data-actions] {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      padding-block-start: 0.5rem;
+    }
+  }
+}

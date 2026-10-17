@@ -1,16 +1,242 @@
 'use client';
 
-import { Button, Field, TextInput } from '@tt/ui';
+import { Alert, Badge, Button, Card, Dialog, Field, Input, useSubmit, useToast } from '@tt/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { DevicesList } from '../../../../../../components/devices-list';
 import { useRouter } from '../../../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../../../lib/api-error';
-import { api } from '../../../../../../lib/api';
+import { api, asApiResult } from '../../../../../../lib/api';
+
+type Translator = ReturnType<typeof useTranslations>;
+
+/** Maps an API error to inline field errors when it is a validation failure, else one message. */
+function applyError(
+  t: Translator,
+  error: unknown,
+  setFieldErrors: (errors: Record<string, string>) => void,
+  setFormError: (message: string) => void,
+) {
+  const mapped = issuesToFieldErrors(t, error);
+  if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
+  else setFormError(apiErrorMessage(t, error));
+}
+
+/** 2FA status; enable reuses the `/2fa/setup` flow, disable asks for a code in a dialog. */
+function TwoFactorCard({ twoFactor }: { twoFactor: { enabled: boolean; required: boolean } }) {
+  const t = useTranslations();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const disable = useSubmit(async () => {
+    setFieldErrors({});
+    setFormError(null);
+    try {
+      const { error } = asApiResult<unknown>(
+        await api.POST('/auth/2fa/disable', { body: { otpCode } }),
+      );
+      if (error) {
+        applyError(t, error, setFieldErrors, setFormError);
+        return;
+      }
+    } catch {
+      setFormError(t('errors.INTERNAL_ERROR'));
+      return;
+    }
+    setOpen(false);
+    setOtpCode('');
+    toast({ title: t('settings.security.twoFactorDisabled'), variant: 'success' });
+    router.refresh();
+  });
+
+  return (
+    <Card>
+      <Card.Header>
+        <div className="flex flex-wrap items-center gap-2">
+          <Card.Title>{t('settings.security.twoFactor')}</Card.Title>
+          <Badge variant={twoFactor.enabled ? 'success' : 'neutral'}>
+            {twoFactor.enabled
+              ? t('settings.security.twoFactorStatusOn')
+              : t('settings.security.twoFactorStatusOff')}
+          </Badge>
+        </div>
+        <Card.Description>
+          {twoFactor.enabled
+            ? t('settings.security.twoFactorOn')
+            : t('settings.security.twoFactorOff')}
+        </Card.Description>
+      </Card.Header>
+      {twoFactor.enabled ? (
+        twoFactor.required ? (
+          <p className="text-sm text-fg-muted">{t('settings.security.twoFactorRequired')}</p>
+        ) : (
+          <Dialog.Root
+            open={open}
+            onOpenChange={(next) => {
+              setOpen(next);
+              if (!next) {
+                setOtpCode('');
+                setFieldErrors({});
+                setFormError(null);
+              }
+            }}
+          >
+            <Dialog.Trigger asChild>
+              <Button variant="danger" className="self-start">
+                {t('settings.security.twoFactorDisable')}
+              </Button>
+            </Dialog.Trigger>
+            <Dialog.Content
+              title={t('settings.security.twoFactorDisable')}
+              description={t('settings.security.disableHint')}
+              closeLabel={t('common.close')}
+              size="sm"
+            >
+              <form
+                method="post"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void disable.submit();
+                }}
+                className="flex flex-col gap-4"
+              >
+                {formError ? <Alert variant="danger">{formError}</Alert> : null}
+                <Field
+                  htmlFor="otpCode"
+                  label={t('settings.security.otpCode')}
+                  error={fieldErrors.otpCode}
+                >
+                  <Input
+                    id="otpCode"
+                    name="otpCode"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    required
+                  />
+                </Field>
+                <Dialog.Footer>
+                  <Dialog.Close asChild>
+                    <Button variant="secondary">{t('common.cancel')}</Button>
+                  </Dialog.Close>
+                  <Button
+                    type="submit"
+                    variant="danger"
+                    loading={disable.busy}
+                    disabled={otpCode.length === 0}
+                  >
+                    {t('settings.security.twoFactorDisable')}
+                  </Button>
+                </Dialog.Footer>
+              </form>
+            </Dialog.Content>
+          </Dialog.Root>
+        )
+      ) : (
+        <Button variant="primary" className="self-start" onClick={() => router.push('/2fa/setup')}>
+          {t('settings.security.twoFactorEnable')}
+        </Button>
+      )}
+    </Card>
+  );
+}
+
+function PasswordCard() {
+  const t = useTranslations();
+  const { toast } = useToast();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const change = useSubmit(async () => {
+    setFieldErrors({});
+    setFormError(null);
+    try {
+      const { error } = asApiResult<unknown>(
+        await api.PATCH('/me/password', { body: { currentPassword, newPassword } }),
+      );
+      if (error) {
+        applyError(t, error, setFieldErrors, setFormError);
+        return;
+      }
+    } catch {
+      setFormError(t('errors.INTERNAL_ERROR'));
+      return;
+    }
+    setCurrentPassword('');
+    setNewPassword('');
+    toast({ title: t('settings.security.passwordChanged'), variant: 'success' });
+  });
+
+  return (
+    <Card>
+      <Card.Header>
+        <Card.Title>{t('settings.security.changePassword')}</Card.Title>
+      </Card.Header>
+      <form
+        method="post"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void change.submit();
+        }}
+        className="flex max-w-md flex-col gap-4"
+      >
+        {formError ? <Alert variant="danger">{formError}</Alert> : null}
+        <Field
+          htmlFor="currentPassword"
+          label={t('settings.security.currentPassword')}
+          error={fieldErrors.currentPassword}
+        >
+          <Input
+            id="currentPassword"
+            name="currentPassword"
+            type="password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            required
+          />
+        </Field>
+        <Field
+          htmlFor="newPassword"
+          label={t('settings.security.newPassword')}
+          error={fieldErrors.newPassword}
+        >
+          <Input
+            id="newPassword"
+            name="newPassword"
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+          />
+        </Field>
+        <Button
+          type="submit"
+          variant="primary"
+          className="self-start"
+          loading={change.busy}
+          disabled={currentPassword.length === 0 || newPassword.length === 0}
+        >
+          {t('settings.security.changePasswordSubmit')}
+        </Button>
+      </form>
+    </Card>
+  );
+}
 
 /**
- * Security settings: 2FA (enable reuses the `/2fa/setup` flow; disable needs a code; disabled
- * with an explanation when the role makes it mandatory), password change and connected devices.
+ * Security settings: 2FA (disabled with an explanation when the role makes it mandatory),
+ * password change and connected devices, one card each.
  */
 export function SecurityPanel({
   twoFactor,
@@ -18,159 +244,16 @@ export function SecurityPanel({
   twoFactor: { enabled: boolean; required: boolean };
 }) {
   const t = useTranslations();
-  const router = useRouter();
-  const [otpCode, setOtpCode] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [formError, setFormError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function disable(event: React.FormEvent) {
-    event.preventDefault();
-    setFieldErrors({});
-    setFormError(null);
-    setStatus(null);
-    setBusy(true);
-    const { error } = await api.POST('/auth/2fa/disable', { body: { otpCode } });
-    setBusy(false);
-    if (error) {
-      const mapped = issuesToFieldErrors(error as unknown);
-      if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
-      else setFormError(apiErrorMessage(t, error as unknown));
-      return;
-    }
-    router.refresh();
-  }
-
-  async function changePassword(event: React.FormEvent) {
-    event.preventDefault();
-    setFieldErrors({});
-    setFormError(null);
-    setStatus(null);
-    setBusy(true);
-    const { error } = await api.PATCH('/me/password', {
-      body: { currentPassword, newPassword },
-    });
-    setBusy(false);
-    if (error) {
-      const mapped = issuesToFieldErrors(error as unknown);
-      if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
-      else setFormError(apiErrorMessage(t, error as unknown));
-      return;
-    }
-    setCurrentPassword('');
-    setNewPassword('');
-    setStatus(t('settings.security.passwordChanged'));
-  }
-
   return (
-    <div className="flex max-w-xl flex-col gap-8">
-      {formError ? (
-        <p role="alert" className="text-sm text-danger">
-          {formError}
-        </p>
-      ) : null}
-      {status ? (
-        <p role="status" className="text-sm text-success">
-          {status}
-        </p>
-      ) : null}
-
-      <section aria-labelledby="two-factor-title">
-        <h2 id="two-factor-title" className="mb-2 text-lg font-bold">
-          {t('settings.security.twoFactor')}
-        </h2>
-        {twoFactor.enabled ? (
-          <p className="mb-3 text-sm">{t('settings.security.twoFactorOn')}</p>
-        ) : (
-          <p className="mb-3 text-sm">{t('settings.security.twoFactorOff')}</p>
-        )}
-        {twoFactor.enabled ? (
-          twoFactor.required ? (
-            <p className="text-sm text-gray-500">{t('settings.security.twoFactorRequired')}</p>
-          ) : (
-            <form onSubmit={(e) => void disable(e)} className="flex flex-col gap-3">
-              <p className="text-sm">{t('settings.security.disableHint')}</p>
-              <Field
-                htmlFor="otpCode"
-                label={t('settings.security.otpCode')}
-                error={fieldErrors.otpCode}
-              >
-                <TextInput
-                  id="otpCode"
-                  name="otpCode"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  required
-                />
-              </Field>
-              <Button type="submit" variant="danger" disabled={busy || otpCode.length === 0}>
-                {t('settings.security.twoFactorDisable')}
-              </Button>
-            </form>
-          )
-        ) : (
-          <Button variant="primary" onClick={() => router.push('/2fa/setup')}>
-            {t('settings.security.twoFactorEnable')}
-          </Button>
-        )}
-      </section>
-
-      <section aria-labelledby="password-title">
-        <h2 id="password-title" className="mb-2 text-lg font-bold">
-          {t('settings.security.changePassword')}
-        </h2>
-        <form onSubmit={(e) => void changePassword(e)} className="flex flex-col gap-3">
-          <Field
-            htmlFor="currentPassword"
-            label={t('settings.security.currentPassword')}
-            error={fieldErrors.currentPassword}
-          >
-            <TextInput
-              id="currentPassword"
-              name="currentPassword"
-              type="password"
-              autoComplete="current-password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-            />
-          </Field>
-          <Field
-            htmlFor="newPassword"
-            label={t('settings.security.newPassword')}
-            error={fieldErrors.newPassword}
-          >
-            <TextInput
-              id="newPassword"
-              name="newPassword"
-              type="password"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-            />
-          </Field>
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={busy || currentPassword.length === 0 || newPassword.length === 0}
-          >
-            {t('settings.security.changePasswordSubmit')}
-          </Button>
-        </form>
-      </section>
-
-      <section aria-labelledby="devices-title">
-        <h2 id="devices-title" className="mb-2 text-lg font-bold">
-          {t('settings.security.devices')}
-        </h2>
+    <div className="flex max-w-3xl flex-col gap-6">
+      <TwoFactorCard twoFactor={twoFactor} />
+      <PasswordCard />
+      <Card>
+        <Card.Header>
+          <Card.Title>{t('settings.security.devices')}</Card.Title>
+        </Card.Header>
         <DevicesList />
-      </section>
+      </Card>
     </div>
   );
 }

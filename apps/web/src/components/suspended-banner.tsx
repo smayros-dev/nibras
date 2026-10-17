@@ -1,5 +1,6 @@
 'use client';
 
+import { Alert } from '@tt/ui';
 import { useTranslations } from 'next-intl';
 
 /**
@@ -11,12 +12,8 @@ import { useTranslations } from 'next-intl';
 export function SuspendedBanner({ status }: { status: 'SUSPENDED' | 'DELETING' }) {
   const t = useTranslations();
   return (
-    <p
-      role="status"
-      className="mb-4 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm font-semibold text-warning"
-      data-status={status}
-    >
+    <Alert variant="warning" data-status={status}>
       {t('workspace.suspended')}
-    </p>
+    </Alert>
   );
 }

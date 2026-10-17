@@ -3,6 +3,8 @@ import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import base from './base.mjs';
 import nestConfig from './nest.mjs';
+import { PHYSICAL_CLASS, RTL_FLIP_ALLOWED } from './logical-css.mjs';
+import nextConfig from './next.mjs';
 
 // The fixtures are virtual files the TypeScript project service cannot load: lint them with the
 // nest config minus its type-aware layer (checked on its own below).
@@ -16,6 +18,9 @@ const nest = [
     },
   },
 ];
+
+// The next config has no type-aware layer; the alias keeps the intent explicit at call sites.
+const nextWithoutTypes = nextConfig;
 
 // Lints in-memory fixtures with the shared configs (no config file lookup); paths are virtual and
 // resolved against this directory, as an app's own eslint.config.mjs would resolve them.
@@ -85,5 +90,96 @@ describe('nest type-aware rules', () => {
       2,
       { checksVoidReturn: false },
     ]);
+  });
+});
+
+describe('logical CSS rule', () => {
+  it('flags physical utilities in class strings and template literals under the next config', async () => {
+    const code =
+      "export const a = 'ml-2 pr-4'; export const b = `text-left ${x}`; export const ok = 'ps-2 pe-4 text-start rtl:-scale-x-100';\n";
+    const ids = await ruleIds(nextWithoutTypes, code, 'src/a.tsx');
+    expect(ids).toEqual(['no-restricted-syntax', 'no-restricted-syntax']);
+  });
+
+  it('flags variant-prefixed, negative and corner forms but not logical ones', async () => {
+    const bad = [
+      "export const a = 'md:-mr-4';\n",
+      "export const a = 'rounded-tl-lg';\n",
+      "export const a = 'border-l';\n",
+      "export const a = 'left-0';\n",
+      "export const a = 'float-right';\n",
+    ];
+    for (const code of bad) {
+      expect(await ruleIds(nextWithoutTypes, code, 'src/a.tsx')).toEqual(['no-restricted-syntax']);
+    }
+    const ok =
+      "export const a = 'ms-2 me-4 start-0 end-0 rounded-s border-e text-end inset-y-0 scale-x-100 rtl:-scale-x-100';\n";
+    expect(await ruleIds(nextWithoutTypes, ok, 'src/a.tsx')).toEqual([]);
+    expect(PHYSICAL_CLASS.test(RTL_FLIP_ALLOWED)).toBe(false);
+  });
+
+  it('flags origin, background/object position, clear, scroll padding and left/right gradients', async () => {
+    const bad = [
+      'origin-left',
+      'origin-top-right',
+      'rtl:origin-bottom-left',
+      'bg-left',
+      'bg-right-top',
+      'object-left',
+      'object-right-bottom',
+      'clear-left',
+      'clear-right',
+      'scroll-pl-4',
+      'scroll-pr-2',
+      'bg-linear-to-l',
+      'bg-linear-to-r',
+      'bg-linear-to-tr',
+      'bg-linear-to-r/oklch',
+      'bg-gradient-to-l',
+    ];
+    for (const cls of bad) {
+      const code = `export const a = 'p-2 ${cls}';\n`;
+      expect(await ruleIds(nextWithoutTypes, code, 'src/a.tsx'), cls).toEqual([
+        'no-restricted-syntax',
+      ]);
+    }
+    const ok =
+      "export const a = 'origin-center origin-top bg-center bg-top object-center object-cover clear-both scroll-ps-4 scroll-pe-2 bg-linear-to-t bg-linear-to-b';\n";
+    expect(await ruleIds(nextWithoutTypes, ok, 'src/a.tsx')).toEqual([]);
+  });
+
+  it('keeps the tenancy SQL ban alive next to it', async () => {
+    const code = 'export const s = "SET LOCAL app.bypass_tenant = \'on\'";\n';
+    expect(await ruleIds(nextWithoutTypes, code, 'src/a.ts')).toEqual(['no-restricted-syntax']);
+  });
+});
+
+describe('logical CSS rule scope', () => {
+  it('exempts test prose but keeps the tenancy ban there', async () => {
+    const prose = "test('wrong code, right code enters', () => {});\n";
+    expect(await ruleIds(nextWithoutTypes, prose, 'e2e/auth.spec.ts')).toEqual([]);
+    expect(await ruleIds(nextWithoutTypes, prose, 'src/a.test.tsx')).toEqual([]);
+    expect(await ruleIds(nextWithoutTypes, prose, 'src/a.tsx')).toEqual(['no-restricted-syntax']);
+    const sql = 'export const s = "SET LOCAL app.bypass_tenant = \'on\'";\n';
+    expect(await ruleIds(nextWithoutTypes, sql, 'e2e/a.spec.ts')).toEqual(['no-restricted-syntax']);
+  });
+});
+
+describe('browser-bundle contracts import', () => {
+  it('bans value imports from the zod-bundling @tt/contracts entry in app sources', async () => {
+    const value = "import { LOCALES } from '@tt/contracts';\nexport const l = LOCALES;\n";
+    expect(await ruleIds(nextWithoutTypes, value, 'src/a.tsx')).toEqual([
+      '@typescript-eslint/no-restricted-imports',
+    ]);
+    const typeOnly = "import type { MeUser } from '@tt/contracts';\nexport type U = MeUser;\n";
+    expect(await ruleIds(nextWithoutTypes, typeOnly, 'src/a.tsx')).toEqual([]);
+    const web = "import { LOCALES } from '@tt/contracts/web';\nexport const l = LOCALES;\n";
+    expect(await ruleIds(nextWithoutTypes, web, 'src/a.tsx')).toEqual([]);
+  });
+
+  it('leaves tests and e2e free to import the schemas', async () => {
+    const value = "import { LOCALES } from '@tt/contracts';\nexport const l = LOCALES;\n";
+    expect(await ruleIds(nextWithoutTypes, value, 'src/a.test.ts')).toEqual([]);
+    expect(await ruleIds(nextWithoutTypes, value, 'e2e/a.spec.ts')).toEqual([]);
   });
 });

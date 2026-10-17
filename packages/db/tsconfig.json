@@ -3,7 +3,9 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "types": ["node"]
+    "types": ["node"],
+    // `prisma/seed.ts` runs under Node type stripping, which needs the `.ts` extension.
+    "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/**/*.ts", "vitest.config.ts", "vitest.setup.ts"]
+  "include": ["src/**/*.ts", "prisma/seed.ts", "vitest.config.ts", "vitest.setup.ts"]
 }

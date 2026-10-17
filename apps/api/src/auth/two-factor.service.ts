@@ -31,7 +31,7 @@ import type { SessionMeta } from './session.service';
 import { requiresTwoFactor } from './two-factor.policy';
 
 /** Name shown by authenticator apps next to the account (`otpauth://` issuer). */
-export const TOTP_ISSUER = 'Plateforme cours';
+export const TOTP_ISSUER = 'Nibras';
 
 const twoFactorInvalid = () =>
   new ApiError(HttpStatus.UNAUTHORIZED, 'TWO_FACTOR_INVALID', 'Invalid verification code');

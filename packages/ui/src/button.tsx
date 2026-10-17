@@ -1,43 +1,125 @@
-import type { ButtonHTMLAttributes } from 'react';
+'use client';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'danger';
-export type ButtonSize = 'sm' | 'md' | 'lg';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { Slot } from 'radix-ui';
+import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
+import { cn } from './cn';
+import { Spinner } from './spinner';
+
+export const buttonVariants = cva(
+  [
+    'inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-semibold whitespace-nowrap',
+    'transition-colors duration-fast ease-out',
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+    'disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-progress',
+    // `asChild` targets (links) cannot be `disabled`: they carry `aria-disabled` instead.
+    'aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
+  ],
+  {
+    variants: {
+      variant: {
+        primary: 'bg-primary text-primary-fg hover:bg-primary-hover',
+        secondary: 'border border-border-strong bg-surface text-fg hover:bg-bg-subtle',
+        ghost: 'text-fg hover:bg-bg-subtle',
+        danger: 'bg-danger text-danger-fg hover:bg-danger-hover',
+        link: 'text-primary underline-offset-4 hover:underline',
+      },
+      // `px-*` compiles to `padding-inline`: mirrored automatically in RTL.
+      // Touch targets: ≥ 44 px on coarse pointers (PRD §14.5); `sm` is 36 px on fine pointers only.
+      size: {
+        sm: 'min-h-9 px-3 text-sm pointer-coarse:min-h-11',
+        md: 'min-h-11 px-4 text-base',
+        lg: 'min-h-12 px-6 text-lg',
+        icon: 'size-11',
+      },
+    },
+    compoundVariants: [{ variant: 'link', className: 'min-h-0 px-0' }],
+    defaultVariants: { size: 'md' },
+  },
+);
+
+export type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>['variant']>;
+export type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>['size']>;
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant: ButtonVariant;
   size?: ButtonSize;
+  /** Shows a spinner at inline-start, sets `aria-busy` and disables; the label stays visible. */
+  loading?: boolean;
+  /** Renders the single child (e.g. a `<Link>`) with the button styles (Radix `Slot`). */
+  asChild?: boolean;
+  iconStart?: ReactNode;
+  iconEnd?: ReactNode;
 }
 
-const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-brand-600',
-  secondary:
-    'border border-brand-600 bg-white text-brand-700 hover:bg-brand-50 focus-visible:outline-brand-600',
-  danger: 'bg-danger text-white hover:opacity-90 focus-visible:outline-danger',
-};
+function swallowActivation(event: MouseEvent<HTMLElement>) {
+  event.preventDefault();
+  event.stopPropagation();
+}
 
-// `px-*` compiles to `padding-inline` in Tailwind 4: mirrored automatically in RTL.
-const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-sm',
-  md: 'px-4 py-2 text-base',
-  lg: 'px-6 py-3 text-lg',
-};
-
-/** Native `<button>` with design-system styling; `type` defaults to `button` (not `submit`). */
-export function Button({
-  variant,
-  size = 'md',
-  type = 'button',
-  className,
-  ...props
-}: ButtonProps) {
-  const classes = [
-    'inline-flex items-center justify-center gap-2 rounded-md font-semibold',
-    'focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-    VARIANT_CLASSES[variant],
-    SIZE_CLASSES[size],
+/**
+ * Design-system button; `type` defaults to `button` (not `submit`). A client component: the
+ * `asChild` branch hands a capture handler to the client `Slot`, which a server component cannot
+ * pass across the RSC boundary.
+ */
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    variant,
+    size = 'md',
+    loading = false,
+    asChild = false,
+    iconStart,
+    iconEnd,
+    type,
+    disabled,
     className,
-  ]
-    .filter(Boolean)
-    .join(' ');
-  return <button type={type} className={classes} {...props} />;
-}
+    children,
+    onClickCapture,
+    ...props
+  },
+  ref,
+) {
+  const classes = cn(buttonVariants({ variant, size }), className);
+  const start = loading ? (
+    // Decorative here: `aria-busy` already tells assistive tech the button is working.
+    <span aria-hidden="true" className="inline-flex">
+      <Spinner size="sm" />
+    </span>
+  ) : (
+    iconStart
+  );
+  if (asChild) {
+    // A link cannot be `disabled`: expose `aria-disabled` and swallow activation in the capture
+    // phase, before the child's own handler (e.g. a Next `<Link>` navigation) and the native default.
+    const inert = Boolean(disabled) || loading;
+    return (
+      <Slot.Root
+        ref={ref}
+        className={classes}
+        aria-busy={loading || undefined}
+        aria-disabled={inert || undefined}
+        {...props}
+        onClickCapture={inert ? swallowActivation : onClickCapture}
+      >
+        {start}
+        <Slot.Slottable>{children}</Slot.Slottable>
+        {iconEnd}
+      </Slot.Root>
+    );
+  }
+  return (
+    <button
+      ref={ref}
+      type={type ?? 'button'}
+      className={classes}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      onClickCapture={onClickCapture}
+      {...props}
+    >
+      {start}
+      {children}
+      {iconEnd}
+    </button>
+  );
+});

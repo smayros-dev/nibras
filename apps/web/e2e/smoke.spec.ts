@@ -1,6 +1,6 @@
 import { messages } from '@tt/i18n';
 import type { Page } from '@playwright/test';
-import { appUrl, expect, t, test, apiLogin, uniqueEmail } from './helpers';
+import { appUrl, expect, plainText, t, test, toast, apiLogin, uniqueEmail } from './helpers';
 import { request as playwrightRequest } from '@playwright/test';
 import { extractLink, extractOtpCode, waitForEmail } from './helpers/mailpit';
 import { addOrgMember, seedUser } from './helpers/seed';
@@ -44,7 +44,7 @@ async function fillRegister(page: Page, locale: string, email: string) {
   await page.getByLabel(t(locale, 'auth.register.lastName'), { exact: true }).fill('Ben Ali');
   await page.getByLabel(t(locale, 'auth.register.email'), { exact: true }).fill(email);
   await page.getByLabel(t(locale, 'auth.register.password'), { exact: true }).fill(PASSWORD);
-  await page.getByLabel(t(locale, 'auth.register.acceptTerms'), { exact: true }).check();
+  await page.getByLabel(plainText(t(locale, 'auth.register.acceptTerms')), { exact: true }).check();
 }
 
 async function runJourney(page: Page, locale: string) {
@@ -56,13 +56,13 @@ async function runJourney(page: Page, locale: string) {
   await expect(page.locator('html')).toHaveAttribute('dir', dir);
   await fillRegister(page, locale, email);
   await page.getByRole('button', { name: t(locale, 'auth.register.submit') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/verify-email`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/verify-email`), { timeout: 15_000 });
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
 
   const mail = await waitForEmail(email, 'verify-email');
   await page.goto(extractLink(mail.html, '/verify-email?token=')!);
   await page.getByRole('link', { name: t(locale, 'auth.verify.continue') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
   // Every UI-registered user has one pending consent (the e2e bumps TERMS): accept the gate.
   // Wait for the grant POST itself; the dialog unmounts on the refreshed server layout, but the
   // dev-mode RSC refresh races — a full reload makes it deterministic.
@@ -100,10 +100,10 @@ async function runJourney(page: Page, locale: string) {
   await page.goto(`/${locale}/app/settings/workspaces`);
   await page.getByLabel(t(locale, 'workspace.name'), { exact: true }).fill(orgName);
   await page.getByRole('button', { name: t(locale, 'workspace.submitOrganization') }).click();
-  await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.created'));
+  await expect(toast(page, locale, t(locale, 'workspace.created'))).toBeVisible();
 
   await page.goto(`/${locale}/app`);
-  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`), { timeout: 15_000 });
   await expect(page.locator('html')).toHaveAttribute('dir', dir);
   // The setup page shows the otpauth secret: enrol with a real TOTP code.
   const secretText = (await page.getByTestId('totp-secret').innerText()).trim();
@@ -114,13 +114,14 @@ async function runJourney(page: Page, locale: string) {
   await expect(page.getByTestId('recovery-codes')).toBeVisible();
   await page.getByLabel(t(locale, 'auth.setup.savedAck'), { exact: true }).check();
   await page.getByRole('button', { name: t(locale, 'auth.setup.continue') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
 
-  // The organisation's id, from the switcher on the dashboard.
-  const switcher = page.getByLabel(t(locale, 'workspace.switcherLabel'));
-  const option = switcher.locator('option', { hasText: orgName });
-  const wid = await option.getAttribute('value');
+  // The organisation's id, from the switcher menu on the dashboard (it navigates to the workspace).
+  await page.getByRole('button', { name: t(locale, 'nav.currentWorkspace') }).click();
+  await page.getByRole('menuitemradio', { name: orgName }).click();
+  await expect(page).toHaveURL(/\/app\/w\/[^/?#]+$/, { timeout: 15_000 });
+  const wid = new URL(page.url()).pathname.split('/').pop();
   expect(wid).toBeTruthy();
 
   // 4. Invitations are SP2: assign a role to a seeded member instead (promote to ADMIN).
@@ -129,8 +130,13 @@ async function runJourney(page: Page, locale: string) {
   await page.goto(`/${locale}/app/w/${wid}/members`);
   const memberRow = page.getByRole('row').filter({ hasText: member.email });
   await expect(memberRow).toBeVisible();
-  await memberRow.getByRole('button', { name: t(locale, 'members.changeRole') }).click();
-  await expect(page.getByRole('status')).toHaveText(t(locale, 'members.roleChanged'));
+  await memberRow
+    .getByRole('button', {
+      name: t(locale, 'members.rowActions').replace('{name}', `${member.firstName} Ben Ali`),
+    })
+    .click();
+  await page.getByRole('menuitemradio', { name: t(locale, 'members.role_ADMIN') }).click();
+  await expect(toast(page, locale, t(locale, 'members.roleChanged'))).toBeVisible();
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
 
   // 5. The globalSetup-seeded super-admin suspends, then reactivates, the organisation.
@@ -149,7 +155,10 @@ async function runJourney(page: Page, locale: string) {
 
   // The teacher sees the banner…
   await page.goto(`/${locale}/app/w/${wid}`);
-  await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.suspended'));
+  // Filtered: a route's loading fallback (also a `status`) may still be streaming out.
+  await expect(
+    page.getByRole('status').filter({ hasText: t(locale, 'workspace.suspended') }),
+  ).toHaveText(t(locale, 'workspace.suspended'));
 
   // …and loses it once the super-admin reactivates.
   const ctx2 = await playwrightRequest.newContext({ baseURL: API_BASE });

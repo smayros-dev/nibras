@@ -1,26 +1,24 @@
 {
   "common": {
-    "appName": "منصة الدروس",
+    "appName": "نبراس",
     "loading": "جارٍ التحميل…",
     "retry": "إعادة المحاولة",
     "cancel": "إلغاء",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "newTab": "(علامة تبويب جديدة)"
   },
   "nav": {
     "skipToContent": "تخطَّ إلى المحتوى",
     "primaryNav": "التنقل الرئيسي",
+    "secondaryNav": "التنقل الثانوي",
+    "more": "المزيد",
+    "closeMenu": "إغلاق القائمة",
+    "brandHome": "الصفحة الرئيسية",
     "dashboard": "لوحة التحكم",
-    "courses": "الدروس",
-    "students": "الطلاب",
-    "sessions": "الحصص",
-    "messages": "الرسائل",
-    "notifications": "الإشعارات",
-    "settings": "الإعدادات"
-  },
-  "hello": {
-    "title": "مرحباً",
-    "subtitle": "منصة الدروس عبر الإنترنت — بيئة التطوير",
-    "switchLocale": "تغيير اللغة"
+    "settings": "الإعدادات",
+    "workspaces": "المساحات",
+    "console": "وحدة التحكم",
+    "currentWorkspace": "المساحة الحالية"
   },
   "errors": {
     "VALIDATION_FAILED": "البيانات المُرسلة غير صالحة.",
@@ -67,8 +65,23 @@
     "CANNOT_SUSPEND_SUPER_ADMIN": "لا يمكن تعليق حساب مشرف عام.",
     "TENANT_CONTEXT_MISSING": "حدث خطأ داخلي. يُرجى المحاولة مرة أخرى."
   },
-  "health": {
-    "ok": "الخدمة تعمل بشكل طبيعي"
+  "validation": {
+    "invalid": "قيمة غير صالحة.",
+    "required": "هذا الحقل مطلوب.",
+    "not_integer": "أدخل عددًا صحيحًا.",
+    "not_number": "أدخل عددًا.",
+    "too_small_string": "{min, plural, one {الحد الأدنى حرف واحد.} two {الحد الأدنى حرفان.} few {الحد الأدنى {min} أحرف.} many {الحد الأدنى {min} حرفًا.} other {الحد الأدنى {min} حرف.}}",
+    "too_small_number": "القيمة الدنيا: {min}.",
+    "too_small_array": "{min, plural, one {اختر عنصرًا واحدًا على الأقل.} two {اختر عنصرين على الأقل.} few {اختر {min} عناصر على الأقل.} many {اختر {min} عنصرًا على الأقل.} other {اختر {min} عنصر على الأقل.}}",
+    "too_big_string": "{max, plural, one {الحد الأقصى حرف واحد.} two {الحد الأقصى حرفان.} few {الحد الأقصى {max} أحرف.} many {الحد الأقصى {max} حرفًا.} other {الحد الأقصى {max} حرف.}}",
+    "too_big_number": "القيمة القصوى: {max}.",
+    "too_big_array": "{max, plural, one {اختر عنصرًا واحدًا على الأكثر.} two {اختر عنصرين على الأكثر.} few {اختر {max} عناصر على الأكثر.} many {اختر {max} عنصرًا على الأكثر.} other {اختر {max} عنصر على الأكثر.}}",
+    "invalid_format_email": "عنوان البريد الإلكتروني غير صالح.",
+    "invalid_format_url": "عنوان الويب غير صالح.",
+    "invalid_format_uuid": "معرّف غير صالح.",
+    "invalid_format_date": "تاريخ غير صالح.",
+    "invalid_format_regex": "تنسيق غير صالح.",
+    "invalid_value": "هذه القيمة غير مسموح بها."
   },
   "emails": {
     "footer": {
@@ -200,10 +213,13 @@
       "password": "كلمة المرور",
       "locale": "اللغة",
       "timezone": "المنطقة الزمنية",
-      "acceptTerms": "أوافق على شروط الاستخدام العامة",
+      "acceptTerms": "أوافق على <terms>شروط الاستخدام</terms> و<privacy>سياسة الخصوصية</privacy>",
       "submit": "تسجيل الحساب",
       "haveAccount": "لديك حساب بالفعل؟",
-      "loginLink": "تسجيل الدخول"
+      "loginLink": "تسجيل الدخول",
+      "subtitle": "ابدأ التدريس في دقائق.",
+      "passwordHint": "12 حرفاً على الأقل.",
+      "timezoneHint": "تمّ اكتشافها من جهازك. تُعرض مواعيد الحصص بهذه المنطقة الزمنية."
     },
     "login": {
       "title": "تسجيل الدخول",
@@ -213,7 +229,8 @@
       "submit": "تسجيل الدخول",
       "forgot": "هل نسيت كلمة المرور؟",
       "noAccount": "ليس لديك حساب؟",
-      "registerLink": "إنشاء حساب"
+      "registerLink": "إنشاء حساب",
+      "subtitle": "سعداء بعودتك."
     },
     "verify": {
       "pending": "يُرجى تأكيد بريدك الإلكتروني",
@@ -227,7 +244,9 @@
       "title": "هل نسيت كلمة المرور",
       "email": "البريد الإلكتروني",
       "submit": "إرسال رابط إعادة التعيين",
-      "always": "في حال وجود حساب بهذا البريد، فسيتم إرسال رسالة إليه."
+      "always": "في حال وجود حساب بهذا البريد، فسيتم إرسال رسالة إليه.",
+      "subtitle": "أدخل بريدك الإلكتروني وسنرسل إليك رابطاً لاختيار كلمة مرور جديدة.",
+      "backToLogin": "العودة إلى تسجيل الدخول"
     },
     "reset": {
       "title": "كلمة مرور جديدة",
@@ -243,7 +262,9 @@
       "submit": "تحقق",
       "useRecovery": "استخدام رمز استرداد",
       "recoveryCode": "رمز الاسترداد",
-      "submitRecovery": "تسجيل الدخول"
+      "submitRecovery": "تسجيل الدخول",
+      "subtitle": "أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة.",
+      "recoverySubtitle": "أدخل أحد رموز الاسترداد. يعمل كل رمز مرة واحدة فقط."
     },
     "setup": {
       "title": "تفعيل التحقق بخطوتين",
@@ -255,7 +276,11 @@
       "recoveryHint": "احتفظ بهذه الرموز في مكان آمن: كل رمز يُستخدم مرة واحدة فقط.",
       "download": "تنزيل الرموز",
       "savedAck": "حفظت رموزي",
-      "continue": "المتابعة إلى التطبيق"
+      "continue": "المتابعة إلى التطبيق",
+      "qrAlt": "رمز QR للمسح بتطبيق المصادقة",
+      "copy": "نسخ الرموز",
+      "copied": "تمّ نسخ الرموز إلى الحافظة.",
+      "copyFailed": "تعذّر النسخ. نزّل الرموز بدلاً من ذلك."
     },
     "consent": {
       "title": "شروط محدّثة",
@@ -263,12 +288,20 @@
       "terms": "شروط الاستخدام العامة",
       "privacy": "سياسة الخصوصية",
       "coc": "ميثاق السلوك",
-      "accept": "الموافقة والمتابعة"
+      "accept": "الموافقة والمتابعة",
+      "readTerms": "قراءة شروط الاستخدام",
+      "readPrivacy": "قراءة سياسة الخصوصية",
+      "readCoc": "قراءة ميثاق السلوك"
+    },
+    "resume": {
+      "loading": "جارٍ استئناف جلستك…"
+    },
+    "layout": {
+      "preferences": "تفضيلات العرض"
     }
   },
   "settings": {
     "title": "الإعدادات",
-    "comingSoon": "قريباً",
     "nav": {
       "profile": "الملف الشخصي",
       "security": "الأمان",
@@ -296,7 +329,6 @@
       "dismiss": "لا"
     },
     "security": {
-      "title": "الأمان",
       "twoFactor": "التحقق الثنائي (2FA)",
       "twoFactorOn": "التحقق الثنائي مفعّل على حسابك.",
       "twoFactorOff": "التحقق الثنائي غير مفعّل على حسابك.",
@@ -312,12 +344,19 @@
       "passwordChanged": "تم تغيير كلمة المرور. تم تسجيل الخروج من الأجهزة الأخرى.",
       "devices": "الأجهزة المتصلة",
       "thisDevice": "هذا الجهاز",
-      "disconnect": "تسجيل الخروج",
       "signOutAll": "تسجيل الخروج من كل الأجهزة",
-      "signOutAllConfirm": "هل تريد تسجيل الخروج من كل الأجهزة، بما في ذلك هذا الجهاز؟"
+      "signOutAllConfirm": "هل تريد تسجيل الخروج من كل الأجهزة، بما في ذلك هذا الجهاز؟",
+      "twoFactorStatusOn": "مفعّل",
+      "twoFactorStatusOff": "غير مفعّل",
+      "twoFactorDisabled": "تم تعطيل التحقق الثنائي.",
+      "device": "الجهاز",
+      "ip": "عنوان IP",
+      "lastSeen": "آخر نشاط",
+      "revoke": "إلغاء",
+      "revokeDevice": "إلغاء جلسة {device}",
+      "deviceRevoked": "تم تسجيل خروج الجهاز."
     },
     "verification": {
-      "title": "التحقق",
       "email": "البريد الإلكتروني",
       "phoneNumber": "رقم الهاتف",
       "phone": "الهاتف",
@@ -325,21 +364,47 @@
       "otpCode": "الرمز المستلم",
       "verifyOtp": "تحقق",
       "otpSent": "تم إرسال رمز عبر SMS (وعلى البريد الإلكتروني في بيئة التطوير).",
-      "otpInvalid": "رمز غير صحيح.",
       "phoneDone": "تم التحقق من الهاتف: {phone}",
       "coc": "ميثاق السلوك",
       "cocBody": "ألتزم باحترام بقية مستخدمي المنصة، وعدم نشر أي محتوى مسيء أو تميزي أو غير قانوني، واستخدام الجلسات المباشرة في إطار تربوي. أي خرق قد يؤدي إلى تعليق الحساب.",
       "cocAccept": "أوافق على ميثاق السلوك",
       "acceptCoc": "قبول ميثاق السلوك",
       "done": "تم التحقق",
-      "todo": "مطلوب"
+      "todo": "مطلوب",
+      "steps": "خطوات التحقق",
+      "phoneVerified": "تم التحقق من الهاتف.",
+      "cocAccepted": "تم قبول مدونة السلوك."
     },
     "consents": {
       "title": "الموافقات",
       "version": "الإصدار",
-      "grantedAt": "قُبل في {date}",
       "revoke": "سحب",
-      "none": "لا توجد موافقات مسجلة."
+      "none": "لا توجد موافقات مسجلة.",
+      "type": "الموافقة",
+      "grantedOn": "تاريخ القبول",
+      "status": "الحالة",
+      "statusCurrent": "سارية",
+      "statusOutdated": "إصدار سابق",
+      "statusRevoked": "مسحوبة",
+      "actions": "إجراءات",
+      "revokeConfirm": "هل تريد سحب موافقتك على «{name}»؟",
+      "revoked": "تم سحب الموافقة.",
+      "types": {
+        "TERMS": "شروط الاستخدام العامة",
+        "PRIVACY": "سياسة الخصوصية",
+        "CODE_OF_CONDUCT": "ميثاق السلوك",
+        "MARKETING": "الرسائل التسويقية"
+      }
+    },
+    "soon": "قريباً",
+    "workspaces": {
+      "createTitle": "إنشاء مساحة",
+      "tabsLabel": "نوع المساحة المراد إنشاؤها",
+      "tabOrganization": "منظمة",
+      "tabPersonal": "مساحة شخصية",
+      "emptyTitle": "لا توجد مساحات حالياً",
+      "emptyDescription": "أنشئ منظمة أو مساحتك الشخصية للبدء.",
+      "manage": "إدارة المساحات"
     }
   },
   "onboarding": {
@@ -356,8 +421,6 @@
     "typePersonal": "شخصي",
     "typeOrganization": "منظمة",
     "createTitle": "مساحاتك",
-    "createOrganization": "إنشاء منظمة",
-    "createPersonal": "إنشاء مساحتي الشخصية",
     "personalForbidden": "{organizationName} لا تسمح بالمساحات الشخصية",
     "personalExists": "لديك بالفعل مساحة شخصية.",
     "name": "الاسم",
@@ -397,13 +460,24 @@
     "navSettings": "الإعدادات",
     "navMembers": "الأعضاء",
     "navAudit": "سجل التدقيق",
-    "soon": "قريباً",
     "auditAction": "الإجراء",
     "auditFrom": "من",
     "auditTo": "إلى",
     "auditBefore": "قبل",
     "auditAfter": "بعد",
-    "auditNext": "التالي"
+    "auditNext": "التالي",
+    "readOnly": "يمكن للمالك والمديرين فقط تعديل هذه الإعدادات.",
+    "identity": "الهوية",
+    "dangerZone": "منطقة حساسة",
+    "status_ACTIVE": "نشطة",
+    "status_SUSPENDED": "موقوفة",
+    "status_DELETING": "قيد الحذف",
+    "auditDate": "التاريخ",
+    "auditPrevious": "السابق",
+    "auditEmpty": "لا توجد إدخالات تطابق هذه المرشحات.",
+    "auditPagination": "ترقيم صفحات سجل التدقيق",
+    "auditFilters": "مرشحات السجل",
+    "auditActor": "دور المنفّذ"
   },
   "members": {
     "title": "الأعضاء",
@@ -413,20 +487,12 @@
     "canTeach": "يستطيع التدريس",
     "joined": "انضم في",
     "actions": "إجراءات",
-    "changeRole": "تغيير الدور",
     "toggleCanTeach": "يستطيع التدريس",
     "remove": "إزالة",
-    "removeConfirm": "إزالة {name} من المساحة؟",
     "removed": "تمت إزالة العضو.",
     "roleChanged": "تم تغيير الدور.",
     "assignments": "التعيينات",
-    "assignTeacher": "المعلم",
-    "assignStudents": "التلاميذ",
-    "assignSubmit": "تعيين",
-    "assigned": "تم حفظ التعيين.",
     "noStudents": "ينضم التلاميذ بالدعوة (النسخة القادمة).",
-    "studentsTab": "التلاميذ",
-    "pendingInvitation": "دعوة بانتظار القبول",
     "self": "أنت",
     "role_OWNER": "المالك",
     "role_ADMIN": "مدير",
@@ -440,7 +506,22 @@
     "status_SUSPENDED_NO_CONSENT": "موقوف — الموافقة مفقودة",
     "status_SUSPENDED_CONSENT_REVOKED": "موقوف — سُحبت الموافقة",
     "status_REMOVED": "محذوف",
-    "status_REJECTED": "مرفوض"
+    "status_REJECTED": "مرفوض",
+    "rowActions": "إجراءات لـ {name}",
+    "changeRoleFor": "تغيير دور {name}",
+    "removeFor": "إزالة {name}",
+    "assignmentOf": "{teacher} يدرّس {student}",
+    "noAssignments": "لا توجد تعيينات حاليًا.",
+    "confirmRemoveTitle": "إزالة {name} من المساحة؟",
+    "confirmRemoveDescription": "سيفقد هذا العضو الوصول إلى المساحة. يُحتفظ بسجله.",
+    "noMatch": "لا يوجد عضو يطابق هذه المرشحات.",
+    "allRoles": "كل الأدوار",
+    "allStatuses": "كل الحالات",
+    "name": "الاسم",
+    "yes": "نعم",
+    "no": "لا",
+    "canTeachChanged": "تم تعديل إذن التدريس.",
+    "filters": "المرشحات"
   },
   "abuse": {
     "report": "إبلاغ",
@@ -452,6 +533,7 @@
     "category_MINOR_SAFETY": "سلامة قاصر",
     "category_OTHER": "أخرى",
     "description": "الوصف",
+    "descriptionCounter": "{count}/{min} أحرف على الأقل",
     "submit": "إرسال البلاغ",
     "sent": "تم إرسال البلاغ.",
     "status_OPEN": "مفتوح",
@@ -477,15 +559,21 @@
       "quota": "الحصة",
       "quotaGiB": "الحصة (غيغابايت)",
       "reason": "السبب",
-      "confirm": "تأكيد",
       "saveQuota": "حفظ الحصة",
-      "saved": "تم حفظ التغييرات.",
       "suspended": "تم تعليق مساحة العمل.",
       "reactivated": "تمت إعادة تفعيل مساحة العمل.",
       "quotaSaved": "تم تحديث الحصة.",
       "confirmSuspend": "هل تريد تعليق مساحة العمل هذه؟",
       "confirmReactivate": "هل تريد إعادة تفعيل مساحة العمل هذه؟",
-      "empty": "لا توجد مساحات عمل."
+      "empty": "لا توجد مساحات عمل.",
+      "filters": "مرشحات مساحات العمل",
+      "allTypes": "كل الأنواع",
+      "allStatuses": "كل الحالات",
+      "rowActions": "إجراءات لـ {name}",
+      "suspendDescription": "ستصبح «{name}» للقراءة فقط بالنسبة لأعضائها.",
+      "reactivateDescription": "سيتمكن أعضاء «{name}» من التعديل مجددًا.",
+      "quotaTitle": "حصة التخزين",
+      "quotaDescription": "تستخدم «{name}» حاليًا {used}."
     },
     "workspaceStatus": {
       "ACTIVE": "نشطة",
@@ -514,7 +602,18 @@
       "empty": "لا توجد بلاغات.",
       "openDetail": "فتح",
       "snapshot": "لقطة",
-      "userAccount": "الحساب المُبلَّغ عنه"
+      "userAccount": "الحساب المُبلَّغ عنه",
+      "filters": "مرشحات البلاغات",
+      "allStatuses": "كل الحالات",
+      "allCategories": "كل الفئات",
+      "createdAt": "تاريخ الاستلام",
+      "openDetailFor": "فتح بلاغ {name}",
+      "backToQueue": "البلاغات",
+      "details": "التفاصيل",
+      "handling": "المعالجة",
+      "newStatus": "الحالة الجديدة",
+      "suspendUserDescription": "لن يتمكن الحساب من تسجيل الدخول. سيُرسل إليه السبب.",
+      "reactivateUserDescription": "سيتمكن الحساب من تسجيل الدخول مجددًا."
     },
     "health": {
       "db": "قاعدة البيانات",
@@ -525,9 +624,83 @@
       "active": "نشطة",
       "delayed": "مؤجّلة",
       "failed": "فاشلة",
-      "name": "الاسم",
       "up": "سليم",
-      "down": "غير متاح"
+      "down": "غير متاح",
+      "services": "الخدمات"
     }
+  },
+  "shell": {
+    "userMenu": "قائمة حساب {name}",
+    "profile": "ملفي الشخصي",
+    "security": "الأمان",
+    "logout": "تسجيل الخروج",
+    "logoutFailed": "تعذّر تسجيل الخروج. تحقّق من اتصالك ثم أعد المحاولة.",
+    "language": "اللغة",
+    "notifications": "الإشعارات",
+    "notification": "إشعار",
+    "legalNav": "معلومات قانونية"
+  },
+  "theme": {
+    "toggle": "المظهر",
+    "toggleCurrent": "المظهر: {theme}",
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "النظام"
+  },
+  "errorPages": {
+    "title": "حدث خطأ",
+    "description": "تعذّر عرض الصفحة. أعد المحاولة بعد قليل.",
+    "requestId": "مرجع الخطأ: {id}",
+    "retry": "إعادة المحاولة",
+    "home": "العودة إلى الصفحة الرئيسية",
+    "notFoundTitle": "الصفحة غير موجودة",
+    "notFoundDescription": "هذه الصفحة غير موجودة أو تم نقلها.",
+    "loading": "جارٍ تحميل الصفحة…"
+  },
+  "legal": {
+    "termsTitle": "شروط الاستخدام",
+    "privacyTitle": "سياسة الخصوصية",
+    "cocTitle": "ميثاق السلوك",
+    "version": "الإصدار {version}",
+    "placeholderTitle": "نص سيقدّمه الناشر",
+    "placeholder": "سيُستبدل هذا النص المؤقت بالنسخة النهائية قبل الإطلاق للعموم.",
+    "terms": {
+      "body": "تنظّم هذه الشروط استخدام {appName} من قِبل الأساتذة والتلاميذ وأوليائهم.\n\nوهي تحدّد حقوق كل طرف وواجباته، وقواعد نشر الدروس والحصص المباشرة، وشروط تعليق الحساب.\n\nستُنشر النسخة النهائية هنا."
+    },
+    "privacy": {
+      "body": "توضّح هذه السياسة البيانات التي يجمعها {appName} وأسباب جمعها ومدة الاحتفاظ بها وكيفية ممارسة حقوقك.\n\nوهي تشمل بوجه خاص بيانات التلاميذ القاصرين وموافقة أوليائهم.\n\nستُنشر النسخة النهائية هنا."
+    },
+    "codeOfConduct": {
+      "body": "يحدّد ميثاق السلوك هذا قواعد الاحترام المتبادل في دروس {appName} وحصصه المباشرة ورسائله.\n\nيمكن الإبلاغ عن أي إخلال من داخل التطبيق، وقد يؤدي إلى تعليق الحساب.\n\nستُنشر النسخة النهائية هنا."
+    }
+  },
+  "landing": {
+    "eyebrow": "للأساتذة المستقلّين والمدارس",
+    "title": "تطبيق واحد للتدريس عبر الإنترنت",
+    "subtitle": "انشر دروسك، وقدّم حصصك المباشرة، وتابع تقدّم كل طالب، دون التنقّل بين أربع أدوات.",
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب أستاذ",
+    "openApp": "فتح التطبيق",
+    "highlights": "أبرز المزايا",
+    "trustMobile": "مصمَّم للهاتف",
+    "trustLanguages": "بالعربية والفرنسية والإنجليزية",
+    "trustPrivacy": "بيانات محمية",
+    "valuesTitle": "كل ما تحتاجه للتدريس",
+    "value1Title": "دروس مسجّلة",
+    "value1Body": "فيديوهات وملفات PDF ونصوص منظّمة في وحدات ودروس، متاحة من الهاتف.",
+    "value2Title": "حصص مباشرة",
+    "value2Body": "حصص فردية أو جماعية مبرمجة في رزنامة، مع تذكيرات تلقائية.",
+    "value3Title": "متابعة بيداغوجية",
+    "value3Body": "الحضور والتقدّم وسجلّ كل طالب، دون جداول بيانات.",
+    "preferences": "تفضيلات العرض"
+  },
+  "pwa": {
+    "offlineTitle": "أنت غير متصل بالإنترنت",
+    "offlineDescription": "تحتاج هذه الصفحة إلى اتصال. تحقّق من الشبكة ثم أعد المحاولة.",
+    "offlineSessionsSoon": "قريبًا ستظهر جلساتك القادمة هنا حتى دون اتصال.",
+    "retry": "إعادة المحاولة",
+    "updateAvailable": "يتوفر إصدار جديد",
+    "updateDescription": "احفظ تعديلاتك الجارية ثم أعد تحميل الصفحة.",
+    "reload": "إعادة التحميل"
   }
 }

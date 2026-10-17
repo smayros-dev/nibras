@@ -1,27 +1,44 @@
 'use client';
 
 import type { CurrentConsentType } from '@tt/contracts';
-import { Button } from '@tt/ui';
-import { useEffect, useRef, useState } from 'react';
+import { Alert, Badge, Button, Dialog, useSubmit, VisuallyHidden } from '@tt/ui';
+import { ExternalLink } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from '../i18n/navigation';
+import { useState, useTransition } from 'react';
+import { Link, useRouter } from '../i18n/navigation';
 import { apiErrorMessage } from '../lib/api-error';
 import { api } from '../lib/api';
+import { useErrorFocus } from '../lib/use-error-focus';
 
-const CONSENT_LABEL_KEYS: Record<CurrentConsentType, string> = {
-  TERMS: 'auth.consent.terms',
-  PRIVACY: 'auth.consent.privacy',
-  CODE_OF_CONDUCT: 'auth.consent.coc',
-  MARKETING: 'auth.consent.coc', // never pending (not in REQUIRED_CONSENTS); satisfies the type
+type LegalHref = '/legal/terms' | '/legal/privacy' | '/legal/code-of-conduct';
+
+const COC_ROW = {
+  label: 'auth.consent.coc',
+  read: 'auth.consent.readCoc',
+  href: '/legal/code-of-conduct',
+} as const;
+
+const CONSENT_ROWS: Record<CurrentConsentType, { label: string; read: string; href: LegalHref }> = {
+  TERMS: { label: 'auth.consent.terms', read: 'auth.consent.readTerms', href: '/legal/terms' },
+  PRIVACY: {
+    label: 'auth.consent.privacy',
+    read: 'auth.consent.readPrivacy',
+    href: '/legal/privacy',
+  },
+  CODE_OF_CONDUCT: COC_ROW,
+  MARKETING: COC_ROW, // never pending (not in REQUIRED_CONSENTS); satisfies the type
 };
 
+/** Keeps the gate open: it is not dismissible (no Escape, no outside click, no close button). */
+const keepOpen = (event: Event) => event.preventDefault();
+
 /**
- * Blocking modal over the app while required consents are pending: lists each pending type at
- * its current version and POSTs the grants on accept, then re-renders the server layout
- * (the gate disappears once `pendingConsents` is empty). `aria-modal` hides the background from
- * assistive tech; focus starts inside the dialog and Tab/Shift+Tab cycle within it (the gate is
- * not dismissible, so Escape closes nothing). Server-side `CONSENT_REQUIRED` still refuses every
- * app call until the grants land.
+ * Blocking dialog over the app while required consents are pending: lists each pending type at
+ * its current version with a link to read it (new tab), and POSTs the grants on accept, then
+ * re-renders the server layout (the gate disappears once `pendingConsents` is empty; a version
+ * bump makes the type pending again). Radix traps focus and hides the frame from assistive tech;
+ * the layout also renders the frame `inert`, so it is unreachable before hydration. Server-side
+ * `CONSENT_REQUIRED` still refuses every app call until the grants land.
  */
 export function ConsentGate({
   pending,
@@ -33,83 +50,86 @@ export function ConsentGate({
   const t = useTranslations();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  // Stays busy after success while the layout refreshes (no second submit). The transition ends
+  // when the refreshed tree is committed: either the gate has unmounted, or the consents are still
+  // pending (a version bump, a web/API version mismatch) and the button is usable again.
+  const [refreshing, startRefresh] = useTransition();
+  const { alertRef } = useErrorFocus(undefined, error);
 
-  useEffect(() => {
-    dialogRef.current?.focus();
-  }, []);
-
-  /** Keep Tab inside the dialog while it blocks the app. */
-  function trapTab(event: React.KeyboardEvent) {
-    if (event.key !== 'Tab') return;
-    const nodes = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
-    if (!nodes || nodes.length === 0) return;
-    const first = nodes[0]!;
-    const last = nodes[nodes.length - 1]!;
-    const active = document.activeElement;
-    if (event.shiftKey && (active === first || active === dialogRef.current)) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-
-  async function accept() {
-    setBusy(true);
+  const accept = useSubmit(async () => {
     setError(null);
-    for (const type of pending) {
-      const version = versions[type];
-      if (!version) continue; // every pending type must have a current version from the layout
-      const { error: grantError } = await api.POST('/me/consents/{type}', {
-        params: { path: { type } },
-        body: { version },
-      });
-      if (grantError) {
-        setError(apiErrorMessage(t, grantError as unknown));
-        setBusy(false);
-        return;
+    try {
+      for (const type of pending) {
+        const version = versions[type];
+        if (!version) continue; // every pending type has a current version from the layout
+        const { error: grantError } = await api.POST('/me/consents/{type}', {
+          params: { path: { type } },
+          body: { version },
+        });
+        if (grantError) {
+          setError(apiErrorMessage(t, grantError as unknown));
+          return;
+        }
       }
+    } catch {
+      setError(t('errors.INTERNAL_ERROR'));
+      return;
     }
     // Re-run the (app) layout server component: pendingConsents is now empty and the gate unmounts.
-    router.refresh();
-  }
+    startRefresh(() => router.refresh());
+  });
 
   return (
-    <div
-      ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="consent-gate-title"
-      tabIndex={-1}
-      onKeyDown={trapTab}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 outline-none"
-    >
-      <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-lg">
-        <h2 id="consent-gate-title" className="mb-2 text-xl font-bold">
-          {t('auth.consent.title')}
-        </h2>
-        <p className="mb-4 text-sm">{t('auth.consent.intro')}</p>
-        <ul className="mb-4 list-disc ps-5 text-sm">
-          {pending.map((type) => (
-            <li key={type}>
-              {t(CONSENT_LABEL_KEYS[type])} — {versions[type]}
-            </li>
-          ))}
+    <Dialog.Root open>
+      <Dialog.Content
+        title={t('auth.consent.title')}
+        description={t('auth.consent.intro')}
+        closeLabel={t('common.close')}
+        hideClose
+        onEscapeKeyDown={keepOpen}
+        onPointerDownOutside={keepOpen}
+        onInteractOutside={keepOpen}
+      >
+        <ul className="flex flex-col divide-y divide-border">
+          {pending.map((type) => {
+            const row = CONSENT_ROWS[type];
+            return (
+              <li
+                key={type}
+                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3"
+              >
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-fg">{t(row.label)}</span>
+                  <Badge variant="neutral">{versions[type]}</Badge>
+                </span>
+                <Link
+                  href={row.href}
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                >
+                  {t(row.read)} <VisuallyHidden>{t('common.newTab')}</VisuallyHidden>
+                  <ExternalLink aria-hidden="true" className="size-4 shrink-0" />
+                </Link>
+              </li>
+            );
+          })}
         </ul>
         {error ? (
-          <p role="alert" className="mb-3 text-sm text-danger">
+          <Alert ref={alertRef} tabIndex={-1} variant="danger">
             {error}
-          </p>
+          </Alert>
         ) : null}
-        <Button variant="primary" onClick={() => void accept()} disabled={busy}>
-          {t('auth.consent.accept')}
-        </Button>
-      </div>
-    </div>
+        <Dialog.Footer>
+          <Button
+            variant="primary"
+            loading={accept.busy || refreshing}
+            onClick={() => void accept.submit()}
+          >
+            {t('auth.consent.accept')}
+          </Button>
+        </Dialog.Footer>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }

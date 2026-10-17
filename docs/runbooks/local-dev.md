@@ -2,11 +2,14 @@
 
 How to run the platform on a developer machine (Windows 11 + Git Bash or PowerShell, macOS, Linux).
 This page covers what SP0 (monorepo & infrastructure) delivers; later plans append to it.
+Frontend conventions (tokens, components, nav, i18n guards, first-load budget, CSP, PWA,
+rebranding) are in [frontend.md](frontend.md).
 
 ## Prerequisites
 
-- **Node.js 22 LTS**: the version is pinned in `.node-version` (fnm, nvm-windows, Volta and most
-  version managers read it).
+- **Node.js 22 LTS, 22.18 or later** (`engines.node`): the major is pinned in `.node-version`
+  (fnm, nvm-windows, Volta and most version managers read it). 22.18 runs `.ts` files directly
+  (type stripping), which `pnpm db:seed` relies on.
 - **pnpm 10** via corepack: `corepack enable` once; the exact version is pinned by `packageManager`
   in the root `package.json`.
 - **Docker Desktop** (with Docker Compose v2): runs Postgres, Redis, Mailpit and MinIO.
@@ -31,6 +34,43 @@ Stop the apps with `Ctrl+C`; stop the containers with `docker compose down`
 `init.sql` only runs on an empty Postgres volume. On a volume created before the per-package test
 databases existed, `pnpm db:migrate:test` still works: Prisma creates a missing database
 (`app_system` has `CREATEDB`). Re-run it after pulling new migrations, like `pnpm db:migrate`.
+
+### Demo data (`pnpm db:seed`)
+
+```bash
+pnpm db:seed           # builds @tt/db (and @tt/contracts), then runs packages/db/prisma/seed.ts
+```
+
+Fills the dev database `tt` with demo accounts, their personal workspaces and the organisation
+_Académie El Manar_ (`academie-el-manar`, TN): members in every role, teacher ↔ student
+assignments, teacher profiles, consent history, an audit log and two abuse reports. Re-running it
+is safe (idempotent): rows are upserted, history is only added while the organisation has none,
+and a password hash is rewritten only when it no longer matches, which then bumps the user's
+`credentialsVersion` (their open sessions end).
+
+Every account uses the password **`mot-de-passe-demo-2026`**:
+
+| Email                  | Role in the organisation         | Notes                                    |
+| ---------------------- | -------------------------------- | ---------------------------------------- |
+| `amine@example.test`   | OWNER                            | phone verified; first login forces 2FA   |
+| `leila@example.test`   | TEACHER                          | marketing consent; assigned to Yassine   |
+| `karim@example.test`   | TEACHER                          | Europe/Paris; assigned to Noussa         |
+| `sana@example.test`    | ASSISTANT                        | Arabic UI                                |
+| `rajaa@example.test`   | GUARDIAN                         |                                          |
+| `yassine@example.test` | STUDENT (minor)                  | no personal workspace                    |
+| `noussa@example.test`  | STUDENT                          | no personal workspace                    |
+| `tarek@example.test`   | STUDENT (`SUSPENDED_NO_CONSENT`) | minor without guardian consent; reported |
+
+The super-admin console needs its own account (`pnpm --filter @tt/api cli create-super-admin`,
+[auth-and-tenancy.md](auth-and-tenancy.md)). The seed is for local development only: it refuses
+to run (exit 1) unless `APP_ENV` is unset or `development`, `NODE_ENV` is not `production`, and
+the host of `DATABASE_URL_SYSTEM` is `localhost`, `127.0.0.1` or `::1`. Any other host, including
+the compose service name `postgres` (staging uses the same host name, and its `.env` may still say
+`APP_ENV=development`), is refused unless `SEED_ALLOW_HOST` names that exact host, for example
+`SEED_ALLOW_HOST=postgres pnpm db:seed` from inside the compose network. Never set it on staging.
+`argon2` and `@tt/contracts` are dev dependencies of `@tt/db`: only the seed uses them.
+
+### Migrations
 
 New migration (from `packages/db`'s schema), extra arguments go after `--`:
 
@@ -74,9 +114,36 @@ Each app exposes `/health/live` and `/health/ready` (the API serves them outside
 | `pnpm db:migrate`      | Apply/create Prisma migrations (`@tt/db`)      |
 | `pnpm db:migrate:test` | Apply migrations to the three test databases   |
 | `pnpm db:generate`     | Regenerate the Prisma client (`@tt/db`)        |
+| `pnpm db:seed`         | Load the local demo data (dev database only)   |
 
 Run a task for a single package with a filter, e.g. `pnpm --filter @tt/api test` or
 `pnpm turbo run test --filter=@tt/api`.
+
+## End-to-end tests (Playwright)
+
+Projects: `chromium-fr`, `chromium-ar` (desktop), `mobile-fr`, `mobile-ar` (Pixel 7). The docker
+stack must be up and migrated. Two modes (`apps/web/playwright.config.ts`):
+
+- **Dev mode** (default): `pnpm --filter @tt/web e2e`. Playwright starts (or reuses) the api,
+  worker and `next dev` servers; `e2e/warmup.ts` compiles every route first. The service-worker
+  test is skipped (the SW registers only on production builds).
+- **Production mode** (CI, or `E2E_PROD=1`): `pnpm build && E2E_PROD=1 pnpm --filter @tt/web e2e`.
+  Every server runs its build: the web app is the standalone server the container runs
+  (`pnpm --filter @tt/web start:standalone`, `scripts/start-standalone.mjs`: copies `public/` and
+  `.next/static` next to `server.js`, listens on 127.0.0.1:3000), and the api/worker run `dist`
+  (a `nest start --watch` server restarts when its watcher fires, failing in-flight requests).
+  The strict production CSP and HSTS apply and the SW test runs. API and web honour the e2e TERMS
+  override only with `APP_ENV=development` (an allow-list, whatever `NODE_ENV` says; the
+  Playwright config sets it for both servers). In CI every
+  `reuseExistingServer` is `false`: a stray server fails the run. On Windows the standalone build
+  may need Developer Mode (symlinks); when it fails, use dev mode.
+
+Rules the suite follows: no fixed sleeps for UI state (Playwright auto-waits; `expect.poll` or
+`toPass` for external systems); a `429` is retried after its `Retry-After`
+(`e2e/helpers/retry.ts`); transport retries (`postTransient`, `uiLogin`) apply to dev mode only.
+`e2e/a11y.spec.ts` runs axe (WCAG 2 A/AA, serious and critical fail) on the main pages in fr and
+ar, desktop and mobile, and saves full-page screenshots to `apps/web/test-results/screens/<project>/`
+(the CI artefact `rtl-screens`, for the RTL recette).
 
 Integration tests need the containers running (`docker compose up -d`) and migrated test databases
 (`pnpm db:migrate:test`). They read `DATABASE_URL_TEST`, `DATABASE_URL_TEST_SYSTEM` and
@@ -114,6 +181,24 @@ have dev-only defaults in `.env.example`. Operations on this slice (first super-
 rotation, unlocking a locked account, reading dev OTPs, audit actions, tenant isolation) are in
 [auth-and-tenancy.md](auth-and-tenancy.md).
 
+### PWA: icons and service worker
+
+- **Icons.** The source is `apps/web/public/icons/icon.svg` (the flame mark on `BRAND.themeColor`).
+  After editing it, run `pnpm --filter @tt/web icons` (sharp renders `icon-192.png`,
+  `icon-512.png`, `maskable-512.png` and `apple-touch-icon.png`, deterministically) and commit the
+  PNGs.
+- **Service worker** (`apps/web/public/sw.js`, hand-written, no build step). It registers **only in
+  production builds** (`next build` + `next start` or the standalone server); `next dev`
+  unregisters any worker left in the browser, so dev never serves a stale shell. It caches only
+  `/_next/static/` and the anonymous `/{fr,ar,en}/offline` pages; `/api/*`, HTML navigations and
+  non-GET requests always go to the network. Bump `SW_VERSION` (`apps/web/src/lib/sw-version.ts`)
+  when the offline page's copy or the cache layout changes: the new worker refetches the offline
+  pages and deletes the previous version's caches. A new worker waits until the user clicks
+  _Recharger_ in the update toast.
+- **Testing it locally.** Build and start the web app, open DevTools > Application > Service
+  workers, then tick _Offline_ and navigate: a page under `/ar/` shows the Arabic offline page.
+  To start clean, _Unregister_ and clear the site data.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
@@ -123,7 +208,7 @@ rotation, unlocking a locked account, reading dev OTPs, audit actions, tenant is
 | `check`         | ubuntu-latest  | lint, typecheck, `migrate:deploy` (tt) + `db:migrate:test`, `pnpm test`, `pnpm build`, OpenAPI drift check |
 | `windows-check` | windows-latest | lint, typecheck, tests of the DB-free packages (`@tt/config`, `@tt/contracts`, `@tt/i18n`, `@tt/ui`)       |
 | `migrate-check` | ubuntu-latest  | `pnpm --filter @tt/db migrate:check` (schema vs migrations drift)                                          |
-| `e2e`           | ubuntu-latest  | builds, starts api + worker, Playwright (`chromium` + `mobile`)                                            |
+| `e2e`           | ubuntu-latest  | `pnpm build`, Playwright against the production build (see below); artefact `rtl-screens`                  |
 | `images`        | ubuntu-latest  | `main` pushes only: builds and pushes `ghcr.io/<owner>/tt-{web,api,worker}:{sha,latest}`                   |
 
 The Linux jobs use Postgres 17, Redis 7 and Mailpit service containers; `init.sql` is applied with

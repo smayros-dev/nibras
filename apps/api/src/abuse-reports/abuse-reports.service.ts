@@ -442,10 +442,16 @@ export class AbuseReportsService implements OnModuleInit {
         recipients.set(user.id, { to: user, link: adminReportLink(user.locale, report.id) });
       }
     }
-    for (const [id, { to, link }] of recipients) {
-      if (!excluded.has(id))
-        await this.send(to, { templateKey: 'abuse.new_report', params: { link } });
-    }
+    // Concurrently: the request must not grow linearly with the number of handlers/super-admins.
+    // `send` never rejects (failures are logged per recipient), so one failure blocks no other.
+    // Long term these belong on the BullMQ notifications queue, outside the request.
+    await Promise.allSettled(
+      [...recipients]
+        .filter(([id]) => !excluded.has(id))
+        .map(([, { to, link }]) =>
+          this.send(to, { templateKey: 'abuse.new_report', params: { link } }),
+        ),
+    );
   }
 
   /** The 24 h MINOR_SAFETY reminder (AC-SAFE-05); one job per report (`jobId`). */

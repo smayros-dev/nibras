@@ -1,47 +1,66 @@
 'use client';
 
-import { Button, Field, TextInput } from '@tt/ui';
+import { Alert, Button, Field, Input, useSubmit } from '@tt/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
+import { AuthCard } from '../../../../components/auth-card';
+import { Link } from '../../../../i18n/navigation';
 import { apiErrorMessage } from '../../../../lib/api-error';
 import { api } from '../../../../lib/api';
+import { useErrorFocus } from '../../../../lib/use-error-focus';
 
 export default function ForgotPasswordPage() {
   const t = useTranslations();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { formRef, alertRef } = useErrorFocus(undefined, formError);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  const request = useSubmit(async () => {
     setFormError(null);
-    setBusy(true);
-    const { error } = await api.POST('/auth/password/forgot', { body: { email } });
-    setBusy(false);
-    if (error) {
-      setFormError(apiErrorMessage(t, error as unknown));
+    try {
+      const { error } = await api.POST('/auth/password/forgot', { body: { email } });
+      if (error) {
+        setFormError(apiErrorMessage(t, error));
+        return;
+      }
+    } catch {
+      setFormError(t('errors.INTERNAL_ERROR'));
       return;
     }
     setSent(true);
-  }
+  });
 
   return (
-    <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
-      <h1 className="mb-4 text-2xl font-bold">{t('auth.forgot.title')}</h1>
+    <AuthCard
+      title={t('auth.forgot.title')}
+      description={sent ? undefined : t('auth.forgot.subtitle')}
+      footer={
+        <Link href="/login" className="self-start font-semibold text-primary hover:underline">
+          {t('auth.forgot.backToLogin')}
+        </Link>
+      }
+    >
       {formError ? (
-        <p role="alert" className="mb-3 text-sm text-danger">
+        <Alert ref={alertRef} tabIndex={-1} variant="danger">
           {formError}
-        </p>
+        </Alert>
       ) : null}
       {sent ? (
-        <p role="status" className="mb-4 text-sm">
-          {t('auth.forgot.always')}
-        </p>
+        // Same message whether or not the address has an account (no enumeration).
+        <Alert variant="success">{t('auth.forgot.always')}</Alert>
       ) : (
-        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        <form
+          method="post"
+          ref={formRef}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void request.submit();
+          }}
+          className="flex flex-col gap-4"
+        >
           <Field htmlFor="email" label={t('auth.forgot.email')}>
-            <TextInput
+            <Input
               id="email"
               name="email"
               type="email"
@@ -51,11 +70,11 @@ export default function ForgotPasswordPage() {
               required
             />
           </Field>
-          <Button type="submit" variant="primary" disabled={busy}>
+          <Button type="submit" variant="primary" loading={request.busy}>
             {t('auth.forgot.submit')}
           </Button>
         </form>
       )}
-    </div>
+    </AuthCard>
   );
 }

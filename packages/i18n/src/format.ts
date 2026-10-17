@@ -1,4 +1,5 @@
-import { intlTag, type Locale } from '@tt/contracts';
+import { intlTag } from '@tt/contracts/web';
+import type { Locale } from '@tt/contracts';
 
 /** Formats a date in the viewer's time zone, always with the Gregorian calendar. */
 export function formatDate(

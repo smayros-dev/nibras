@@ -32,7 +32,9 @@ RUN pnpm turbo run build --filter=@tt/api
 # 3. Runtime: built workspace (no pnpm/turbo), read-only for the non-root user.
 FROM ${NODE_IMAGE} AS runner
 RUN apk add --no-cache libc6-compat openssl
+# APP_ENV (deployment tier) is never unset in an image; compose overrides it (staging).
 ENV NODE_ENV=production \
+    APP_ENV=production \
     PORT=3001
 WORKDIR /app
 RUN addgroup -S -g 1001 tt && adduser -S -u 1001 -G tt tt

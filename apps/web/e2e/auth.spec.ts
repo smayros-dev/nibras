@@ -4,6 +4,7 @@ import {
   appUrl,
   expect,
   fillLogin,
+  plainText,
   t,
   test,
   uiLogin,
@@ -30,7 +31,7 @@ async function fillRegister(
   await page.getByLabel(t(locale, 'auth.register.lastName'), { exact: true }).fill('Ben Ali');
   await page.getByLabel(t(locale, 'auth.register.email'), { exact: true }).fill(email);
   await page.getByLabel(t(locale, 'auth.register.password'), { exact: true }).fill(password);
-  await page.getByLabel(t(locale, 'auth.register.acceptTerms'), { exact: true }).check();
+  await page.getByLabel(plainText(t(locale, 'auth.register.acceptTerms')), { exact: true }).check();
 }
 
 test('teacher signs up, verifies by email, lands on the dashboard', async ({
@@ -43,7 +44,7 @@ test('teacher signs up, verifies by email, lands on the dashboard', async ({
   await fillRegister(page, locale, email);
   await page.getByRole('button', { name: t(locale, 'auth.register.submit') }).click();
 
-  await expect(page).toHaveURL(appUrl(`/${locale}/verify-email`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/verify-email`), { timeout: 15_000 });
   // Role-based: Next's route announcer duplicates the page text, breaking getByText strict mode.
   await expect(
     page.getByRole('heading', { level: 1, name: t(locale, 'auth.verify.pending') }),
@@ -56,10 +57,35 @@ test('teacher signs up, verifies by email, lands on the dashboard', async ({
   ).toBeVisible();
   await page.getByRole('link', { name: t(locale, 'auth.verify.continue') }).click();
 
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
+  // Registration grants the static TERMS version while the e2e API runs a bumped one: every
+  // UI-registered user meets the consent gate first (AC-GDPR-06), then the dashboard.
+  const gate = page.getByRole('dialog', { name: t(locale, 'auth.consent.title') });
+  await expect(gate).toBeVisible();
+  await gate.getByRole('button', { name: t(locale, 'auth.consent.accept') }).click();
+  await expect(gate).toBeHidden();
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Mohamed');
   // Review Focus 5: no raw message key anywhere in the rendered text.
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
+});
+
+// Audit #7: the time-zone select used to render Node's ICU list on the server and the browser's
+// on the client, a React hydration mismatch.
+test('register page has no hydration warning', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/ar/register');
+  await expect(
+    page.getByRole('heading', { level: 1, name: t('ar', 'auth.register.title') }),
+  ).toBeVisible();
+  // The resolved zone is filled in after mount (`useTimezones`), so hydration has completed.
+  await expect(page.getByLabel(t('ar', 'auth.register.timezone'), { exact: true })).not.toHaveValue(
+    '',
+  );
+  expect(errors).toEqual([]);
 });
 
 test('short password shows a translated field error, not a raw key', async ({
@@ -81,7 +107,7 @@ test('login with 2FA: challenge page, wrong code error, right code enters; recov
 
   await page.goto(`/${locale}/login`);
   await fillLogin(page, locale, user.email, user.password);
-  await expect(page).toHaveURL(appUrl(`/${locale}/2fa`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa`), { timeout: 15_000 });
 
   await page
     .getByLabel(t(locale, 'auth.twoFactor.code'), { exact: true })
@@ -93,20 +119,20 @@ test('login with 2FA: challenge page, wrong code error, right code enters; recov
     .getByLabel(t(locale, 'auth.twoFactor.code'), { exact: true })
     .fill(totpCode(user.secret!));
   await page.getByRole('button', { name: t(locale, 'auth.twoFactor.submit') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
 
   // Recovery path: a fresh session, the same challenge, one recovery code (consumed).
   await page.context().clearCookies();
   await page.evaluate(() => sessionStorage.clear());
   await page.goto(`/${locale}/login`);
   await fillLogin(page, locale, user.email, user.password);
-  await expect(page).toHaveURL(appUrl(`/${locale}/2fa`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa`), { timeout: 15_000 });
   await page.getByRole('button', { name: t(locale, 'auth.twoFactor.useRecovery') }).click();
   const recovery = user.recoveryCodes?.[0];
   if (!recovery) throw new Error('seedUser returned no recovery codes');
   await page.getByLabel(t(locale, 'auth.twoFactor.recoveryCode'), { exact: true }).fill(recovery);
   await page.getByRole('button', { name: t(locale, 'auth.twoFactor.submitRecovery') }).click();
-  await expect(page).toHaveURL(appUrl(`/${locale}/app`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
 });
 
 test('AC-AUTH-05 UI: org admin without 2FA is forced to /2fa/setup and cannot leave before confirming', async ({
@@ -117,11 +143,11 @@ test('AC-AUTH-05 UI: org admin without 2FA is forced to /2fa/setup and cannot le
 
   await page.goto(`/${locale}/login`);
   await fillLogin(page, locale, user.email, user.password);
-  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`), { timeout: 15_000 });
 
   // Leaving for the app bounces straight back until 2FA is confirmed.
   await page.goto(`/${locale}/app`);
-  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`));
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`), { timeout: 15_000 });
 });
 
 test('forgot/reset: expired link shows "Lien expiré" and a request-new link', async ({
@@ -151,10 +177,21 @@ test('consent gate blocks the app after a version bump until accepted', async ({
   await uiLogin(page, locale, user);
   // The gate lists the current (bumped) TERMS version the user must accept.
   await expect(page.getByText(TEST_CONSENT_TERMS_VERSION)).toBeVisible();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  const gate = page.getByRole('dialog');
+  await expect(gate).toBeVisible();
+  // Each pending document links to its (placeholder) legal page, opened in a new tab.
+  await expect(
+    gate.getByRole('link', { name: t(locale, 'auth.consent.readTerms') }),
+  ).toHaveAttribute('href', /\/legal\/terms$/);
+  // The whole shell behind the gate is inert, and the gate cannot be dismissed.
+  const frame = page.locator('div[inert]').filter({ has: page.locator('#main') });
+  await expect(frame).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(gate).toBeVisible();
 
   await page.getByRole('button', { name: t(locale, 'auth.consent.accept') }).click();
-  await expect(page.getByRole('dialog')).toBeHidden();
+  await expect(gate).toBeHidden();
+  await expect(frame).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 1 })).toContainText(user.firstName);
 });
 

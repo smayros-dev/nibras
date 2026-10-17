@@ -1,26 +1,24 @@
 {
   "common": {
-    "appName": "Plateforme cours",
+    "appName": "Nibras",
     "loading": "Chargement…",
     "retry": "Réessayer",
     "cancel": "Annuler",
-    "close": "Fermer"
+    "close": "Fermer",
+    "newTab": "(nouvel onglet)"
   },
   "nav": {
     "skipToContent": "Aller au contenu",
     "primaryNav": "Navigation principale",
+    "secondaryNav": "Navigation secondaire",
+    "more": "Plus",
+    "closeMenu": "Fermer le menu",
+    "brandHome": "Accueil",
     "dashboard": "Dashboard",
-    "courses": "Cours",
-    "students": "Étudiants",
-    "sessions": "Sessions",
-    "messages": "Messages",
-    "notifications": "Notifications",
-    "settings": "Paramètres"
-  },
-  "hello": {
-    "title": "Bonjour",
-    "subtitle": "Plateforme de cours en ligne — environnement de développement",
-    "switchLocale": "Changer de langue"
+    "settings": "Paramètres",
+    "workspaces": "Espaces",
+    "console": "Console",
+    "currentWorkspace": "Espace actuel"
   },
   "errors": {
     "VALIDATION_FAILED": "Les données envoyées sont invalides.",
@@ -67,8 +65,23 @@
     "CANNOT_SUSPEND_SUPER_ADMIN": "Un super-administrateur ne peut pas être suspendu.",
     "TENANT_CONTEXT_MISSING": "Une erreur interne est survenue. Veuillez réessayer."
   },
-  "health": {
-    "ok": "Service opérationnel"
+  "validation": {
+    "invalid": "Valeur invalide.",
+    "required": "Ce champ est obligatoire.",
+    "not_integer": "Saisissez un nombre entier.",
+    "not_number": "Saisissez un nombre.",
+    "too_small_string": "{min, plural, one {Minimum {min} caractère.} other {Minimum {min} caractères.}}",
+    "too_small_number": "Valeur minimale : {min}.",
+    "too_small_array": "{min, plural, one {Sélectionnez au moins {min} élément.} other {Sélectionnez au moins {min} éléments.}}",
+    "too_big_string": "{max, plural, one {Maximum {max} caractère.} other {Maximum {max} caractères.}}",
+    "too_big_number": "Valeur maximale : {max}.",
+    "too_big_array": "{max, plural, one {Sélectionnez au plus {max} élément.} other {Sélectionnez au plus {max} éléments.}}",
+    "invalid_format_email": "Adresse email invalide.",
+    "invalid_format_url": "Adresse web invalide.",
+    "invalid_format_uuid": "Identifiant invalide.",
+    "invalid_format_date": "Date invalide.",
+    "invalid_format_regex": "Format invalide.",
+    "invalid_value": "Cette valeur n’est pas autorisée."
   },
   "emails": {
     "footer": {
@@ -200,10 +213,13 @@
       "password": "Mot de passe",
       "locale": "Langue",
       "timezone": "Fuseau horaire",
-      "acceptTerms": "J’accepte les conditions générales d’utilisation",
+      "acceptTerms": "J’accepte les <terms>conditions d’utilisation</terms> et la <privacy>politique de confidentialité</privacy>",
       "submit": "S’inscrire",
       "haveAccount": "Vous avez déjà un compte ?",
-      "loginLink": "Se connecter"
+      "loginLink": "Se connecter",
+      "subtitle": "Commencez à enseigner en quelques minutes.",
+      "passwordHint": "12 caractères minimum.",
+      "timezoneHint": "Détecté depuis votre appareil. Les horaires des sessions s’affichent dans ce fuseau."
     },
     "login": {
       "title": "Connexion",
@@ -213,7 +229,8 @@
       "submit": "Se connecter",
       "forgot": "Mot de passe oublié ?",
       "noAccount": "Pas encore de compte ?",
-      "registerLink": "Créer un compte"
+      "registerLink": "Créer un compte",
+      "subtitle": "Heureux de vous revoir."
     },
     "verify": {
       "pending": "Vérifiez votre email",
@@ -227,7 +244,9 @@
       "title": "Mot de passe oublié",
       "email": "Email",
       "submit": "Envoyer le lien de réinitialisation",
-      "always": "Si un compte existe avec cette adresse, un email a été envoyé."
+      "always": "Si un compte existe avec cette adresse, un email a été envoyé.",
+      "subtitle": "Indiquez votre email : nous vous enverrons un lien pour choisir un nouveau mot de passe.",
+      "backToLogin": "Retour à la connexion"
     },
     "reset": {
       "title": "Nouveau mot de passe",
@@ -243,7 +262,9 @@
       "submit": "Vérifier",
       "useRecovery": "Utiliser un code de secours",
       "recoveryCode": "Code de secours",
-      "submitRecovery": "Se connecter"
+      "submitRecovery": "Se connecter",
+      "subtitle": "Saisissez le code à 6 chiffres de votre application d’authentification.",
+      "recoverySubtitle": "Saisissez l’un de vos codes de secours. Chacun ne fonctionne qu’une fois."
     },
     "setup": {
       "title": "Activer la vérification en deux étapes",
@@ -255,7 +276,11 @@
       "recoveryHint": "Conservez ces codes en lieu sûr : chacun ne fonctionne qu’une seule fois.",
       "download": "Télécharger les codes",
       "savedAck": "J’ai enregistré mes codes",
-      "continue": "Continuer vers l’application"
+      "continue": "Continuer vers l’application",
+      "qrAlt": "QR code à scanner avec votre application d’authentification",
+      "copy": "Copier les codes",
+      "copied": "Codes copiés dans le presse-papiers.",
+      "copyFailed": "La copie a échoué. Téléchargez les codes à la place."
     },
     "consent": {
       "title": "Conditions mises à jour",
@@ -263,12 +288,20 @@
       "terms": "Conditions générales d’utilisation",
       "privacy": "Politique de confidentialité",
       "coc": "Code de conduite",
-      "accept": "Accepter et continuer"
+      "accept": "Accepter et continuer",
+      "readTerms": "Lire les conditions d’utilisation",
+      "readPrivacy": "Lire la politique de confidentialité",
+      "readCoc": "Lire le code de conduite"
+    },
+    "resume": {
+      "loading": "Reprise de votre session…"
+    },
+    "layout": {
+      "preferences": "Préférences d’affichage"
     }
   },
   "settings": {
     "title": "Paramètres",
-    "comingSoon": "Bientôt disponible",
     "nav": {
       "profile": "Profil",
       "security": "Sécurité",
@@ -296,7 +329,6 @@
       "dismiss": "Non"
     },
     "security": {
-      "title": "Sécurité",
       "twoFactor": "Double authentification (2FA)",
       "twoFactorOn": "La double authentification est activée sur votre compte.",
       "twoFactorOff": "La double authentification n’est pas activée sur votre compte.",
@@ -312,12 +344,19 @@
       "passwordChanged": "Mot de passe changé. Les autres appareils ont été déconnectés.",
       "devices": "Appareils connectés",
       "thisDevice": "Cet appareil",
-      "disconnect": "Déconnecter",
       "signOutAll": "Déconnecter partout",
-      "signOutAllConfirm": "Déconnecter tous les appareils, y compris celui-ci ?"
+      "signOutAllConfirm": "Déconnecter tous les appareils, y compris celui-ci ?",
+      "twoFactorStatusOn": "Activée",
+      "twoFactorStatusOff": "Désactivée",
+      "twoFactorDisabled": "Double authentification désactivée.",
+      "device": "Appareil",
+      "ip": "Adresse IP",
+      "lastSeen": "Dernière activité",
+      "revoke": "Révoquer",
+      "revokeDevice": "Révoquer {device}",
+      "deviceRevoked": "Appareil déconnecté."
     },
     "verification": {
-      "title": "Vérification",
       "email": "Email",
       "phoneNumber": "Numéro de téléphone",
       "phone": "Téléphone",
@@ -325,21 +364,47 @@
       "otpCode": "Code reçu",
       "verifyOtp": "Vérifier",
       "otpSent": "Un code a été envoyé par SMS (et par email en développement).",
-      "otpInvalid": "Code incorrect.",
       "phoneDone": "Téléphone vérifié : {phone}",
       "coc": "Code de conduite",
       "cocBody": "Je m’engage à respecter les autres membres de la plateforme, à ne pas publier de contenu harassant, discriminatoire ou illégal, et à utiliser les sessions en direct dans un cadre pédagogique. Toute infraction peut entraîner la suspension du compte.",
       "cocAccept": "J’accepte le code de conduite",
       "acceptCoc": "Accepter le code de conduite",
       "done": "Vérifié",
-      "todo": "À faire"
+      "todo": "À faire",
+      "steps": "Étapes de vérification",
+      "phoneVerified": "Téléphone vérifié.",
+      "cocAccepted": "Code de conduite accepté."
     },
     "consents": {
       "title": "Consentements",
       "version": "Version",
-      "grantedAt": "Accepté le {date}",
       "revoke": "Retirer",
-      "none": "Aucun consentement enregistré."
+      "none": "Aucun consentement enregistré.",
+      "type": "Consentement",
+      "grantedOn": "Accepté le",
+      "status": "Statut",
+      "statusCurrent": "En vigueur",
+      "statusOutdated": "Ancienne version",
+      "statusRevoked": "Retiré",
+      "actions": "Actions",
+      "revokeConfirm": "Retirer votre consentement « {name} » ?",
+      "revoked": "Consentement retiré.",
+      "types": {
+        "TERMS": "Conditions générales d’utilisation",
+        "PRIVACY": "Politique de confidentialité",
+        "CODE_OF_CONDUCT": "Code de conduite",
+        "MARKETING": "Communications marketing"
+      }
+    },
+    "soon": "Bientôt",
+    "workspaces": {
+      "createTitle": "Créer un espace",
+      "tabsLabel": "Type d’espace à créer",
+      "tabOrganization": "Organisation",
+      "tabPersonal": "Espace personnel",
+      "emptyTitle": "Aucun espace pour le moment",
+      "emptyDescription": "Créez une organisation ou votre espace personnel pour commencer.",
+      "manage": "Gérer les espaces"
     }
   },
   "onboarding": {
@@ -356,8 +421,6 @@
     "typePersonal": "Personnel",
     "typeOrganization": "Organisation",
     "createTitle": "Vos espaces",
-    "createOrganization": "Créer une organisation",
-    "createPersonal": "Créer mon espace personnel",
     "personalForbidden": "{organizationName} n’autorise pas les espaces personnels",
     "personalExists": "Vous avez déjà un espace personnel.",
     "name": "Nom",
@@ -397,13 +460,24 @@
     "navSettings": "Paramètres",
     "navMembers": "Membres",
     "navAudit": "Journal d’audit",
-    "soon": "Bientôt",
     "auditAction": "Action",
     "auditFrom": "Du",
     "auditTo": "Au",
     "auditBefore": "Avant",
     "auditAfter": "Après",
-    "auditNext": "Suivant"
+    "auditNext": "Suivant",
+    "readOnly": "Seuls le propriétaire et les administrateurs peuvent modifier ces paramètres.",
+    "identity": "Identité",
+    "dangerZone": "Zone sensible",
+    "status_ACTIVE": "Actif",
+    "status_SUSPENDED": "Suspendu",
+    "status_DELETING": "Suppression en cours",
+    "auditDate": "Date",
+    "auditPrevious": "Précédent",
+    "auditEmpty": "Aucune entrée ne correspond à ces filtres.",
+    "auditPagination": "Pagination du journal d’audit",
+    "auditFilters": "Filtres du journal",
+    "auditActor": "Rôle de l’auteur"
   },
   "members": {
     "title": "Membres",
@@ -413,20 +487,12 @@
     "canTeach": "Peut enseigner",
     "joined": "Rejoint le",
     "actions": "Actions",
-    "changeRole": "Changer le rôle",
     "toggleCanTeach": "Peut enseigner",
     "remove": "Retirer",
-    "removeConfirm": "Retirer {name} de l’espace ?",
     "removed": "Membre retiré.",
     "roleChanged": "Rôle modifié.",
     "assignments": "Affectations",
-    "assignTeacher": "Enseignant",
-    "assignStudents": "Élèves",
-    "assignSubmit": "Affecter",
-    "assigned": "Affectation enregistrée.",
     "noStudents": "Les élèves rejoignent par invitation (prochaine version).",
-    "studentsTab": "Élèves",
-    "pendingInvitation": "Invitation en attente",
     "self": "vous",
     "role_OWNER": "Propriétaire",
     "role_ADMIN": "Administrateur",
@@ -440,7 +506,22 @@
     "status_SUSPENDED_NO_CONSENT": "Suspendu — consentement manquant",
     "status_SUSPENDED_CONSENT_REVOKED": "Suspendu — consentement retiré",
     "status_REMOVED": "Retiré",
-    "status_REJECTED": "Rejeté"
+    "status_REJECTED": "Rejeté",
+    "rowActions": "Actions pour {name}",
+    "changeRoleFor": "Changer le rôle de {name}",
+    "removeFor": "Retirer {name}",
+    "assignmentOf": "{teacher} enseigne à {student}",
+    "noAssignments": "Aucune affectation pour le moment.",
+    "confirmRemoveTitle": "Retirer {name} de l’espace ?",
+    "confirmRemoveDescription": "Ce membre perd l’accès à l’espace. Son historique est conservé.",
+    "noMatch": "Aucun membre ne correspond à ces filtres.",
+    "allRoles": "Tous les rôles",
+    "allStatuses": "Tous les statuts",
+    "name": "Nom",
+    "yes": "Oui",
+    "no": "Non",
+    "canTeachChanged": "Autorisation d’enseigner modifiée.",
+    "filters": "Filtres"
   },
   "abuse": {
     "report": "Signaler",
@@ -452,6 +533,7 @@
     "category_MINOR_SAFETY": "Sécurité d’un mineur",
     "category_OTHER": "Autre",
     "description": "Description",
+    "descriptionCounter": "{count}/{min} caractères minimum",
     "submit": "Envoyer le signalement",
     "sent": "Signalement envoyé.",
     "status_OPEN": "Ouvert",
@@ -477,15 +559,21 @@
       "quota": "Quota",
       "quotaGiB": "Quota (Go)",
       "reason": "Motif",
-      "confirm": "Confirmer",
       "saveQuota": "Enregistrer le quota",
-      "saved": "Modifications enregistrées.",
       "suspended": "Espace suspendu.",
       "reactivated": "Espace réactivé.",
       "quotaSaved": "Quota mis à jour.",
       "confirmSuspend": "Suspendre cet espace ?",
       "confirmReactivate": "Réactiver cet espace ?",
-      "empty": "Aucun espace."
+      "empty": "Aucun espace.",
+      "filters": "Filtres des espaces",
+      "allTypes": "Tous les types",
+      "allStatuses": "Tous les statuts",
+      "rowActions": "Actions pour {name}",
+      "suspendDescription": "« {name} » passera en lecture seule pour ses membres.",
+      "reactivateDescription": "« {name} » redeviendra modifiable par ses membres.",
+      "quotaTitle": "Quota de stockage",
+      "quotaDescription": "« {name} » utilise actuellement {used}."
     },
     "workspaceStatus": {
       "ACTIVE": "Actif",
@@ -514,7 +602,18 @@
       "empty": "Aucun signalement.",
       "openDetail": "Ouvrir",
       "snapshot": "Instantané",
-      "userAccount": "Compte signalé"
+      "userAccount": "Compte signalé",
+      "filters": "Filtres des signalements",
+      "allStatuses": "Tous les statuts",
+      "allCategories": "Toutes les catégories",
+      "createdAt": "Reçu le",
+      "openDetailFor": "Ouvrir le signalement de {name}",
+      "backToQueue": "Signalements",
+      "details": "Détails",
+      "handling": "Traitement",
+      "newStatus": "Nouveau statut",
+      "suspendUserDescription": "Le compte ne pourra plus se connecter. Le motif lui sera envoyé.",
+      "reactivateUserDescription": "Le compte pourra de nouveau se connecter."
     },
     "health": {
       "db": "Base de données",
@@ -525,9 +624,83 @@
       "active": "En cours",
       "delayed": "Différées",
       "failed": "Échouées",
-      "name": "Nom",
       "up": "OK",
-      "down": "Indisponible"
+      "down": "Indisponible",
+      "services": "Services"
     }
+  },
+  "shell": {
+    "userMenu": "Menu du compte de {name}",
+    "profile": "Mon profil",
+    "security": "Sécurité",
+    "logout": "Se déconnecter",
+    "logoutFailed": "La déconnexion a échoué. Vérifiez votre connexion puis réessayez.",
+    "language": "Langue",
+    "notifications": "Notifications",
+    "notification": "Notification",
+    "legalNav": "Informations légales"
+  },
+  "theme": {
+    "toggle": "Thème",
+    "toggleCurrent": "Thème : {theme}",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
+  },
+  "errorPages": {
+    "title": "Une erreur est survenue",
+    "description": "La page n’a pas pu s’afficher. Réessayez dans un instant.",
+    "requestId": "Référence de l’erreur : {id}",
+    "retry": "Réessayer",
+    "home": "Retour à l’accueil",
+    "notFoundTitle": "Page introuvable",
+    "notFoundDescription": "Cette page n’existe pas ou a été déplacée.",
+    "loading": "Chargement de la page…"
+  },
+  "legal": {
+    "termsTitle": "Conditions d’utilisation",
+    "privacyTitle": "Politique de confidentialité",
+    "cocTitle": "Code de conduite",
+    "version": "Version {version}",
+    "placeholderTitle": "Texte à fournir par l’éditeur",
+    "placeholder": "Ce texte provisoire sera remplacé par la version définitive avant l’ouverture au public.",
+    "terms": {
+      "body": "Les présentes conditions encadrent l’utilisation de {appName} par les professeurs, les élèves et leurs parents.\n\nElles précisent les droits et obligations de chacun, les règles de publication des cours et des sessions en direct, ainsi que les conditions de suspension d’un compte.\n\nLa version définitive sera publiée ici."
+    },
+    "privacy": {
+      "body": "Cette politique explique quelles données {appName} collecte, pourquoi, combien de temps elles sont conservées et comment exercer vos droits.\n\nElle couvre en particulier les données des élèves mineurs et le consentement de leurs parents.\n\nLa version définitive sera publiée ici."
+    },
+    "codeOfConduct": {
+      "body": "Ce code de conduite fixe les règles de respect mutuel dans les cours, les sessions en direct et les messages de {appName}.\n\nTout manquement peut être signalé depuis l’application et peut conduire à la suspension d’un compte.\n\nLa version définitive sera publiée ici."
+    }
+  },
+  "landing": {
+    "eyebrow": "Pour les professeurs indépendants et les écoles",
+    "title": "Une seule application pour enseigner en ligne",
+    "subtitle": "Publiez vos cours, animez vos sessions en direct et suivez la progression de chaque élève, sans jongler entre quatre outils.",
+    "login": "Se connecter",
+    "register": "Créer un compte professeur",
+    "openApp": "Ouvrir l’application",
+    "highlights": "Points forts",
+    "trustMobile": "Pensé pour le mobile",
+    "trustLanguages": "En français, arabe et anglais",
+    "trustPrivacy": "Données protégées",
+    "valuesTitle": "Tout ce qu’il faut pour enseigner",
+    "value1Title": "Cours enregistrés",
+    "value1Body": "Vidéos, PDF et textes organisés en modules et en leçons, accessibles depuis un téléphone.",
+    "value2Title": "Sessions en direct",
+    "value2Body": "Cours individuels ou collectifs planifiés dans un calendrier, avec rappels automatiques.",
+    "value3Title": "Suivi pédagogique",
+    "value3Body": "Présence, progression et historique de chaque élève, sans tableur.",
+    "preferences": "Préférences d’affichage"
+  },
+  "pwa": {
+    "offlineTitle": "Vous êtes hors ligne",
+    "offlineDescription": "Cette page a besoin d’une connexion. Vérifiez votre réseau puis réessayez.",
+    "offlineSessionsSoon": "Bientôt, vos sessions à venir s’afficheront ici même sans connexion.",
+    "retry": "Réessayer",
+    "updateAvailable": "Une nouvelle version est disponible",
+    "updateDescription": "Enregistrez vos modifications en cours, puis rechargez la page.",
+    "reload": "Recharger"
   }
 }
