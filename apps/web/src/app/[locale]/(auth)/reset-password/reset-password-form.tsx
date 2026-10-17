@@ -74,6 +74,7 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
         </Alert>
       ) : null}
       <form
+        method="post"
         ref={formRef}
         onSubmit={(e) => {
           e.preventDefault();

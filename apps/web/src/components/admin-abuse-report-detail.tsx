@@ -228,6 +228,7 @@ export function AdminAbuseReportDetail({ id }: { id: string }) {
           <Card.Title id="abuse-handling-title">{t('admin.reports.handling')}</Card.Title>
         </Card.Header>
         <form
+          method="post"
           ref={formRef}
           noValidate
           onSubmit={(e) => {

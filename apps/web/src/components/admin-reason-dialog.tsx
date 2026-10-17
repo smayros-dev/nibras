@@ -81,6 +81,7 @@ export function AdminReasonDialog({
         onCloseAutoFocus={onCloseAutoFocus}
       >
         <form
+          method="post"
           ref={formRef}
           noValidate
           onSubmit={(e) => {

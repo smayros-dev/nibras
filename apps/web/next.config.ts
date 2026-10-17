@@ -9,6 +9,9 @@ const apiUrl = process.env.API_URL ?? 'http://localhost:3001';
 const nextConfig: NextConfig = {
   // Self-contained server for the container image (infra/docker/web.Dockerfile).
   output: 'standalone',
+  // Dev only: the floating dev-tools indicator sits at the physical bottom-left, over the mobile
+  // bottom nav's "More" button in RTL (e2e mobile-ar). Error overlays still show.
+  devIndicators: false,
   transpilePackages: ['@tt/ui', '@tt/i18n', '@tt/contracts'],
   // The browser talks to the API same-origin (session cookies work without CORS).
   async rewrites() {

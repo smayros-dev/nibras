@@ -98,6 +98,7 @@ export function CreateWorkspacePanel({ workspaces }: { workspaces: MyWorkspace[]
         </Tabs.List>
         <Tabs.Content value="organization">
           <form
+            method="post"
             onSubmit={(e) => {
               e.preventDefault();
               void createOrganization.submit();

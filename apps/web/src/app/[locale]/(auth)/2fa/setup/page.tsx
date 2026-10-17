@@ -183,6 +183,7 @@ export default function TwoFactorSetupPage() {
         </Alert>
       ) : null}
       <form
+        method="post"
         ref={formRef}
         onSubmit={(e) => {
           e.preventDefault();

@@ -7,6 +7,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { env } from './config/env';
+import { configureHttpServer } from './http-server';
 import { createShutdownHandler } from './shutdown';
 
 /** Upper bound on a graceful shutdown before the process is forced out. */
@@ -27,6 +28,7 @@ async function bootstrap(): Promise<void> {
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     process.on(signal, (received) => void shutdown(received));
   }
+  configureHttpServer(app.getHttpServer());
   await app.listen(env.PORT);
   Logger.log(`API listening on port ${env.PORT}`, 'Bootstrap');
 }

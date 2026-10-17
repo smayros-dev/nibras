@@ -3,7 +3,7 @@
 import type { MeUser } from '@tt/contracts';
 import { Alert, Button, useSubmit } from '@tt/ui';
 import { useTranslations } from 'next-intl';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from '../i18n/navigation';
 import { api, asApiResult } from '../lib/api';
 
@@ -36,6 +36,21 @@ export function TimezoneBanner({ timezone }: { timezone: string }) {
   const [browserTz, setBrowserTz] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
   const [error, setError] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [cardHeight, setCardHeight] = useState(0);
+
+  // The in-flow spacer at the end of the page matches the floating card, so the page can always be
+  // scrolled clear of it (nothing stays hidden underneath).
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    const measure = () => setCardHeight(card.offsetHeight);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, [visible, browserTz]);
 
   useEffect(() => {
     const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -70,35 +85,54 @@ export function TimezoneBanner({ timezone }: { timezone: string }) {
     setVisible(false);
   }
 
+  // Out of the page flow: the banner can only mount after hydration (the server cannot know the
+  // browser's zone), and at the top of the page it would push everything down under the user's
+  // pointer — a click aimed at a tab or link landed on whatever slid into its place. It floats
+  // above the mobile bottom nav (h-16 + safe area), at the inline-start corner on desktop (toasts
+  // use the end corner); the layout renders it after the page content, where its spacer goes.
   return (
-    // A standing prompt, not an announcement: no live region (it would also collide with the
-    // pages' own `status` messages).
-    <Alert
-      variant="info"
-      role={undefined}
-      className="mb-4"
-      action={
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            loading={accept.busy}
-            onClick={() => void accept.submit()}
-          >
-            {t('settings.timezone.accept')}
-          </Button>
-          <Button variant="secondary" size="sm" disabled={accept.busy} onClick={dismiss}>
-            {t('settings.timezone.dismiss')}
-          </Button>
-        </div>
-      }
-    >
-      <p>{t('settings.timezone.banner', { city, tz: browserTz })}</p>
-      {error ? (
-        <p role="alert" className="mt-1 text-danger">
-          {t('errors.INTERNAL_ERROR')}
-        </p>
-      ) : null}
-    </Alert>
+    <>
+      <div
+        aria-hidden="true"
+        data-timezone-banner-spacer=""
+        className="shrink-0"
+        style={{ blockSize: `calc(${cardHeight}px + 1rem)` }}
+      />
+      <div
+        ref={cardRef}
+        data-timezone-banner=""
+        className="fixed start-4 end-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 lg:end-auto lg:bottom-4 lg:w-full lg:max-w-md"
+      >
+        {/* A standing prompt, not an announcement: no live region (it would also collide with the
+          pages' own `status` messages). */}
+        <Alert
+          variant="info"
+          role={undefined}
+          className="shadow-lg"
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                loading={accept.busy}
+                onClick={() => void accept.submit()}
+              >
+                {t('settings.timezone.accept')}
+              </Button>
+              <Button variant="secondary" size="sm" disabled={accept.busy} onClick={dismiss}>
+                {t('settings.timezone.dismiss')}
+              </Button>
+            </div>
+          }
+        >
+          <p>{t('settings.timezone.banner', { city, tz: browserTz })}</p>
+          {error ? (
+            <p role="alert" className="mt-1 text-danger">
+              {t('errors.INTERNAL_ERROR')}
+            </p>
+          ) : null}
+        </Alert>
+      </div>
+    </>
   );
 }

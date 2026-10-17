@@ -80,6 +80,7 @@ export function LoginForm({ next }: { next: string | null }) {
         </Alert>
       ) : null}
       <form
+        method="post"
         ref={formRef}
         onSubmit={(e) => {
           e.preventDefault();

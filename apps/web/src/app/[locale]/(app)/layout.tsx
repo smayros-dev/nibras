@@ -59,8 +59,9 @@ export default async function AppLayout({
   return (
     <>
       <AppFrame locale={locale} user={user} inert={gated}>
-        <TimezoneBanner timezone={user.timezone} />
         {children}
+        {/* After the page: a floating card plus its end-of-page spacer (no layout shift). */}
+        <TimezoneBanner timezone={user.timezone} />
       </AppFrame>
       {gated ? (
         <ConsentGate

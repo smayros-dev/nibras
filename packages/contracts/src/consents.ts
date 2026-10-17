@@ -25,9 +25,16 @@ export const REQUIRED_CONSENTS = [
  * a user and then observe a "bumped" TERMS version that must be re-accepted by the consent gate.
  * Returns the env value only — callers decide the fallback (the API reads the `CONSENT_VERSIONS`
  * import binding so a stubbed export still applies; the web layout falls back here).
+ *
+ * A production build (`NODE_ENV=production`) ignores it unless its deployment explicitly says
+ * `APP_ENV=development`: the e2e suite runs the production web build (Next always sets
+ * `NODE_ENV=production` there), while real deployments run with `APP_ENV` unset or
+ * `staging`/`production`. API and web share this function, so they always agree on the version.
  */
 export function testConsentTermsVersion(): string | undefined {
   if (typeof process === 'undefined') return undefined;
-  if (process.env.NODE_ENV === 'production') return undefined;
+  if (process.env.NODE_ENV === 'production' && process.env.APP_ENV !== 'development') {
+    return undefined;
+  }
   return process.env.TEST_CONSENT_TERMS_VERSION || undefined;
 }

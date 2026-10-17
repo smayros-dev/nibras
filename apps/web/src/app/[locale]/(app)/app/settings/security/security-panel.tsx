@@ -97,6 +97,7 @@ function TwoFactorCard({ twoFactor }: { twoFactor: { enabled: boolean; required:
               size="sm"
             >
               <form
+                method="post"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void disable.submit();
@@ -181,6 +182,7 @@ function PasswordCard() {
         <Card.Title>{t('settings.security.changePassword')}</Card.Title>
       </Card.Header>
       <form
+        method="post"
         onSubmit={(e) => {
           e.preventDefault();
           void change.submit();

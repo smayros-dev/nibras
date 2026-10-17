@@ -72,6 +72,7 @@ export function ProfileForm({ user }: { user: MeUser }) {
         <Card.Title>{t('settings.profile.title')}</Card.Title>
       </Card.Header>
       <form
+        method="post"
         onSubmit={(e) => {
           e.preventDefault();
           void save.submit();

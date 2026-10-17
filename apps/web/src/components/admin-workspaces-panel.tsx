@@ -123,6 +123,7 @@ function QuotaDialog({
           onCloseAutoFocus={onCloseAutoFocus}
         >
           <form
+            method="post"
             ref={formRef}
             noValidate
             onSubmit={(e) => {

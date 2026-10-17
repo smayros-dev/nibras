@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { CONSENT_VERSIONS, CurrentConsentTypes, REQUIRED_CONSENTS } from './consents';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  CONSENT_VERSIONS,
+  CurrentConsentTypes,
+  REQUIRED_CONSENTS,
+  testConsentTermsVersion,
+} from './consents';
 import { ERROR_CODES } from './error-codes';
 
 describe('consents', () => {
@@ -26,5 +31,34 @@ describe('ERROR_CODES (SP1)', () => {
     );
     expect(ERROR_CODES).toHaveLength(9 + 34);
     expect(new Set(ERROR_CODES).size).toBe(ERROR_CODES.length);
+  });
+});
+
+describe('testConsentTermsVersion (e2e TERMS override)', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  function withEnv(env: Record<string, string | undefined>) {
+    vi.stubEnv('TEST_CONSENT_TERMS_VERSION', 'terms-e2e');
+    for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+    return testConsentTermsVersion();
+  }
+
+  it('applies outside production builds', () => {
+    expect(withEnv({ NODE_ENV: 'development', APP_ENV: undefined })).toBe('terms-e2e');
+    expect(withEnv({ NODE_ENV: 'test', APP_ENV: undefined })).toBe('terms-e2e');
+  });
+
+  it('is ignored by a production build unless the deployment says APP_ENV=development', () => {
+    expect(withEnv({ NODE_ENV: 'production', APP_ENV: undefined })).toBeUndefined();
+    expect(withEnv({ NODE_ENV: 'production', APP_ENV: 'production' })).toBeUndefined();
+    expect(withEnv({ NODE_ENV: 'production', APP_ENV: 'staging' })).toBeUndefined();
+    // The e2e suite runs the production web build (standalone server) with APP_ENV=development.
+    expect(withEnv({ NODE_ENV: 'production', APP_ENV: 'development' })).toBe('terms-e2e');
+  });
+
+  it('is undefined when the variable is unset or empty', () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('TEST_CONSENT_TERMS_VERSION', '');
+    expect(testConsentTermsVersion()).toBeUndefined();
   });
 });

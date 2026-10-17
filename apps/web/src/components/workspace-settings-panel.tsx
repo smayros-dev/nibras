@@ -225,6 +225,7 @@ export function WorkspaceSettingsPanel({
       {mayEdit ? null : <Alert variant="info">{t('workspace.readOnly')}</Alert>}
 
       <form
+        method="post"
         onSubmit={(e) => {
           e.preventDefault();
           void save.submit();

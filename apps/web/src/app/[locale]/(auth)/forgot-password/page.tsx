@@ -51,6 +51,7 @@ export default function ForgotPasswordPage() {
         <Alert variant="success">{t('auth.forgot.always')}</Alert>
       ) : (
         <form
+          method="post"
           ref={formRef}
           onSubmit={(e) => {
             e.preventDefault();

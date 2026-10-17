@@ -123,6 +123,7 @@ export default function RegisterPage() {
         </Alert>
       ) : null}
       <form
+        method="post"
         ref={formRef}
         onSubmit={(e) => {
           e.preventDefault();

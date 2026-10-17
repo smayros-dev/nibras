@@ -61,6 +61,10 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   // Everything except the API rewrite, the health routes (/health, /health/live, /health/ready),
-  // Next internals and files with an extension.
-  matcher: ['/((?!api/|health$|health/|_next|_vercel|.*\\..*).*)'],
+  // Next internals and known static files (public files, metadata routes) by extension. Only
+  // those: any other path with a dot (`/fr/x.y`) is a page or its 404 and keeps the CSP. Must stay
+  // a literal (Next analyses the matcher statically).
+  matcher: [
+    '/((?!api/|health$|health/|_next|_vercel|.*\\.(?:png|jpe?g|gif|svg|ico|webp|avif|js|mjs|css|map|txt|xml|json|webmanifest|woff2?|ttf|otf)$).*)',
+  ],
 };
