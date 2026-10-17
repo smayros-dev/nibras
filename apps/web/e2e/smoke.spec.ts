@@ -1,6 +1,6 @@
 import { messages } from '@tt/i18n';
 import type { Page } from '@playwright/test';
-import { appUrl, expect, plainText, t, test, apiLogin, uniqueEmail } from './helpers';
+import { appUrl, expect, plainText, t, test, toast, apiLogin, uniqueEmail } from './helpers';
 import { request as playwrightRequest } from '@playwright/test';
 import { extractLink, extractOtpCode, waitForEmail } from './helpers/mailpit';
 import { addOrgMember, seedUser } from './helpers/seed';
@@ -100,8 +100,7 @@ async function runJourney(page: Page, locale: string) {
   await page.goto(`/${locale}/app/settings/workspaces`);
   await page.getByLabel(t(locale, 'workspace.name'), { exact: true }).fill(orgName);
   await page.getByRole('button', { name: t(locale, 'workspace.submitOrganization') }).click();
-  // Success is a toast: its title is exact (the Radix announcer prefixes it).
-  await expect(page.getByText(t(locale, 'workspace.created'), { exact: true })).toBeVisible();
+  await expect(toast(page, locale, t(locale, 'workspace.created'))).toBeVisible();
 
   await page.goto(`/${locale}/app`);
   await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`));

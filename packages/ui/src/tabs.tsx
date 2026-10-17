@@ -88,6 +88,7 @@ export const TabsTrigger = forwardRef<
         'hover:text-fg focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
         'data-[state=active]:border-primary data-[state=active]:text-fg',
         'disabled:cursor-not-allowed disabled:opacity-50',
+        'aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:text-fg-muted',
         className,
       )}
       {...props}

@@ -8,6 +8,7 @@ import { AuthCard } from '../../../../components/auth-card';
 import { Link, useRouter } from '../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../lib/api-error';
 import { api, asApiResult } from '../../../../lib/api';
+import { useErrorFocus } from '../../../../lib/use-error-focus';
 import { sanitizeNext } from '../../../../lib/sanitize-next';
 import { CHALLENGE_STORAGE_KEY, serializeChallenge } from '../../../../lib/two-factor-challenge';
 
@@ -25,6 +26,7 @@ export function LoginForm({ next }: { next: string | null }) {
   const [remember, setRemember] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
 
   const login = useSubmit(async () => {
     setFieldErrors({});
@@ -72,8 +74,13 @@ export function LoginForm({ next }: { next: string | null }) {
         </p>
       }
     >
-      {formError ? <Alert variant="danger">{formError}</Alert> : null}
+      {formError ? (
+        <Alert ref={alertRef} tabIndex={-1} variant="danger">
+          {formError}
+        </Alert>
+      ) : null}
       <form
+        ref={formRef}
         onSubmit={(e) => {
           e.preventDefault();
           void login.submit();

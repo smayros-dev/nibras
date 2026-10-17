@@ -7,12 +7,14 @@ import { AuthCard } from '../../../../components/auth-card';
 import { Link } from '../../../../i18n/navigation';
 import { apiErrorMessage } from '../../../../lib/api-error';
 import { api } from '../../../../lib/api';
+import { useErrorFocus } from '../../../../lib/use-error-focus';
 
 export default function ForgotPasswordPage() {
   const t = useTranslations();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const { formRef, alertRef } = useErrorFocus(undefined, formError);
 
   const request = useSubmit(async () => {
     setFormError(null);
@@ -39,12 +41,17 @@ export default function ForgotPasswordPage() {
         </Link>
       }
     >
-      {formError ? <Alert variant="danger">{formError}</Alert> : null}
+      {formError ? (
+        <Alert ref={alertRef} tabIndex={-1} variant="danger">
+          {formError}
+        </Alert>
+      ) : null}
       {sent ? (
         // Same message whether or not the address has an account (no enumeration).
         <Alert variant="success">{t('auth.forgot.always')}</Alert>
       ) : (
         <form
+          ref={formRef}
           onSubmit={(e) => {
             e.preventDefault();
             void request.submit();

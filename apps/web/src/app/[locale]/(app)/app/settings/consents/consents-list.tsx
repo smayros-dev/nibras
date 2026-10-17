@@ -15,7 +15,7 @@ import {
   useToast,
 } from '@tt/ui';
 import { useLocale, useTranslations } from 'next-intl';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiErrorMessage } from '../../../../../../lib/api-error';
 import { api, asApiResult } from '../../../../../../lib/api';
 
@@ -29,6 +29,8 @@ export function ConsentsList() {
   const [records, setRecords] = useState<ConsentRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<ConsentRecord['type'] | null>(null);
+  // The dialog is shared by the rows (no `Trigger`), so focus goes back to the row that opened it.
+  const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   // Resolved after mount: the server has no viewer time zone (no hydration mismatch).
   const [viewerTimezone, setViewerTimezone] = useState('UTC');
 
@@ -122,7 +124,10 @@ export function ConsentsList() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => setConfirming(record.type)}
+                          onClick={(event) => {
+                            returnFocusRef.current = event.currentTarget;
+                            setConfirming(record.type);
+                          }}
                         >
                           {t('settings.consents.revoke')}
                         </Button>
@@ -144,6 +149,13 @@ export function ConsentsList() {
         {confirming ? (
           <AlertDialog.Content
             title={t('settings.consents.revokeConfirm', { name: t(consentKey(confirming)) })}
+            onCloseAutoFocus={(event) => {
+              const opener = returnFocusRef.current;
+              if (opener?.isConnected) {
+                event.preventDefault();
+                opener.focus();
+              }
+            }}
           >
             <AlertDialog.Footer>
               <AlertDialog.Cancel>{t('common.cancel')}</AlertDialog.Cancel>

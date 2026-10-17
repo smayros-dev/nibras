@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { messages } from '@tt/i18n';
-import { t } from './helpers';
+import { apiLogin, t } from './helpers';
+import { seedUser } from './helpers/seed';
 
 /**
  * A raw `namespace.key` message id rendered instead of its translation. The namespaces are the
@@ -45,6 +46,19 @@ for (const [locale, dir] of [
     expect(attributes.filter((value) => RAW_KEY.test(value))).toEqual([]);
   });
 }
+
+test('signed-in visitor sees the open-the-app CTA instead of the auth links', async ({ page }) => {
+  const user = await seedUser();
+  // `page.request` shares the browser context's cookie jar: the API session cookie applies.
+  await apiLogin(page.request, user);
+  await page.goto('/fr');
+  const hero = page.getByRole('region', { name: t('fr', 'landing.title') });
+  await expect(hero.getByRole('link', { name: t('fr', 'landing.openApp') })).toHaveAttribute(
+    'href',
+    '/fr/app',
+  );
+  await expect(hero.getByRole('link', { name: t('fr', 'landing.login') })).toHaveCount(0);
+});
 
 // Review Focus 1: a regional subtag (ar-TN, fr-FR, en-US) must match its language, not fall
 // through to the default; an unsupported language (de-DE) lands on the default /fr.

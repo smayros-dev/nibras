@@ -8,6 +8,7 @@ import { AuthCard, AuthLoading } from '../../../../components/auth-card';
 import { useRouter } from '../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../lib/api-error';
 import { api, asApiResult } from '../../../../lib/api';
+import { useErrorFocus } from '../../../../lib/use-error-focus';
 import { sanitizeNext } from '../../../../lib/sanitize-next';
 import {
   CHALLENGE_STORAGE_KEY,
@@ -30,6 +31,7 @@ export default function TwoFactorPage() {
   const [recoveryCode, setRecoveryCode] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
   const bounced = useRef(false);
 
   useEffect(() => {
@@ -83,7 +85,7 @@ export default function TwoFactorPage() {
   });
 
   if (!challenge) {
-    return <AuthLoading label={t('common.loading')} />;
+    return <AuthLoading title={t('auth.twoFactor.title')} label={t('common.loading')} />;
   }
 
   return (
@@ -106,8 +108,13 @@ export default function TwoFactorPage() {
         </Button>
       }
     >
-      {formError ? <Alert variant="danger">{formError}</Alert> : null}
+      {formError ? (
+        <Alert ref={alertRef} tabIndex={-1} variant="danger">
+          {formError}
+        </Alert>
+      ) : null}
       <form
+        ref={formRef}
         onSubmit={(e) => {
           e.preventDefault();
           void verify.submit();

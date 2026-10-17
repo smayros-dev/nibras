@@ -4,6 +4,7 @@ import {
   test as base,
   type APIRequestContext,
   type APIResponse,
+  type Locator,
   type Page,
 } from '@playwright/test';
 
@@ -40,6 +41,17 @@ export function t(locale: string, key: string): string {
   }
   if (typeof node !== 'string') throw new Error(`Not a message: ${key} (${locale})`);
   return node;
+}
+
+/**
+ * The toast whose title is exactly `message`, scoped to the toast region (named by
+ * `shell.notifications`): neither the Radix announcer copy (prefixed) nor the same text elsewhere
+ * on the page can match.
+ */
+export function toast(page: Page, locale: string, message: string): Locator {
+  return page
+    .getByRole('region', { name: t(locale, 'shell.notifications'), exact: true })
+    .getByText(message, { exact: true });
 }
 
 /** A rich message (`t.rich` tags such as `<terms>…</terms>`) as the text the page renders. */

@@ -7,6 +7,7 @@ import { AuthCard } from '../../../../components/auth-card';
 import { Link, useRouter } from '../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../lib/api-error';
 import { api } from '../../../../lib/api';
+import { useErrorFocus } from '../../../../lib/use-error-focus';
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -22,6 +23,7 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
   const [newPassword, setNewPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
   const [tokenInvalid, setTokenInvalid] = useState(false);
 
   const reset = useSubmit(async () => {
@@ -66,8 +68,13 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
 
   return (
     <AuthCard title={t('auth.reset.title')}>
-      {formError ? <Alert variant="danger">{formError}</Alert> : null}
+      {formError ? (
+        <Alert ref={alertRef} tabIndex={-1} variant="danger">
+          {formError}
+        </Alert>
+      ) : null}
       <form
+        ref={formRef}
         onSubmit={(e) => {
           e.preventDefault();
           void reset.submit();

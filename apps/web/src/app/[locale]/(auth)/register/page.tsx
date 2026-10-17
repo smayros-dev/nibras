@@ -10,6 +10,7 @@ import { TimezoneSelect } from '../../../../components/timezone-select';
 import { Link, useRouter } from '../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../lib/api-error';
 import { api, asApiResult } from '../../../../lib/api';
+import { useErrorFocus } from '../../../../lib/use-error-focus';
 import { useTimezones } from '../../../../lib/timezones';
 
 const MIN_PASSWORD_LENGTH = 12;
@@ -54,6 +55,7 @@ export default function RegisterPage() {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
 
   useEffect(() => {
     if (ready && !timezoneTouched.current) setTimezone(resolved ?? 'UTC');
@@ -115,8 +117,13 @@ export default function RegisterPage() {
         </p>
       }
     >
-      {formError ? <Alert variant="danger">{formError}</Alert> : null}
+      {formError ? (
+        <Alert ref={alertRef} tabIndex={-1} variant="danger">
+          {formError}
+        </Alert>
+      ) : null}
       <form
+        ref={formRef}
         onSubmit={(e) => {
           e.preventDefault();
           void register.submit();

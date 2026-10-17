@@ -7,6 +7,15 @@ import { mockRouter, navigationModuleMock } from './navigation-mock';
 // whose router `mockRouter()` resets and returns.
 vi.mock('../i18n/navigation', () => navigationModuleMock());
 
+// jsdom has no ResizeObserver; Radix measures some controls (Checkbox, Switch) with it.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 afterEach(() => {
   if (typeof document !== 'undefined') {
     cleanup();

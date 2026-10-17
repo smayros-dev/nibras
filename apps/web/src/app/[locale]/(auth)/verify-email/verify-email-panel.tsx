@@ -54,7 +54,7 @@ export function VerifyEmailPanel({ token }: { token: string | null }) {
   });
 
   if (phase === 'verifying') {
-    return <AuthLoading label={t('common.loading')} />;
+    return <AuthLoading title={t('auth.verify.pending')} label={t('common.loading')} />;
   }
 
   if (phase === 'done') {

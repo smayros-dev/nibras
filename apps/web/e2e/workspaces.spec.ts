@@ -1,4 +1,4 @@
-import { appUrl, t, test, uiLogin, expect } from './helpers';
+import { appUrl, t, test, toast, uiLogin, expect } from './helpers';
 import { addOrgMember, seedUser } from './helpers/seed';
 import { suspendWorkspaceAsSuperAdmin } from './helpers/super-admin';
 
@@ -23,8 +23,7 @@ test.describe('workspaces (plan Task 21)', () => {
     await page.getByLabel(t(locale, 'workspace.name'), { exact: true }).fill('École E2E');
     await page.getByLabel(t(locale, 'workspace.country'), { exact: true }).selectOption('TN');
     await page.getByRole('button', { name: t(locale, 'workspace.submitOrganization') }).click();
-    // Success is a toast: its title is exact (the Radix announcer prefixes it).
-    await expect(page.getByText(t(locale, 'workspace.created'), { exact: true })).toBeVisible();
+    await expect(toast(page, locale, t(locale, 'workspace.created'))).toBeVisible();
 
     await page.goto(`/${locale}/app`);
     // The switcher is a menu (SP1.5 T8): open it and pick the organisation.

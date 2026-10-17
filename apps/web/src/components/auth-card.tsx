@@ -1,4 +1,4 @@
-import { Card, cn } from '@tt/ui';
+import { Card, cn, VisuallyHidden } from '@tt/ui';
 import type { ReactNode } from 'react';
 
 /**
@@ -36,11 +36,19 @@ export function AuthCard({
   );
 }
 
-/** Centred placeholder while a client auth page reads its state (challenge, token, setup). */
-export function AuthLoading({ label }: { label: string }) {
+/**
+ * Centred placeholder while a client auth page reads its state (challenge, token, setup). The
+ * page `title` stays the (visually hidden) `h1`, so the page is never without one.
+ */
+export function AuthLoading({ title, label }: { title: string; label: string }) {
   return (
-    <p role="status" className="text-lg text-fg-muted">
-      {label}
-    </p>
+    <>
+      <VisuallyHidden asChild>
+        <h1>{title}</h1>
+      </VisuallyHidden>
+      <p role="status" className="text-lg text-fg-muted">
+        {label}
+      </p>
+    </>
   );
 }

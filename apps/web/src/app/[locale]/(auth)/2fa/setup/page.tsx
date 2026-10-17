@@ -10,6 +10,7 @@ import { AuthCard, AuthLoading } from '../../../../../components/auth-card';
 import { useRouter } from '../../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../../lib/api-error';
 import { api, asApiResult } from '../../../../../lib/api';
+import { useErrorFocus } from '../../../../../lib/use-error-focus';
 
 type Phase = 'loading' | 'scan' | 'codes' | 'failed';
 
@@ -30,6 +31,7 @@ export default function TwoFactorSetupPage() {
   const [savedAck, setSavedAck] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
   const started = useRef(false);
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export default function TwoFactorSetupPage() {
   }
 
   if (phase === 'loading') {
-    return <AuthLoading label={t('common.loading')} />;
+    return <AuthLoading title={t('auth.setup.title')} label={t('common.loading')} />;
   }
 
   if (phase === 'failed') {
@@ -175,8 +177,13 @@ export default function TwoFactorSetupPage() {
           {secret}
         </code>
       </p>
-      {formError ? <Alert variant="danger">{formError}</Alert> : null}
+      {formError ? (
+        <Alert ref={alertRef} tabIndex={-1} variant="danger">
+          {formError}
+        </Alert>
+      ) : null}
       <form
+        ref={formRef}
         onSubmit={(e) => {
           e.preventDefault();
           void confirm.submit();
