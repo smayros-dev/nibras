@@ -316,7 +316,8 @@
       text-align: start;
     }
     .tt-table[data-stack] > tbody > tr > td::before {
-      content: attr(data-label);
+      /* Alt text "": visual only, assistive tech already announces the column header. */
+      content: attr(data-label) / '';
       color: var(--tt-fg-muted);
       font-weight: 500;
     }

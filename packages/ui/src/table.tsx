@@ -27,6 +27,7 @@ const TableRoot = forwardRef<HTMLTableElement, TableProps>(function Table(
     <div className="w-full overflow-x-auto">
       <table
         ref={ref}
+        role="table"
         data-stack={stackBelow === 'md' ? '' : undefined}
         className={cn('tt-table w-full border-collapse text-sm text-fg', className)}
         {...props}
@@ -49,6 +50,7 @@ const TableHead = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSe
     return (
       <thead
         ref={ref}
+        role="rowgroup"
         className={cn('border-b border-border bg-bg-subtle', className)}
         {...props}
       />
@@ -58,13 +60,13 @@ const TableHead = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSe
 
 const TableBody = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(
   function TableBody({ className, ...props }, ref) {
-    return <tbody ref={ref} className={className} {...props} />;
+    return <tbody ref={ref} role="rowgroup" className={className} {...props} />;
   },
 );
 
 const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElement>>(
   function TableRow({ className, ...props }, ref) {
-    return <tr ref={ref} className={cn('align-middle', className)} {...props} />;
+    return <tr ref={ref} role="row" className={cn('align-middle', className)} {...props} />;
   },
 );
 
@@ -74,6 +76,7 @@ const TableTh = forwardRef<HTMLTableCellElement, ThHTMLAttributes<HTMLTableCellE
       <th
         ref={ref}
         scope={scope}
+        role={scope === 'row' || scope === 'rowgroup' ? 'rowheader' : 'columnheader'}
         className={cn(
           'px-3 py-2 text-start font-medium whitespace-nowrap text-fg-muted',
           className,
@@ -98,6 +101,7 @@ const TableTd = forwardRef<HTMLTableCellElement, TableTdProps>(function TableTd(
   return (
     <td
       ref={ref}
+      role="cell"
       data-label={label}
       className={cn(numeric && 'text-end tabular-nums', className)}
       {...props}
@@ -109,7 +113,7 @@ const TableTd = forwardRef<HTMLTableCellElement, TableTdProps>(function TableTd(
 const TableActions = forwardRef<HTMLTableCellElement, TdHTMLAttributes<HTMLTableCellElement>>(
   function TableActions({ className, children, ...props }, ref) {
     return (
-      <td ref={ref} data-actions="" className={className} {...props}>
+      <td ref={ref} role="cell" data-actions="" className={className} {...props}>
         <div className="flex flex-wrap items-center justify-end gap-2">{children}</div>
       </td>
     );
@@ -117,6 +121,9 @@ const TableActions = forwardRef<HTMLTableCellElement, TdHTMLAttributes<HTMLTable
 );
 
 /**
+ * Explicit ARIA roles on every part: the stacked layout sets `display: block/grid`, which drops the
+ * implicit table semantics in WebKit and some Chromium versions.
+ *
  * Native `<table>` with a caption, `scope="col"` headers and a stacked-card layout below `md`. Cell
  * padding and row rules come from `.tt-table` in `tokens.css` so the stacked layout can override them.
  */

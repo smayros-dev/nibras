@@ -17,14 +17,21 @@ interface TabsContextValue {
 
 const TabsContext = createContext<TabsContextValue>({ value: undefined, asLinks: false });
 
-export interface TabsRootProps extends ComponentPropsWithoutRef<typeof TabsPrimitive.Root> {
-  /**
-   * Navigation tabs: each trigger wraps a `<Link>` (`asChild`), so every tab is a real URL. The
-   * caller passes `value` = the current path segment; the active link gets `aria-current="page"`.
-   * Arrow keys only move focus (manual activation) and there are no panels (`Tabs.Content`).
-   */
-  asLinks?: boolean;
-}
+type TabsPrimitiveRootProps = ComponentPropsWithoutRef<typeof TabsPrimitive.Root>;
+
+/**
+ * Navigation tabs (`asLinks`): each trigger wraps a `<Link>` (`asChild`), so every tab is a real URL.
+ * The caller must pass `value` = the current path segment (a `defaultValue` would never set
+ * `aria-current`); the active link gets `aria-current="page"`. Arrow keys only move focus (manual
+ * activation) and there are no panels (`Tabs.Content`).
+ */
+export type TabsRootProps =
+  | (TabsPrimitiveRootProps & { asLinks?: false })
+  | (Omit<TabsPrimitiveRootProps, 'value' | 'defaultValue'> & {
+      asLinks: true;
+      value: string;
+      defaultValue?: never;
+    });
 
 export const TabsRoot = forwardRef<ElementRef<typeof TabsPrimitive.Root>, TabsRootProps>(
   function TabsRoot({ asLinks = false, activationMode, className, ...props }, ref) {

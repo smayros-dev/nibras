@@ -72,6 +72,21 @@ describe('Tabs', () => {
     expect(onValueChange).not.toHaveBeenCalled();
   });
 
+  it('asLinks requires a controlled value (defaultValue would never set aria-current)', () => {
+    renderWithDir(
+      // @ts-expect-error -- link-mode tabs must pass `value`, not `defaultValue`.
+      <Tabs.Root defaultValue="profile" asLinks>
+        <Tabs.List aria-label="Paramètres">
+          <Tabs.Trigger value="profile" asChild>
+            <a href="/fr/app/settings/profile">Profil</a>
+          </Tabs.Trigger>
+        </Tabs.List>
+      </Tabs.Root>,
+    );
+    // Documents the runtime gap the type closes: no aria-current without `value`.
+    expect(screen.getByRole('tab', { name: 'Profil' })).not.toHaveAttribute('aria-current');
+  });
+
   it('the list scrolls horizontally instead of wrapping', () => {
     renderWithDir(<PanelTabs />);
     const list = screen.getByRole('tablist');

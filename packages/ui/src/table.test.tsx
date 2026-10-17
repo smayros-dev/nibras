@@ -48,6 +48,36 @@ describe('Table', () => {
     );
   });
 
+  it('restores table roles explicitly so the stacked (display:block/grid) layout keeps its semantics', () => {
+    render(<Members />);
+    const table = screen.getByRole('table');
+    expect(table).toHaveAttribute('role', 'table');
+    const [thead, tbody] = table.querySelectorAll('thead, tbody');
+    expect(thead).toHaveAttribute('role', 'rowgroup');
+    expect(tbody).toHaveAttribute('role', 'rowgroup');
+    for (const tr of table.querySelectorAll('tr')) expect(tr).toHaveAttribute('role', 'row');
+    for (const th of table.querySelectorAll('thead th'))
+      expect(th).toHaveAttribute('role', 'columnheader');
+    for (const td of table.querySelectorAll('td')) expect(td).toHaveAttribute('role', 'cell');
+  });
+
+  it('a row header (scope=row) gets role=rowheader', () => {
+    render(
+      <Table caption="c">
+        <Table.Body>
+          <Table.Row>
+            <Table.Th scope="row">Mohamed B.</Table.Th>
+            <Table.Td label="Rôle">OWNER</Table.Td>
+          </Table.Row>
+        </Table.Body>
+      </Table>,
+    );
+    expect(screen.getByRole('rowheader', { name: 'Mohamed B.' })).toHaveAttribute(
+      'role',
+      'rowheader',
+    );
+  });
+
   it('cells carry data-label for the stacked layout; numeric cells align to the end', () => {
     render(<Members />);
     const cell = screen.getByRole('cell', { name: 'Mohamed B.' });
@@ -75,7 +105,9 @@ describe('Table', () => {
   it('tokens.css defines the stacking CSS with data-label headers', () => {
     const css = readFileSync(join(import.meta.dirname, 'tokens.css'), 'utf8');
     expect(css).toMatch(/\.tt-table\[data-stack\]/);
-    expect(css).toMatch(/content:\s*attr\(data-label\)/);
+    // Alt-text form: the label is visual only, screen readers already get the column header.
+    expect(css).toMatch(/content:\s*attr\(data-label\)\s*\/\s*(""|'')/);
+    expect(css).not.toMatch(/content:\s*attr\(data-label\)\s*;/);
   });
 
   it('uses only logical utilities', () => {
