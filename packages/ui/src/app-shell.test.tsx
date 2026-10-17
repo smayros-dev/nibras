@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AppShell } from './app-shell';
+import { expectNoPhysicalClasses } from './test/logical-classes';
 
 const nav = [
   { href: '/ar', label: 'لوحة التحكم', current: true },
@@ -54,13 +55,6 @@ describe('AppShell', () => {
         <p>x</p>
       </AppShell>,
     );
-    const classes = Array.from(container.querySelectorAll('[class]')).flatMap((el) =>
-      el.getAttribute('class')!.split(/\s+/),
-    );
-    expect(
-      classes.filter((c) =>
-        /^-?(ml|mr|pl|pr|left|right|rounded-[lr]|border-[lr]|text-left|text-right)(-|$)/.test(c),
-      ),
-    ).toEqual([]);
+    expectNoPhysicalClasses(container);
   });
 });

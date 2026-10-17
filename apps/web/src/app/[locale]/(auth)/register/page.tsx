@@ -44,9 +44,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [formLocale, setFormLocale] = useState(locale);
-  const [timezone, setTimezone] = useState(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
-  );
+  const [timezone, setTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -104,7 +102,11 @@ export default function RegisterPage() {
         </p>
       ) : null}
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
-        <Field htmlFor="firstName" label={t('auth.register.firstName')} error={fieldErrors.firstName}>
+        <Field
+          htmlFor="firstName"
+          label={t('auth.register.firstName')}
+          error={fieldErrors.firstName}
+        >
           <TextInput
             id="firstName"
             name="firstName"

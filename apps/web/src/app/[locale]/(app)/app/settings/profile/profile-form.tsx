@@ -90,7 +90,11 @@ export function ProfileForm({ user }: { user: MeUser }) {
           {t('settings.profile.saved')}
         </p>
       ) : null}
-      <Field htmlFor="firstName" label={t('settings.profile.firstName')} error={fieldErrors.firstName}>
+      <Field
+        htmlFor="firstName"
+        label={t('settings.profile.firstName')}
+        error={fieldErrors.firstName}
+      >
         <TextInput
           id="firstName"
           name="firstName"
@@ -136,7 +140,11 @@ export function ProfileForm({ user }: { user: MeUser }) {
           ))}
         </Select>
       </Field>
-      <Field htmlFor="birthDate" label={t('settings.profile.birthDate')} error={fieldErrors.birthDate}>
+      <Field
+        htmlFor="birthDate"
+        label={t('settings.profile.birthDate')}
+        error={fieldErrors.birthDate}
+      >
         <TextInput
           id="birthDate"
           name="birthDate"

@@ -65,7 +65,8 @@ export function LoginForm({ next }: { next: string | null }) {
     if (data?.status === 'OK') {
       setLocaleCookie(data.user.locale);
       router.push(sanitizeNext(next) ?? '/app');
-    }  }
+    }
+  }
 
   return (
     <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">

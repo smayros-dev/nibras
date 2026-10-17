@@ -34,14 +34,16 @@ export default function TwoFactorSetupPage() {
     if (started.current) return;
     started.current = true;
     void (async () => {
-      const { data, error } = asApiResult<TwoFactorSetupResponse>(await api.POST('/auth/2fa/setup'));
-    if (error || !data) {
-      setFormError(apiErrorMessage(t, error as unknown));
-      setPhase('failed');
-      return;
-    }
-    const dataUrl = await QRCode.toDataURL(data.otpauthUrl, { margin: 1, width: 240 });
-    setQrDataUrl(dataUrl);
+      const { data, error } = asApiResult<TwoFactorSetupResponse>(
+        await api.POST('/auth/2fa/setup'),
+      );
+      if (error || !data) {
+        setFormError(apiErrorMessage(t, error as unknown));
+        setPhase('failed');
+        return;
+      }
+      const dataUrl = await QRCode.toDataURL(data.otpauthUrl, { margin: 1, width: 240 });
+      setQrDataUrl(dataUrl);
       setSecret(data.secret);
       setPhase('scan');
     })();
@@ -98,7 +100,10 @@ export default function TwoFactorSetupPage() {
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
         <h1 className="mb-2 text-2xl font-bold">{t('auth.setup.recoveryCodes')}</h1>
         <p className="mb-4 text-sm">{t('auth.setup.recoveryHint')}</p>
-        <ul className="mb-4 rounded-md bg-gray-50 p-3 font-mono text-sm" data-testid="recovery-codes">
+        <ul
+          className="mb-4 rounded-md bg-gray-50 p-3 font-mono text-sm"
+          data-testid="recovery-codes"
+        >
           {recoveryCodes.map((c) => (
             <li key={c}>{c}</li>
           ))}
@@ -112,11 +117,7 @@ export default function TwoFactorSetupPage() {
             checked={savedAck}
             onChange={(e) => setSavedAck(e.target.checked)}
           />
-          <Button
-            variant="primary"
-            disabled={!savedAck}
-            onClick={() => router.push('/app')}
-          >
+          <Button variant="primary" disabled={!savedAck} onClick={() => router.push('/app')}>
             {t('auth.setup.continue')}
           </Button>
         </div>

@@ -101,7 +101,11 @@ export function VerificationPanel({ initialPhoneE164 }: { initialPhoneE164: stri
       <ul className="flex flex-col gap-2 text-sm">
         {STEPS.map((step) => (
           <li key={step} className="flex items-center gap-2">
-            <span>{t(`settings.verification.${step === 'CODE_OF_CONDUCT' ? 'coc' : step.toLowerCase()}`)}</span>
+            <span>
+              {t(
+                `settings.verification.${step === 'CODE_OF_CONDUCT' ? 'coc' : step.toLowerCase()}`,
+              )}
+            </span>
             {done(step) ? (
               <span data-testid={`tick-${step}`} className="text-success">
                 ✓ {t('settings.verification.done')}
@@ -198,7 +202,9 @@ export function VerificationPanel({ initialPhoneE164 }: { initialPhoneE164: stri
       </section>
 
       {initialPhoneE164 && done('PHONE') ? (
-        <p className="text-sm">{t('settings.verification.phoneDone', { phone: initialPhoneE164 })}</p>
+        <p className="text-sm">
+          {t('settings.verification.phoneDone', { phone: initialPhoneE164 })}
+        </p>
       ) : null}
     </div>
   );
