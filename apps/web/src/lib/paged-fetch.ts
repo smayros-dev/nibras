@@ -9,6 +9,12 @@ export interface AbortableQuery<T> {
   /** `Error.message` of the latest failed run (callers throw translated messages). */
   error: string | null;
   loading: boolean;
+  /**
+   * `data` was produced for the current `key` (false during the debounce after a key change and
+   * while the new run is pending). Gate key-dependent actions on it, e.g. a pagination cursor
+   * taken from `data` must not be sent with filters from another result set.
+   */
+  current: boolean;
   /** Runs again now with the current key (after a mutation), bypassing the debounce. */
   reload(): void;
 }
@@ -33,10 +39,12 @@ export function useAbortableQuery<T>(
   });
   const sequence = useRef(0);
   const [reloads, setReloads] = useState(0);
-  const [state, setState] = useState<{ data: T | undefined; error: string | null }>({
-    data: undefined,
-    error: null,
-  });
+  const [state, setState] = useState<{
+    data: T | undefined;
+    /** Serialized key `data` was produced for. */
+    dataKey: string | undefined;
+    error: string | null;
+  }>({ data: undefined, dataKey: undefined, error: null });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,13 +54,13 @@ export function useAbortableQuery<T>(
     runRef.current(controller.signal).then(
       (data) => {
         if (id !== sequence.current) return;
-        setState({ data, error: null });
+        setState({ data, dataKey: debouncedKey, error: null });
         setLoading(false);
       },
       (error: unknown) => {
         if (id !== sequence.current || controller.signal.aborted) return;
         setState((prev) => ({
-          data: prev.data,
+          ...prev,
           error: error instanceof Error ? error.message : String(error),
         }));
         setLoading(false);
@@ -62,5 +70,11 @@ export function useAbortableQuery<T>(
   }, [debouncedKey, reloads]);
 
   const reload = useCallback(() => setReloads((n) => n + 1), []);
-  return { data: state.data, error: state.error, loading, reload };
+  return {
+    data: state.data,
+    error: state.error,
+    loading,
+    current: state.data !== undefined && state.dataKey === serialized,
+    reload,
+  };
 }

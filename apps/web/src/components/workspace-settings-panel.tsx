@@ -27,25 +27,13 @@ import { TimezoneSelect } from './timezone-select';
 import { useRouter } from '../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
+import { formatBytes } from '../lib/format-bytes';
 
 const LANGUAGE_NAMES: Record<(typeof LOCALES)[number], string> = {
   fr: 'Français',
   ar: 'العربية',
   en: 'English',
 };
-
-function formatBytes(value: string): string {
-  const bytes = Number(value);
-  if (!Number.isFinite(bytes)) return value;
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let n = bytes;
-  let unit = 0;
-  while (n >= 1024 && unit < units.length - 1) {
-    n /= 1024;
-    unit += 1;
-  }
-  return `${n.toFixed(n < 10 && unit > 0 ? 1 : 0)} ${units[unit]}`;
-}
 
 /**
  * Workspace settings (PRD §9.2/§8.2.1): identity (name, country, default locale/time zone,

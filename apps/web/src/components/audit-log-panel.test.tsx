@@ -110,6 +110,30 @@ describe('AuditLogPanel', () => {
     expect(queries().at(-1)?.action).toBe('member');
   });
 
+  it('disables Suivant during the filter debounce (no cursor from another result set)', async () => {
+    vi.useFakeTimers();
+    renderWithIntl(<AuditLogPanel wid="w1" />);
+    await act(async () => {});
+    const next = screen.getByRole('button', { name: tr('fr', 'workspace.auditNext') });
+    expect(next).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText(tr('fr', 'workspace.auditAction')), {
+      target: { value: 'member' },
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(api.GET).toHaveBeenCalledTimes(1);
+    expect(next).toBeDisabled();
+    fireEvent.click(next);
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(queries().every((q) => q.cursor === undefined)).toBe(true);
+    expect(queries().at(-1)?.action).toBe('member');
+    expect(next).toBeEnabled();
+  });
+
   it('shows an empty state when no entry matches', async () => {
     api.GET.mockResolvedValue({ data: { items: [], nextCursor: null } });
     renderWithIntl(<AuditLogPanel wid="w1" />);

@@ -46,6 +46,22 @@ describe('useAbortableQuery', () => {
     expect(run).toHaveBeenCalledTimes(2);
   });
 
+  it('reports whether data matches the current key (false during the debounce)', async () => {
+    const run = vi.fn(async () => 'x');
+    const { result, rerender } = renderHook(
+      ({ q }) => useAbortableQuery([q], run, { debounceMs: 300 }),
+      { initialProps: { q: '' } },
+    );
+    await act(async () => {});
+    expect(result.current.current).toBe(true);
+    rerender({ q: 'a' });
+    expect(result.current.current).toBe(false);
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(result.current.current).toBe(true);
+  });
+
   it('aborts the previous run when the key changes', async () => {
     const signals: AbortSignal[] = [];
     const run = vi.fn((signal: AbortSignal) => {

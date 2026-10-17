@@ -119,9 +119,12 @@ export function AuditLogPanel({ wid }: { wid: string }) {
   };
 
   const data = page.data;
-  // *Suivant* only from the settled current page (no double push while the next one loads).
+  // *Suivant* only from the settled page of the current filters and cursor: no double push while
+  // the next one loads, and no cursor from the unfiltered result set during the filter debounce.
   const nextCursor =
-    data && !page.loading && data.cursor === cursor ? (data.nextCursor ?? null) : null;
+    data && page.current && !page.loading && data.cursor === cursor
+      ? (data.nextCursor ?? null)
+      : null;
 
   return (
     <div className="flex flex-col gap-6">
