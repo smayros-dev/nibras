@@ -110,4 +110,22 @@ describe('HttpExceptionFilter zod issues', () => {
       expect.objectContaining({ path: ['n'], code: 'too_small', minimum: 5, origin: 'bigint' }),
     ]);
   });
+
+  it('gives unrecognized_keys a fixed message that never echoes the client keys', () => {
+    const { status, body } = render(
+      zodFailure(z.object({ a: z.string() }).strict(), { a: 'x', 'evil<key>': 1 }),
+    );
+    expect(status).toBe(422);
+    expect((body.details as { issues: unknown[] }).issues).toEqual([
+      { path: [], message: 'Unrecognized keys', code: 'unrecognized_keys' },
+    ]);
+    expect(JSON.stringify(body)).not.toContain('evil');
+  });
+
+  it('caps string path segments at 64 characters', () => {
+    const key = 'k'.repeat(200);
+    const { body } = render(zodFailure(z.record(z.string(), z.number()), { [key]: 'x' }));
+    const [issue] = (body.details as { issues: { path: unknown[] }[] }).issues;
+    expect(issue?.path).toEqual(['k'.repeat(64)]);
+  });
 });

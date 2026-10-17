@@ -15,6 +15,7 @@ interface WireIssue {
   maximum?: unknown;
   origin?: unknown;
   format?: unknown;
+  expected?: unknown;
 }
 
 /** The subset of next-intl's translator `issuesToFieldErrors` needs (`useTranslations()`). */
@@ -74,8 +75,12 @@ function issueMessage(t: ValidationTranslator, issue: WireIssue): string {
         ? known(`validation.too_big_${origin}`, { max: issue.maximum })
         : fallback;
     }
-    // The API never sends the received type: on a form, a type mismatch means an empty field.
+    // The API never sends the received type. zod 4 `.int()` reports a non-integer as
+    // `expected: 'int'`; a non-numeric number input reaches the API as `null` (NaN in JSON).
+    // Any other mismatch on a form means an empty field.
     case 'invalid_type':
+      if (issue.expected === 'int') return t('validation.not_integer');
+      if (issue.expected === 'number') return t('validation.not_number');
       return t('validation.required');
     case 'invalid_format': {
       const format = name(issue.format);

@@ -86,6 +86,18 @@ describe('issuesToFieldErrors', () => {
     });
   });
 
+  it('maps a non-integer to not_integer and a non-number to not_number', () => {
+    expect(
+      issuesToFieldErrors(
+        t,
+        body(
+          { path: ['late'], message: 'x', code: 'invalid_type', expected: 'int' },
+          { path: ['ratio'], message: 'x', code: 'invalid_type', expected: 'number' },
+        ),
+      ),
+    ).toEqual({ late: 'validation.not_integer', ratio: 'validation.not_number' });
+  });
+
   it('keeps the first issue per field and never shows the wire message', () => {
     const out = issuesToFieldErrors(
       t,

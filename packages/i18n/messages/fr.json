@@ -77,6 +77,8 @@
   "validation": {
     "invalid": "Valeur invalide.",
     "required": "Ce champ est obligatoire.",
+    "not_integer": "Saisissez un nombre entier.",
+    "not_number": "Saisissez un nombre.",
     "too_small_string": "{min, plural, one {Minimum {min} caractère.} other {Minimum {min} caractères.}}",
     "too_small_number": "Valeur minimale : {min}.",
     "too_small_array": "{min, plural, one {Sélectionnez au moins {min} élément.} other {Sélectionnez au moins {min} éléments.}}",

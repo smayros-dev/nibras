@@ -139,15 +139,20 @@ interface RawZodIssue {
 /**
  * Whitelists zod issue fields: `path`, `message`, `code`, and per code the bounds or type/format
  * names (`too_small` → `minimum` + `origin`, `too_big` → `maximum` + `origin`, `invalid_type` →
- * `expected`, `invalid_format` → `format`). Received values are never echoed back.
+ * `expected`, `invalid_format` → `format`). Received values are never echoed back: string path
+ * segments are capped and `unrecognized_keys` gets a fixed message.
  */
 function zodIssues(zodError: unknown): ValidationIssue[] {
   const issues = (zodError as { issues?: unknown } | undefined)?.issues;
   if (!Array.isArray(issues)) return [];
   return issues.map((issue: RawZodIssue) => {
     const out: ValidationIssue = {
-      path: (issue.path ?? []).map((key) => (typeof key === 'symbol' ? String(key) : key)),
-      message: issue.message ?? 'Invalid value',
+      path: (issue.path ?? []).map(pathSegment),
+      // zod's default `unrecognized_keys` message quotes the client's keys: use a fixed one.
+      message:
+        issue.code === 'unrecognized_keys'
+          ? 'Unrecognized keys'
+          : (issue.message ?? 'Invalid value'),
     };
     if (typeof issue.code !== 'string') return out;
     out.code = issue.code;
@@ -169,6 +174,15 @@ function zodIssues(zodError: unknown): ValidationIssue[] {
     }
     return out;
   });
+}
+
+/** Longest string path segment echoed back; record keys come from the client. */
+const MAX_PATH_SEGMENT = 64;
+
+function pathSegment(key: PropertyKey): string | number {
+  if (typeof key === 'number') return key;
+  const text = typeof key === 'symbol' ? String(key) : key;
+  return text.length > MAX_PATH_SEGMENT ? text.slice(0, MAX_PATH_SEGMENT) : text;
 }
 
 /** A schema bound (number or bigint) as a finite JSON number; anything else is dropped. */

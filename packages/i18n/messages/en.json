@@ -77,6 +77,8 @@
   "validation": {
     "invalid": "Invalid value.",
     "required": "This field is required.",
+    "not_integer": "Enter a whole number.",
+    "not_number": "Enter a number.",
     "too_small_string": "{min, plural, one {Minimum {min} character.} other {Minimum {min} characters.}}",
     "too_small_number": "Minimum value: {min}.",
     "too_small_array": "{min, plural, one {Select at least {min} item.} other {Select at least {min} items.}}",
