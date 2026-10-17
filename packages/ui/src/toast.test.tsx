@@ -16,7 +16,7 @@ function Trigger(options: ToastOptions) {
 function renderToast(options: ToastOptions, dir: 'ltr' | 'rtl' = 'ltr') {
   return render(
     <DirectionProvider dir={dir}>
-      <ToastProvider labels={{ close: 'Fermer' }}>
+      <ToastProvider labels={{ close: 'Fermer', region: 'Notifications', toast: 'Notification' }}>
         <Trigger {...options} />
       </ToastProvider>
     </DirectionProvider>,
@@ -59,6 +59,31 @@ describe('Toast', () => {
     renderToast({ title: 'Info' }, 'rtl');
     fireEvent.click(screen.getByRole('button', { name: 'Go' }));
     expectNoPhysicalClasses(document.body);
+  });
+
+  it('names the notifications region with the translated region label', () => {
+    renderToast({ title: 'Info' });
+    expect(screen.getByRole('region', { name: 'Notifications' })).toBeInTheDocument();
+  });
+
+  it('announces danger toasts assertively', () => {
+    vi.useFakeTimers();
+    renderToast({ title: 'Échec', variant: 'danger' });
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }));
+    act(() => {
+      vi.advanceTimersByTime(50);
+    });
+    const status = screen.getByRole('status');
+    expect(status).toHaveAttribute('aria-live', 'assertive');
+    expect(status).toHaveTextContent('Notification Échec');
+  });
+
+  it('keeps the swipe-out transform when the swipe ends (no snap back)', () => {
+    renderToast({ title: 'Info' });
+    fireEvent.click(screen.getByRole('button', { name: 'Go' }));
+    expect(screen.getByRole('listitem').className).toContain(
+      'data-[swipe=end]:translate-x-(--radix-toast-swipe-end-x)',
+    );
   });
 
   it('swipes toward inline-end in both directions', () => {

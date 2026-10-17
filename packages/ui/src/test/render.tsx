@@ -21,7 +21,9 @@ export function renderWithDir(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <DirectionProvider dir={dir}>
-        <ToastProvider labels={{ close: 'Fermer' }}>{children}</ToastProvider>
+        <ToastProvider labels={{ close: 'Fermer', region: 'Notifications', toast: 'Notification' }}>
+          {children}
+        </ToastProvider>
       </DirectionProvider>
     );
   }

@@ -151,3 +151,10 @@ describe('token structure', () => {
     for (const [name, value] of Object.entries(inline)) expect(value).not.toBe(`var(--${name})`);
   });
 });
+
+describe('motion inline sign', () => {
+  it('is set for both directions so a nested ltr subtree resets an rtl ancestor', () => {
+    expect(vars(block("[dir='ltr']"))['motion-inline-sign']).toBe('1');
+    expect(vars(block("[dir='rtl']"))['motion-inline-sign']).toBe('-1');
+  });
+});

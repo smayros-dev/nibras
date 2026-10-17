@@ -15,6 +15,7 @@ export * from './avatar';
 export * from './visually-hidden';
 export * from './direction';
 export * from './dialog';
+export * from './dialog-classes';
 export * from './alert-dialog';
 export * from './sheet';
 export * from './dropdown-menu';

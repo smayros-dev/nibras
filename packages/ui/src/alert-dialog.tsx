@@ -4,14 +4,13 @@ import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
 import { forwardRef, type ComponentPropsWithoutRef, type ElementRef, type ReactNode } from 'react';
 import { Button, type ButtonProps } from './button';
 import { cn } from './cn';
+import { DialogFooter, type DialogSize } from './dialog';
 import {
-  DialogFooter,
   dialogDescriptionClasses,
   dialogOverlayClasses,
   dialogPanelClasses,
   dialogTitleClasses,
-  type DialogSize,
-} from './dialog';
+} from './dialog-classes';
 
 const SIZE_CLASSES: Record<DialogSize, string> = {
   sm: 'sm:max-w-sm',

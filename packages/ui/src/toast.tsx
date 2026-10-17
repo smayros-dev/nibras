@@ -60,8 +60,11 @@ const ToastContext = createContext<ToastApi | null>(null);
 
 export interface ToastProviderProps {
   children: ReactNode;
-  /** Translated by the caller: close button name and the landmark region's name. */
-  labels: { close: string; region?: string };
+  /**
+   * Translated by the caller: `close` names each close button, `region` names the notifications
+   * landmark (the viewport), `toast` is the spoken prefix announced before each toast's text.
+   */
+  labels: { close: string; region: string; toast: string };
   /** Defaults to inline-end from the `DirectionProvider`. */
   swipeDirection?: SwipeDirection;
   duration?: number;
@@ -102,7 +105,7 @@ export function ToastProvider({
       <ToastPrimitive.Provider
         swipeDirection={swipeDirection ?? swipeDirectionFor(dir)}
         duration={duration}
-        {...(labels.region ? { label: labels.region } : {})}
+        label={labels.toast}
       >
         {children}
         {items.map(({ id, open, title, description, variant = 'info', duration: own }) => {
@@ -122,7 +125,8 @@ export function ToastProvider({
                 'data-[state=open]:animate-toast-in data-[state=closed]:animate-fade-out',
                 'data-[swipe=move]:translate-x-(--radix-toast-swipe-move-x)',
                 'data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:transition-transform',
-                'data-[swipe=end]:animate-fade-out',
+                // The end offset carries the sign of the swipe, so it is correct in both directions.
+                'data-[swipe=end]:translate-x-(--radix-toast-swipe-end-x) data-[swipe=end]:animate-fade-out',
                 classes,
               )}
             >
@@ -148,6 +152,7 @@ export function ToastProvider({
           );
         })}
         <ToastPrimitive.Viewport
+          label={labels.region}
           className={cn(
             'fixed start-4 end-4 bottom-4 z-[100] m-0 flex max-h-dvh list-none flex-col gap-2 p-0 outline-none',
             'sm:start-auto sm:w-96',

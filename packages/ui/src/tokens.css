@@ -134,7 +134,11 @@
   }
 }
 
-/* Read by the sheet keyframes above (1 in ltr, the default). */
+/* Read by the sheet keyframes above (1 in ltr, the default). Both are set so a nested `dir`
+   subtree overrides an ancestor's sign. */
+[dir='ltr'] {
+  --motion-inline-sign: 1;
+}
 [dir='rtl'] {
   --motion-inline-sign: -1;
 }

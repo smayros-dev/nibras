@@ -56,4 +56,16 @@ describe('AlertDialog', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it('ignores a click outside it', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    renderWithDir(<Example onConfirm={onConfirm} />);
+    await user.click(screen.getByRole('button', { name: 'Retirer' }));
+    const overlay = document.querySelector('.bg-overlay');
+    expect(overlay).not.toBeNull();
+    await user.click(overlay as HTMLElement);
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });
