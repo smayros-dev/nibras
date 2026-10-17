@@ -25,7 +25,7 @@ test('access cookie expiry is transparent: server navigation and client call bot
     if (r.url().endsWith('/api/v1/auth/refresh')) refreshes.push(r.url());
   });
   await page.getByRole('button', { name: t(locale, 'settings.profile.save') }).click();
-  await expect(page.getByText(t(locale, 'settings.profile.saved'))).toBeVisible();
+  await expect(page.getByText(t(locale, 'settings.profile.saved'), { exact: true })).toBeVisible();
   expect(refreshes).toHaveLength(1);
 });
 

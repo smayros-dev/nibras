@@ -1,7 +1,7 @@
 'use client';
 
 import type { MeUser } from '@tt/contracts';
-import { Button } from '@tt/ui';
+import { Alert, Button, useSubmit } from '@tt/ui';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { useRouter } from '../i18n/navigation';
@@ -9,6 +9,22 @@ import { api, asApiResult } from '../lib/api';
 
 const DISMISS_KEY = 'tt.tzBanner.dismissedAt';
 const DISMISS_MS = 30 * 24 * 60 * 60 * 1000;
+
+function readDismissedAt(): number {
+  try {
+    return Number(localStorage.getItem(DISMISS_KEY) ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+function rememberDismissed() {
+  try {
+    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+  } catch {
+    // Storage blocked: the banner simply comes back next time.
+  }
+}
 
 /**
  * PRD §8.7.5: when the browser's resolved time zone differs from the profile's, offer to switch
@@ -24,46 +40,65 @@ export function TimezoneBanner({ timezone }: { timezone: string }) {
   useEffect(() => {
     const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
     setBrowserTz(resolved);
-    const dismissedAt = Number(localStorage.getItem(DISMISS_KEY) ?? 0);
-    setVisible(resolved !== timezone && Date.now() - dismissedAt >= DISMISS_MS);
+    setVisible(resolved !== timezone && Date.now() - readDismissedAt() >= DISMISS_MS);
   }, [timezone]);
 
-  if (!visible || !browserTz) return null;
-  const city = browserTz.split('/').pop() ?? browserTz;
-
-  async function accept() {
+  const accept = useSubmit(async () => {
     setError(false);
-    const { error: patchError } = asApiResult<MeUser>(
-      await api.PATCH('/me', { body: { timezone: browserTz ?? undefined } }),
-    );
-    if (patchError) {
+    try {
+      const { error: patchError } = asApiResult<MeUser>(
+        await api.PATCH('/me', { body: { timezone: browserTz ?? undefined } }),
+      );
+      if (patchError) {
+        setError(true);
+        return;
+      }
+    } catch {
       setError(true);
       return;
     }
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    rememberDismissed();
     setVisible(false);
     router.refresh();
-  }
+  });
+
+  if (!visible || !browserTz) return null;
+  const city = (browserTz.split('/').pop() ?? browserTz).replace(/_/g, ' ');
 
   function dismiss() {
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    rememberDismissed();
     setVisible(false);
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-accent-200 bg-accent-50 px-4 py-2 text-sm">
-      <p className="flex-1">{t('settings.timezone.banner', { city, tz: browserTz })}</p>
+    // A standing prompt, not an announcement: no live region (it would also collide with the
+    // pages' own `status` messages).
+    <Alert
+      variant="info"
+      role={undefined}
+      className="mb-4"
+      action={
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            loading={accept.busy}
+            onClick={() => void accept.submit()}
+          >
+            {t('settings.timezone.accept')}
+          </Button>
+          <Button variant="secondary" size="sm" disabled={accept.busy} onClick={dismiss}>
+            {t('settings.timezone.dismiss')}
+          </Button>
+        </div>
+      }
+    >
+      <p>{t('settings.timezone.banner', { city, tz: browserTz })}</p>
       {error ? (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" className="mt-1 text-danger">
           {t('errors.INTERNAL_ERROR')}
         </p>
       ) : null}
-      <Button variant="primary" onClick={() => void accept()}>
-        {t('settings.timezone.accept')}
-      </Button>
-      <Button variant="secondary" onClick={dismiss}>
-        {t('settings.timezone.dismiss')}
-      </Button>
-    </div>
+    </Alert>
   );
 }

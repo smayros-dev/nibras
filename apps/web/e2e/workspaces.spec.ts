@@ -23,7 +23,8 @@ test.describe('workspaces (plan Task 21)', () => {
     await page.getByLabel(t(locale, 'workspace.name'), { exact: true }).fill('École E2E');
     await page.getByLabel(t(locale, 'workspace.country'), { exact: true }).selectOption('TN');
     await page.getByRole('button', { name: t(locale, 'workspace.submitOrganization') }).click();
-    await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.created'));
+    // Success is a toast: its title is exact (the Radix announcer prefixes it).
+    await expect(page.getByText(t(locale, 'workspace.created'), { exact: true })).toBeVisible();
 
     await page.goto(`/${locale}/app`);
     // The switcher is a menu (SP1.5 T8): open it and pick the organisation.

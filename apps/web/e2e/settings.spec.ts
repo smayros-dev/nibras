@@ -88,9 +88,12 @@ test('security: devices list shows this device; sign out everywhere ends the ses
 
   await expect(page.getByTestId('device-current')).toBeVisible();
 
-  // Playwright auto-dismisses dialogs; confirm the sign-out-everywhere prompt.
-  page.once('dialog', (dialog) => void dialog.accept());
+  // The confirmation is an in-page alert dialog (no `window.confirm`).
   await page.getByRole('button', { name: t(locale, 'settings.security.signOutAll') }).click();
+  const confirm = page.getByRole('alertdialog', {
+    name: t(locale, 'settings.security.signOutAllConfirm'),
+  });
+  await confirm.getByRole('button', { name: t(locale, 'settings.security.signOutAll') }).click();
   await expect(page).toHaveURL(appUrl(`/${locale}/login`));
 });
 

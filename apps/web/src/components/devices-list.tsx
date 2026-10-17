@@ -1,86 +1,175 @@
 'use client';
 
 import type { SessionSummary } from '@tt/contracts';
-import { Button } from '@tt/ui';
-import { useTranslations } from 'next-intl';
+import { formatDate } from '@tt/i18n';
+import {
+  Alert,
+  AlertDialog,
+  Badge,
+  Button,
+  SkeletonTable,
+  Table,
+  useSubmit,
+  useToast,
+} from '@tt/ui';
+import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from '../i18n/navigation';
+import { apiErrorMessage } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
 
 /**
  * *Appareils connectés* (`GET /auth/sessions`): per-row revoke, *Déconnecter partout* for every
- * session including the current one (the API clears the auth cookies on that call).
+ * session including the current one (the API clears the auth cookies on that call), confirmed in
+ * an `AlertDialog`.
  */
 export function DevicesList() {
   const t = useTranslations();
+  const locale = useLocale();
   const router = useRouter();
+  const { toast } = useToast();
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Resolved after mount: the server has no viewer time zone (no hydration mismatch).
+  const [viewerTimezone, setViewerTimezone] = useState('UTC');
 
   const load = useCallback(async () => {
-    const { data, error: loadError } = asApiResult<SessionSummary[]>(
-      await api.GET('/auth/sessions'),
-    );
-    if (loadError) setError(t('errors.INTERNAL_ERROR'));
-    else setSessions(data ?? []);
+    try {
+      const { data, error: loadError } = asApiResult<SessionSummary[]>(
+        await api.GET('/auth/sessions'),
+      );
+      if (loadError) setError(apiErrorMessage(t, loadError));
+      else setSessions(data ?? []);
+    } catch {
+      setError(t('errors.INTERNAL_ERROR'));
+    }
   }, [t]);
 
   useEffect(() => {
+    setViewerTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     void load();
   }, [load]);
 
-  async function revoke(id: string) {
+  const revoke = useSubmit(async (id: string) => {
     setError(null);
-    const { error: revokeError } = await api.DELETE('/auth/sessions/{id}', {
-      params: { path: { id } },
-    });
-    if (revokeError) setError(t('errors.INTERNAL_ERROR'));
-    else await load();
-  }
-
-  async function signOutAll() {
-    if (!window.confirm(t('settings.security.signOutAllConfirm'))) return;
-    setError(null);
-    const { error: revokeError } = await api.DELETE('/auth/sessions');
-    if (revokeError) {
+    try {
+      const { error: revokeError } = asApiResult<unknown>(
+        await api.DELETE('/auth/sessions/{id}', { params: { path: { id } } }),
+      );
+      if (revokeError) {
+        setError(apiErrorMessage(t, revokeError));
+        return;
+      }
+      toast({ title: t('settings.security.deviceRevoked'), variant: 'success' });
+      await load();
+    } catch {
       setError(t('errors.INTERNAL_ERROR'));
-      return;
     }
-    router.push('/login');
-  }
+  });
+
+  const signOutAll = useSubmit(async () => {
+    setError(null);
+    try {
+      const { error: revokeError } = asApiResult<unknown>(await api.DELETE('/auth/sessions'));
+      if (revokeError) {
+        setError(apiErrorMessage(t, revokeError));
+        setConfirmOpen(false);
+        return;
+      }
+      router.push('/login');
+    } catch {
+      setError(t('errors.INTERNAL_ERROR'));
+      setConfirmOpen(false);
+    }
+  });
+
+  const columns = {
+    device: t('settings.security.device'),
+    ip: t('settings.security.ip'),
+    lastSeen: t('settings.security.lastSeen'),
+  };
 
   return (
-    <div>
-      {error ? (
-        <p role="alert" className="mb-3 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
-      <ul className="flex flex-col gap-2 text-sm">
-        {(sessions ?? []).map((session) => (
-          <li
-            key={session.id}
-            data-testid={session.current ? 'device-current' : 'device-row'}
-            className="flex flex-wrap items-center gap-2 rounded-md border border-gray-200 px-3 py-2"
-          >
-            <span className="flex-1">
-              {session.deviceLabel} · {session.ip}
-            </span>
-            {session.current ? (
-              <span className="text-xs text-gray-500">{t('settings.security.thisDevice')}</span>
-            ) : (
-              <Button variant="secondary" onClick={() => void revoke(session.id)}>
-                {t('settings.security.disconnect')}
-              </Button>
-            )}
-          </li>
-        ))}
-      </ul>
-      <div className="mt-4">
-        <Button variant="danger" onClick={() => void signOutAll()}>
-          {t('settings.security.signOutAll')}
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4">
+      {error ? <Alert variant="danger">{error}</Alert> : null}
+      {sessions === null ? (
+        error ? null : (
+          <SkeletonTable />
+        )
+      ) : (
+        <Table caption={t('settings.security.devices')} hideCaption>
+          <Table.Head>
+            <Table.Row>
+              <Table.Th>{columns.device}</Table.Th>
+              <Table.Th>{columns.ip}</Table.Th>
+              <Table.Th>{columns.lastSeen}</Table.Th>
+              <Table.Th>
+                <span className="sr-only">{t('settings.consents.actions')}</span>
+              </Table.Th>
+            </Table.Row>
+          </Table.Head>
+          <Table.Body>
+            {sessions.map((session) => (
+              <Table.Row
+                key={session.id}
+                data-testid={session.current ? 'device-current' : 'device-row'}
+              >
+                <Table.Td label={columns.device}>
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    {session.deviceLabel}
+                    {session.current ? (
+                      <Badge variant="brand">{t('settings.security.thisDevice')}</Badge>
+                    ) : null}
+                  </span>
+                </Table.Td>
+                <Table.Td label={columns.ip}>{session.ip}</Table.Td>
+                <Table.Td label={columns.lastSeen}>
+                  {formatDate(new Date(session.lastSeenAt), locale, viewerTimezone)}
+                </Table.Td>
+                <Table.Actions>
+                  {session.current ? null : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={revoke.busy}
+                      aria-label={t('settings.security.revokeDevice', {
+                        device: session.deviceLabel,
+                      })}
+                      onClick={() => void revoke.submit(session.id)}
+                    >
+                      {t('settings.security.revoke')}
+                    </Button>
+                  )}
+                </Table.Actions>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </Table>
+      )}
+      <AlertDialog.Root open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialog.Trigger asChild>
+          <Button variant="danger" className="self-start">
+            {t('settings.security.signOutAll')}
+          </Button>
+        </AlertDialog.Trigger>
+        <AlertDialog.Content title={t('settings.security.signOutAllConfirm')}>
+          <AlertDialog.Footer>
+            <AlertDialog.Cancel>{t('common.cancel')}</AlertDialog.Cancel>
+            <AlertDialog.Action
+              destructive
+              loading={signOutAll.busy}
+              onClick={(event) => {
+                // Stay open while the request runs: it closes on navigation, or on error.
+                event.preventDefault();
+                void signOutAll.submit();
+              }}
+            >
+              {t('settings.security.signOutAll')}
+            </AlertDialog.Action>
+          </AlertDialog.Footer>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
     </div>
   );
 }

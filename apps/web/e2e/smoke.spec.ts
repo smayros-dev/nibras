@@ -100,7 +100,8 @@ async function runJourney(page: Page, locale: string) {
   await page.goto(`/${locale}/app/settings/workspaces`);
   await page.getByLabel(t(locale, 'workspace.name'), { exact: true }).fill(orgName);
   await page.getByRole('button', { name: t(locale, 'workspace.submitOrganization') }).click();
-  await expect(page.getByRole('status')).toHaveText(t(locale, 'workspace.created'));
+  // Success is a toast: its title is exact (the Radix announcer prefixes it).
+  await expect(page.getByText(t(locale, 'workspace.created'), { exact: true })).toBeVisible();
 
   await page.goto(`/${locale}/app`);
   await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`));

@@ -342,7 +342,16 @@
       "thisDevice": "This device",
       "disconnect": "Sign out",
       "signOutAll": "Sign out everywhere",
-      "signOutAllConfirm": "Sign out of all devices, including this one?"
+      "signOutAllConfirm": "Sign out of all devices, including this one?",
+      "twoFactorStatusOn": "On",
+      "twoFactorStatusOff": "Off",
+      "twoFactorDisabled": "Two-factor authentication disabled.",
+      "device": "Device",
+      "ip": "IP address",
+      "lastSeen": "Last active",
+      "revoke": "Revoke",
+      "revokeDevice": "Revoke {device}",
+      "deviceRevoked": "Device signed out."
     },
     "verification": {
       "title": "Verification",
@@ -360,14 +369,42 @@
       "cocAccept": "I accept the code of conduct",
       "acceptCoc": "Accept the code of conduct",
       "done": "Verified",
-      "todo": "To do"
+      "todo": "To do",
+      "steps": "Verification steps",
+      "phoneVerified": "Phone verified.",
+      "cocAccepted": "Code of conduct accepted."
     },
     "consents": {
       "title": "Consents",
       "version": "Version",
       "grantedAt": "Accepted on {date}",
       "revoke": "Revoke",
-      "none": "No consents recorded."
+      "none": "No consents recorded.",
+      "type": "Consent",
+      "grantedOn": "Accepted on",
+      "status": "Status",
+      "statusCurrent": "Current",
+      "statusOutdated": "Previous version",
+      "statusRevoked": "Withdrawn",
+      "actions": "Actions",
+      "revokeConfirm": "Withdraw your consent to “{name}”?",
+      "revoked": "Consent withdrawn.",
+      "types": {
+        "TERMS": "Terms of use",
+        "PRIVACY": "Privacy policy",
+        "CODE_OF_CONDUCT": "Code of conduct",
+        "MARKETING": "Marketing communications"
+      }
+    },
+    "soon": "Soon",
+    "workspaces": {
+      "createTitle": "Create a workspace",
+      "tabsLabel": "Type of workspace to create",
+      "tabOrganization": "Organization",
+      "tabPersonal": "Personal workspace",
+      "emptyTitle": "No workspaces yet",
+      "emptyDescription": "Create an organization or your personal workspace to get started.",
+      "manage": "Manage workspaces"
     }
   },
   "onboarding": {

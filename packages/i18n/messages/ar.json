@@ -342,7 +342,16 @@
       "thisDevice": "هذا الجهاز",
       "disconnect": "تسجيل الخروج",
       "signOutAll": "تسجيل الخروج من كل الأجهزة",
-      "signOutAllConfirm": "هل تريد تسجيل الخروج من كل الأجهزة، بما في ذلك هذا الجهاز؟"
+      "signOutAllConfirm": "هل تريد تسجيل الخروج من كل الأجهزة، بما في ذلك هذا الجهاز؟",
+      "twoFactorStatusOn": "مفعّل",
+      "twoFactorStatusOff": "غير مفعّل",
+      "twoFactorDisabled": "تم تعطيل التحقق الثنائي.",
+      "device": "الجهاز",
+      "ip": "عنوان IP",
+      "lastSeen": "آخر نشاط",
+      "revoke": "إلغاء",
+      "revokeDevice": "إلغاء جلسة {device}",
+      "deviceRevoked": "تم تسجيل خروج الجهاز."
     },
     "verification": {
       "title": "التحقق",
@@ -360,14 +369,42 @@
       "cocAccept": "أوافق على ميثاق السلوك",
       "acceptCoc": "قبول ميثاق السلوك",
       "done": "تم التحقق",
-      "todo": "مطلوب"
+      "todo": "مطلوب",
+      "steps": "خطوات التحقق",
+      "phoneVerified": "تم التحقق من الهاتف.",
+      "cocAccepted": "تم قبول مدونة السلوك."
     },
     "consents": {
       "title": "الموافقات",
       "version": "الإصدار",
       "grantedAt": "قُبل في {date}",
       "revoke": "سحب",
-      "none": "لا توجد موافقات مسجلة."
+      "none": "لا توجد موافقات مسجلة.",
+      "type": "الموافقة",
+      "grantedOn": "تاريخ القبول",
+      "status": "الحالة",
+      "statusCurrent": "سارية",
+      "statusOutdated": "إصدار سابق",
+      "statusRevoked": "مسحوبة",
+      "actions": "إجراءات",
+      "revokeConfirm": "هل تريد سحب موافقتك على «{name}»؟",
+      "revoked": "تم سحب الموافقة.",
+      "types": {
+        "TERMS": "شروط الاستخدام العامة",
+        "PRIVACY": "سياسة الخصوصية",
+        "CODE_OF_CONDUCT": "ميثاق السلوك",
+        "MARKETING": "الرسائل التسويقية"
+      }
+    },
+    "soon": "قريباً",
+    "workspaces": {
+      "createTitle": "إنشاء مساحة",
+      "tabsLabel": "نوع المساحة المراد إنشاؤها",
+      "tabOrganization": "منظمة",
+      "tabPersonal": "مساحة شخصية",
+      "emptyTitle": "لا توجد مساحات حالياً",
+      "emptyDescription": "أنشئ منظمة أو مساحتك الشخصية للبدء.",
+      "manage": "إدارة المساحات"
     }
   },
   "onboarding": {

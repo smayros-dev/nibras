@@ -342,7 +342,16 @@
       "thisDevice": "Cet appareil",
       "disconnect": "Déconnecter",
       "signOutAll": "Déconnecter partout",
-      "signOutAllConfirm": "Déconnecter tous les appareils, y compris celui-ci ?"
+      "signOutAllConfirm": "Déconnecter tous les appareils, y compris celui-ci ?",
+      "twoFactorStatusOn": "Activée",
+      "twoFactorStatusOff": "Désactivée",
+      "twoFactorDisabled": "Double authentification désactivée.",
+      "device": "Appareil",
+      "ip": "Adresse IP",
+      "lastSeen": "Dernière activité",
+      "revoke": "Révoquer",
+      "revokeDevice": "Révoquer {device}",
+      "deviceRevoked": "Appareil déconnecté."
     },
     "verification": {
       "title": "Vérification",
@@ -360,14 +369,42 @@
       "cocAccept": "J’accepte le code de conduite",
       "acceptCoc": "Accepter le code de conduite",
       "done": "Vérifié",
-      "todo": "À faire"
+      "todo": "À faire",
+      "steps": "Étapes de vérification",
+      "phoneVerified": "Téléphone vérifié.",
+      "cocAccepted": "Code de conduite accepté."
     },
     "consents": {
       "title": "Consentements",
       "version": "Version",
       "grantedAt": "Accepté le {date}",
       "revoke": "Retirer",
-      "none": "Aucun consentement enregistré."
+      "none": "Aucun consentement enregistré.",
+      "type": "Consentement",
+      "grantedOn": "Accepté le",
+      "status": "Statut",
+      "statusCurrent": "En vigueur",
+      "statusOutdated": "Ancienne version",
+      "statusRevoked": "Retiré",
+      "actions": "Actions",
+      "revokeConfirm": "Retirer votre consentement « {name} » ?",
+      "revoked": "Consentement retiré.",
+      "types": {
+        "TERMS": "Conditions générales d’utilisation",
+        "PRIVACY": "Politique de confidentialité",
+        "CODE_OF_CONDUCT": "Code de conduite",
+        "MARKETING": "Communications marketing"
+      }
+    },
+    "soon": "Bientôt",
+    "workspaces": {
+      "createTitle": "Créer un espace",
+      "tabsLabel": "Type d’espace à créer",
+      "tabOrganization": "Organisation",
+      "tabPersonal": "Espace personnel",
+      "emptyTitle": "Aucun espace pour le moment",
+      "emptyDescription": "Créez une organisation ou votre espace personnel pour commencer.",
+      "manage": "Gérer les espaces"
     }
   },
   "onboarding": {
