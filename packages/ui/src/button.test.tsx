@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { Button } from './button';
 import { expectNoPhysicalClasses } from './test/logical-classes';
 import { renderWithDir } from './test/render';
@@ -62,6 +62,60 @@ describe('Button', () => {
     expect(link).not.toHaveAttribute('type');
     expect(link.className).toContain('inline-flex');
     expect(screen.getByTestId('icon')).toBeInTheDocument();
+  });
+
+  it('sm is 36 px on fine pointers and 44 px on coarse pointers; other sizes are ≥ 44 px', () => {
+    render(
+      <>
+        <Button variant="primary" size="sm">
+          sm
+        </Button>
+        <Button variant="primary" size="lg">
+          lg
+        </Button>
+      </>,
+    );
+    const sm = screen.getByRole('button', { name: 'sm' }).className.split(' ');
+    expect(sm).toContain('min-h-9');
+    expect(sm).toContain('pointer-coarse:min-h-11');
+    expect(screen.getByRole('button', { name: 'lg' }).className).toContain('min-h-12');
+  });
+
+  it('asChild + disabled exposes aria-disabled and blocks activation', () => {
+    const onClick = vi.fn();
+    render(
+      <Button variant="primary" asChild disabled onClick={onClick}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Accueil' });
+    expect(link).toHaveAttribute('aria-disabled', 'true');
+    expect(link.className).toContain('aria-disabled:opacity-50');
+    const allowed = fireEvent.click(link);
+    expect(allowed).toBe(false); // default (navigation) prevented
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('asChild + loading is busy and inert; enabled asChild stays clickable', () => {
+    const onClick = vi.fn();
+    const { rerender } = render(
+      <Button variant="primary" asChild loading onClick={onClick}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Accueil' });
+    expect(link).toHaveAttribute('aria-busy', 'true');
+    expect(link).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(link);
+    expect(onClick).not.toHaveBeenCalled();
+    rerender(
+      <Button variant="primary" asChild onClick={onClick}>
+        <a href="/app">Accueil</a>
+      </Button>,
+    );
+    expect(link).not.toHaveAttribute('aria-disabled');
+    fireEvent.click(link);
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it('forwards the ref', () => {

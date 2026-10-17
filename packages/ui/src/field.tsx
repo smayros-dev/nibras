@@ -40,12 +40,13 @@ export function Field({ label, description, error, required, htmlFor, children }
   const describedBy =
     [childProps['aria-describedby'], descriptionId, errorId].filter(Boolean).join(' ') || undefined;
 
-  const control = cloneElement(child as ReactElement<ControlProps>, {
-    id,
-    'aria-describedby': describedBy,
-    'aria-invalid': error ? true : childProps['aria-invalid'],
-    'aria-required': required ? true : childProps['aria-required'],
-  });
+  // Only defined keys: an explicit `undefined` would override what the control derives itself
+  // (e.g. `<Input invalid />` sets `aria-invalid` from its own prop).
+  const overrides: ControlProps = { id };
+  if (describedBy) overrides['aria-describedby'] = describedBy;
+  if (error) overrides['aria-invalid'] = true;
+  if (required) overrides['aria-required'] = true;
+  const control = cloneElement(child as ReactElement<ControlProps>, overrides);
 
   return (
     <div className="flex flex-col gap-1.5">

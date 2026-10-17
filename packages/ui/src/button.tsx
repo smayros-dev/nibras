@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Slot } from 'radix-ui';
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 import { cn } from './cn';
 import { Spinner } from './spinner';
 
@@ -10,6 +10,8 @@ export const buttonVariants = cva(
     'transition-colors duration-fast ease-out',
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
     'disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-progress',
+    // `asChild` targets (links) cannot be `disabled`: they carry `aria-disabled` instead.
+    'aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
   ],
   {
     variants: {
@@ -21,8 +23,9 @@ export const buttonVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline',
       },
       // `px-*` compiles to `padding-inline`: mirrored automatically in RTL.
+      // Touch targets: ≥ 44 px on coarse pointers (PRD §14.5); `sm` is 36 px on fine pointers only.
       size: {
-        sm: 'min-h-9 px-3 text-sm',
+        sm: 'min-h-9 px-3 text-sm pointer-coarse:min-h-11',
         md: 'min-h-11 px-4 text-base',
         lg: 'min-h-12 px-6 text-lg',
         icon: 'size-11',
@@ -60,6 +63,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     disabled,
     className,
     children,
+    onClickCapture,
     ...props
   },
   ref,
@@ -74,8 +78,25 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     iconStart
   );
   if (asChild) {
+    // A link cannot be `disabled`: expose `aria-disabled` and swallow activation in the capture
+    // phase, before the child's own handler (e.g. a Next `<Link>` navigation) and the native default.
+    const inert = Boolean(disabled) || loading;
     return (
-      <Slot.Root ref={ref} className={classes} aria-busy={loading || undefined} {...props}>
+      <Slot.Root
+        ref={ref}
+        className={classes}
+        aria-busy={loading || undefined}
+        aria-disabled={inert || undefined}
+        {...props}
+        onClickCapture={(event: MouseEvent<HTMLButtonElement>) => {
+          if (inert) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+          onClickCapture?.(event);
+        }}
+      >
         {start}
         <Slot.Slottable>{children}</Slot.Slottable>
         {iconEnd}
@@ -89,6 +110,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       className={classes}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
+      onClickCapture={onClickCapture}
       {...props}
     >
       {start}

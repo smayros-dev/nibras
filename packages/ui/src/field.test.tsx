@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { Field } from './field';
 import { Input } from './input';
+import { Select } from './select';
+import { Textarea } from './textarea';
 import { expectNoPhysicalClasses } from './test/logical-classes';
 
 describe('Field', () => {
@@ -29,6 +31,27 @@ describe('Field', () => {
     expect(input).not.toHaveAttribute('aria-invalid');
     expect(input).not.toHaveAttribute('aria-describedby');
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('without an error keeps the control’s own invalid state (Input, Select, Textarea)', () => {
+    render(
+      <>
+        <Field label="A">
+          <Input invalid />
+        </Field>
+        <Field label="B">
+          <Select invalid>
+            <option>x</option>
+          </Select>
+        </Field>
+        <Field label="C">
+          <Textarea invalid />
+        </Field>
+      </>,
+    );
+    for (const name of ['A', 'B', 'C']) {
+      expect(screen.getByLabelText(name)).toHaveAttribute('aria-invalid', 'true');
+    }
   });
 
   it('marks required fields', () => {

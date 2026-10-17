@@ -15,6 +15,11 @@ describe('Textarea', () => {
     render(<Textarea aria-label="Message" autoResize invalid />);
     const area = screen.getByRole('textbox');
     expect(area.className).toContain('field-sizing-content');
+    // Resize is disabled only where field-sizing works; elsewhere the user can still drag.
+    const tokens = area.className.split(' ');
+    expect(tokens).toContain('supports-[field-sizing:content]:resize-none');
+    expect(tokens).not.toContain('resize-none');
+    expect(tokens).toContain('resize-y');
     expect(area).not.toHaveAttribute('style');
     expect(area).toHaveAttribute('aria-invalid', 'true');
   });

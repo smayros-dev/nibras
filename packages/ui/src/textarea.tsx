@@ -6,7 +6,7 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
   invalid?: boolean;
   /**
    * Grows with the content through CSS `field-sizing: content` (no script, no inline style, so it
-   * stays CSP-clean); browsers without support keep the `rows` height and scroll.
+   * stays CSP-clean); browsers without support keep the `rows` height, scroll and stay manually resizable.
    */
   autoResize?: boolean;
 }
@@ -23,7 +23,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
       className={cn(
         CONTROL_CLASSES,
         'resize-y',
-        autoResize && 'field-sizing-content min-h-20 resize-none',
+        // Manual resize stays available where `field-sizing` is unsupported.
+        autoResize && 'field-sizing-content min-h-20 supports-[field-sizing:content]:resize-none',
         className,
       )}
       {...props}
