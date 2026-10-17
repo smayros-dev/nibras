@@ -24,11 +24,6 @@
     "console": "Console",
     "currentWorkspace": "Current workspace"
   },
-  "hello": {
-    "title": "Hello",
-    "subtitle": "Online course platform — development environment",
-    "switchLocale": "Change language"
-  },
   "errors": {
     "VALIDATION_FAILED": "The submitted data is invalid.",
     "NOT_FOUND": "Resource not found.",
@@ -225,10 +220,13 @@
       "password": "Password",
       "locale": "Language",
       "timezone": "Time zone",
-      "acceptTerms": "I accept the terms of use",
+      "acceptTerms": "I accept the <terms>terms of use</terms> and the <privacy>privacy policy</privacy>",
       "submit": "Sign up",
       "haveAccount": "Already have an account?",
-      "loginLink": "Sign in"
+      "loginLink": "Sign in",
+      "subtitle": "Start teaching in minutes.",
+      "passwordHint": "At least 12 characters.",
+      "timezoneHint": "Detected from your device. Session times are shown in this time zone."
     },
     "login": {
       "title": "Sign in",
@@ -238,7 +236,8 @@
       "submit": "Sign in",
       "forgot": "Forgot your password?",
       "noAccount": "No account yet?",
-      "registerLink": "Create an account"
+      "registerLink": "Create an account",
+      "subtitle": "Welcome back."
     },
     "verify": {
       "pending": "Verify your email",
@@ -252,7 +251,9 @@
       "title": "Forgot your password",
       "email": "Email",
       "submit": "Send reset link",
-      "always": "If an account exists with this address, an email has been sent."
+      "always": "If an account exists with this address, an email has been sent.",
+      "subtitle": "Enter your email and we will send you a link to choose a new password.",
+      "backToLogin": "Back to login"
     },
     "reset": {
       "title": "New password",
@@ -268,7 +269,9 @@
       "submit": "Verify",
       "useRecovery": "Use a recovery code",
       "recoveryCode": "Recovery code",
-      "submitRecovery": "Sign in"
+      "submitRecovery": "Sign in",
+      "subtitle": "Enter the 6-digit code from your authenticator app.",
+      "recoverySubtitle": "Enter one of your recovery codes. Each one works only once."
     },
     "setup": {
       "title": "Enable two-factor verification",
@@ -280,7 +283,11 @@
       "recoveryHint": "Keep these codes somewhere safe: each one works only once.",
       "download": "Download codes",
       "savedAck": "I saved my codes",
-      "continue": "Continue to the app"
+      "continue": "Continue to the app",
+      "qrAlt": "QR code to scan with your authenticator app",
+      "copy": "Copy codes",
+      "copied": "Codes copied to the clipboard.",
+      "copyFailed": "Copying failed. Download the codes instead."
     },
     "consent": {
       "title": "Updated terms",
@@ -292,6 +299,9 @@
     },
     "resume": {
       "loading": "Resuming your session…"
+    },
+    "layout": {
+      "preferences": "Display preferences"
     }
   },
   "settings": {
@@ -626,5 +636,25 @@
   "legal": {
     "termsTitle": "Terms of use",
     "privacyTitle": "Privacy policy"
+  },
+  "landing": {
+    "eyebrow": "For independent teachers and schools",
+    "title": "One app to teach online",
+    "subtitle": "Publish your courses, run live sessions and follow each student’s progress, without juggling four tools.",
+    "login": "Log in",
+    "register": "Create a teacher account",
+    "openApp": "Open the app",
+    "highlights": "Highlights",
+    "trustMobile": "Built for mobile",
+    "trustLanguages": "In French, Arabic and English",
+    "trustPrivacy": "Your data protected",
+    "valuesTitle": "Everything you need to teach",
+    "value1Title": "Recorded courses",
+    "value1Body": "Videos, PDFs and text organised into modules and lessons, available from any phone.",
+    "value2Title": "Live sessions",
+    "value2Body": "One-to-one or group classes scheduled in a calendar, with automatic reminders.",
+    "value3Title": "Progress tracking",
+    "value3Body": "Attendance, progress and history for every student, no spreadsheet needed.",
+    "preferences": "Display preferences"
   }
 }

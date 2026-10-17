@@ -4,6 +4,7 @@ import {
   appUrl,
   expect,
   fillLogin,
+  plainText,
   t,
   test,
   uiLogin,
@@ -30,7 +31,7 @@ async function fillRegister(
   await page.getByLabel(t(locale, 'auth.register.lastName'), { exact: true }).fill('Ben Ali');
   await page.getByLabel(t(locale, 'auth.register.email'), { exact: true }).fill(email);
   await page.getByLabel(t(locale, 'auth.register.password'), { exact: true }).fill(password);
-  await page.getByLabel(t(locale, 'auth.register.acceptTerms'), { exact: true }).check();
+  await page.getByLabel(plainText(t(locale, 'auth.register.acceptTerms')), { exact: true }).check();
 }
 
 test('teacher signs up, verifies by email, lands on the dashboard', async ({
@@ -60,6 +61,25 @@ test('teacher signs up, verifies by email, lands on the dashboard', async ({
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Mohamed');
   // Review Focus 5: no raw message key anywhere in the rendered text.
   expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
+});
+
+// Audit #7: the time-zone select used to render Node's ICU list on the server and the browser's
+// on the client, a React hydration mismatch.
+test('register page has no hydration warning', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/ar/register');
+  await expect(
+    page.getByRole('heading', { level: 1, name: t('ar', 'auth.register.title') }),
+  ).toBeVisible();
+  // The resolved zone is filled in after mount (`useTimezones`), so hydration has completed.
+  await expect(page.getByLabel(t('ar', 'auth.register.timezone'), { exact: true })).not.toHaveValue(
+    '',
+  );
+  expect(errors).toEqual([]);
 });
 
 test('short password shows a translated field error, not a raw key', async ({

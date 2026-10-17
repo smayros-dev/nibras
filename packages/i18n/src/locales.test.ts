@@ -26,7 +26,7 @@ describe('messages', () => {
 
   it('ships the SP0 namespaces and API error messages', () => {
     const keys = flattenKeys(messages.fr);
-    for (const ns of ['common', 'nav', 'hello', 'errors', 'health'])
+    for (const ns of ['common', 'nav', 'landing', 'errors', 'health'])
       expect(
         keys.some((k) => k.startsWith(`${ns}.`)),
         ns,
@@ -36,7 +36,7 @@ describe('messages', () => {
 
   it('getMessages returns the catalogue of each locale', () => {
     for (const l of LOCALES) expect(getMessages(l)).toBe(messages[l]);
-    expect(getPath(getMessages('ar'), 'hello.title')).toBe('مرحباً');
+    expect(getPath(getMessages('ar'), 'common.appName')).toBe('نبراس');
   });
 });
 

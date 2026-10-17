@@ -42,6 +42,11 @@ export function t(locale: string, key: string): string {
   return node;
 }
 
+/** A rich message (`t.rich` tags such as `<terms>…</terms>`) as the text the page renders. */
+export function plainText(message: string): string {
+  return message.replace(/<\/?[A-Za-z]+>/g, '');
+}
+
 /** A unique sign-up address for this millisecond (e2e users are never reused). */
 export function uniqueEmail(): string {
   return `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;

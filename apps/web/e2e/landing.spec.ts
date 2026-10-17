@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { messages } from '@tt/i18n';
+import { t } from './helpers';
 
 /**
  * A raw `namespace.key` message id rendered instead of its translation. The namespaces are the
@@ -7,17 +8,31 @@ import { messages } from '@tt/i18n';
  */
 const RAW_KEY = new RegExp(`\\b(${Object.keys(messages.fr).join('|')})\\.[A-Za-z_]+\\b`);
 
-for (const [locale, title, dir] of [
-  ['fr', 'Bonjour', 'ltr'],
-  ['ar', 'مرحباً', 'rtl'],
-  ['en', 'Hello', 'ltr'],
+for (const [locale, dir] of [
+  ['fr', 'ltr'],
+  ['ar', 'rtl'],
+  ['en', 'ltr'],
 ] as const) {
-  test(`hello page in ${locale}`, async ({ page }) => {
+  test(`landing page in ${locale}`, async ({ page }) => {
     await page.goto(`/${locale}`);
     await expect(page.locator('html')).toHaveAttribute('lang', locale);
     await expect(page.locator('html')).toHaveAttribute('dir', dir);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(t(locale, 'landing.title'));
     expect(await page.evaluate(() => getComputedStyle(document.body).direction)).toBe(dir);
+    // Anonymous visitor: both CTAs lead to the auth screens.
+    await expect(page.getByRole('link', { name: t(locale, 'landing.login') })).toHaveAttribute(
+      'href',
+      `/${locale}/login`,
+    );
+    await expect(page.getByRole('link', { name: t(locale, 'landing.register') })).toHaveAttribute(
+      'href',
+      `/${locale}/register`,
+    );
+    for (const n of [1, 2, 3]) {
+      await expect(
+        page.getByRole('heading', { level: 3, name: t(locale, `landing.value${n}Title`) }),
+      ).toBeVisible();
+    }
     const raw = await page.locator('body').innerText();
     expect(raw).not.toMatch(RAW_KEY); // no raw message keys in text
     // ...nor in accessible names / tooltips (client components included: Review Focus 2).
@@ -68,14 +83,16 @@ for (const path of ['/health/live', '/health/ready']) {
   });
 }
 
-test('locale switcher keeps the page and flips direction', async ({ page }) => {
+test('locale menu switches the landing to ar and flips direction', async ({ page }) => {
   await page.goto('/fr');
   await page
-    .getByRole('button', { name: (messages.fr as { shell: { language: string } }).shell.language })
+    .getByRole('button', { name: t('fr', 'shell.language') })
+    .first()
     .click();
   await page.getByRole('menuitemradio', { name: 'العربية' }).click();
   await expect(page).toHaveURL(/\/ar$/);
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(t('ar', 'landing.title'));
 });
 
 test('mobile: 16px inline gutter and no horizontal scroll at 360px', async ({ page }) => {
@@ -83,17 +100,23 @@ test('mobile: 16px inline gutter and no horizontal scroll at 360px', async ({ pa
   for (const locale of ['fr', 'ar', 'en']) {
     await page.goto(`/${locale}`);
     const layout = await page.evaluate(() => {
-      // The gutter lives on the shell's content container, not on <body> (SP1.5 T1).
-      const main = document.getElementById('main')!.getBoundingClientRect();
+      // The gutter is the landing container's `padding-inline`, inside a full-width <main>.
+      const container = document.querySelector<HTMLElement>('#main [data-landing-container]')!;
+      const style = getComputedStyle(container);
+      const box = container.getBoundingClientRect();
       return {
-        gutterStart: main.left,
-        gutterEnd: document.documentElement.clientWidth - main.right,
+        paddingStart: style.paddingInlineStart,
+        paddingEnd: style.paddingInlineEnd,
+        boxStart: box.left,
+        boxEnd: document.documentElement.clientWidth - box.right,
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
       };
     });
-    expect(layout.gutterStart).toBe(16);
-    expect(layout.gutterEnd).toBe(16);
+    expect(layout.paddingStart).toBe('16px');
+    expect(layout.paddingEnd).toBe('16px');
+    expect(layout.boxStart).toBe(0);
+    expect(layout.boxEnd).toBe(0);
     expect(layout.scrollWidth, `horizontal overflow in ${locale}`).toBeLessThanOrEqual(
       layout.clientWidth,
     );

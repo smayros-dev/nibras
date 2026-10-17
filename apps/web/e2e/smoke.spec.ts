@@ -1,6 +1,6 @@
 import { messages } from '@tt/i18n';
 import type { Page } from '@playwright/test';
-import { appUrl, expect, t, test, apiLogin, uniqueEmail } from './helpers';
+import { appUrl, expect, plainText, t, test, apiLogin, uniqueEmail } from './helpers';
 import { request as playwrightRequest } from '@playwright/test';
 import { extractLink, extractOtpCode, waitForEmail } from './helpers/mailpit';
 import { addOrgMember, seedUser } from './helpers/seed';
@@ -44,7 +44,7 @@ async function fillRegister(page: Page, locale: string, email: string) {
   await page.getByLabel(t(locale, 'auth.register.lastName'), { exact: true }).fill('Ben Ali');
   await page.getByLabel(t(locale, 'auth.register.email'), { exact: true }).fill(email);
   await page.getByLabel(t(locale, 'auth.register.password'), { exact: true }).fill(PASSWORD);
-  await page.getByLabel(t(locale, 'auth.register.acceptTerms'), { exact: true }).check();
+  await page.getByLabel(plainText(t(locale, 'auth.register.acceptTerms')), { exact: true }).check();
 }
 
 async function runJourney(page: Page, locale: string) {

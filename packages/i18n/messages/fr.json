@@ -24,11 +24,6 @@
     "console": "Console",
     "currentWorkspace": "Espace actuel"
   },
-  "hello": {
-    "title": "Bonjour",
-    "subtitle": "Plateforme de cours en ligne — environnement de développement",
-    "switchLocale": "Changer de langue"
-  },
   "errors": {
     "VALIDATION_FAILED": "Les données envoyées sont invalides.",
     "NOT_FOUND": "Ressource introuvable.",
@@ -225,10 +220,13 @@
       "password": "Mot de passe",
       "locale": "Langue",
       "timezone": "Fuseau horaire",
-      "acceptTerms": "J’accepte les conditions générales d’utilisation",
+      "acceptTerms": "J’accepte les <terms>conditions d’utilisation</terms> et la <privacy>politique de confidentialité</privacy>",
       "submit": "S’inscrire",
       "haveAccount": "Vous avez déjà un compte ?",
-      "loginLink": "Se connecter"
+      "loginLink": "Se connecter",
+      "subtitle": "Commencez à enseigner en quelques minutes.",
+      "passwordHint": "12 caractères minimum.",
+      "timezoneHint": "Détecté depuis votre appareil. Les horaires des sessions s’affichent dans ce fuseau."
     },
     "login": {
       "title": "Connexion",
@@ -238,7 +236,8 @@
       "submit": "Se connecter",
       "forgot": "Mot de passe oublié ?",
       "noAccount": "Pas encore de compte ?",
-      "registerLink": "Créer un compte"
+      "registerLink": "Créer un compte",
+      "subtitle": "Heureux de vous revoir."
     },
     "verify": {
       "pending": "Vérifiez votre email",
@@ -252,7 +251,9 @@
       "title": "Mot de passe oublié",
       "email": "Email",
       "submit": "Envoyer le lien de réinitialisation",
-      "always": "Si un compte existe avec cette adresse, un email a été envoyé."
+      "always": "Si un compte existe avec cette adresse, un email a été envoyé.",
+      "subtitle": "Indiquez votre email : nous vous enverrons un lien pour choisir un nouveau mot de passe.",
+      "backToLogin": "Retour à la connexion"
     },
     "reset": {
       "title": "Nouveau mot de passe",
@@ -268,7 +269,9 @@
       "submit": "Vérifier",
       "useRecovery": "Utiliser un code de secours",
       "recoveryCode": "Code de secours",
-      "submitRecovery": "Se connecter"
+      "submitRecovery": "Se connecter",
+      "subtitle": "Saisissez le code à 6 chiffres de votre application d’authentification.",
+      "recoverySubtitle": "Saisissez l’un de vos codes de secours. Chacun ne fonctionne qu’une fois."
     },
     "setup": {
       "title": "Activer la vérification en deux étapes",
@@ -280,7 +283,11 @@
       "recoveryHint": "Conservez ces codes en lieu sûr : chacun ne fonctionne qu’une seule fois.",
       "download": "Télécharger les codes",
       "savedAck": "J’ai enregistré mes codes",
-      "continue": "Continuer vers l’application"
+      "continue": "Continuer vers l’application",
+      "qrAlt": "QR code à scanner avec votre application d’authentification",
+      "copy": "Copier les codes",
+      "copied": "Codes copiés dans le presse-papiers.",
+      "copyFailed": "La copie a échoué. Téléchargez les codes à la place."
     },
     "consent": {
       "title": "Conditions mises à jour",
@@ -292,6 +299,9 @@
     },
     "resume": {
       "loading": "Reprise de votre session…"
+    },
+    "layout": {
+      "preferences": "Préférences d’affichage"
     }
   },
   "settings": {
@@ -626,5 +636,25 @@
   "legal": {
     "termsTitle": "Conditions d’utilisation",
     "privacyTitle": "Politique de confidentialité"
+  },
+  "landing": {
+    "eyebrow": "Pour les professeurs indépendants et les écoles",
+    "title": "Une seule application pour enseigner en ligne",
+    "subtitle": "Publiez vos cours, animez vos sessions en direct et suivez la progression de chaque élève, sans jongler entre quatre outils.",
+    "login": "Se connecter",
+    "register": "Créer un compte professeur",
+    "openApp": "Ouvrir l’application",
+    "highlights": "Points forts",
+    "trustMobile": "Pensé pour le mobile",
+    "trustLanguages": "En français, arabe et anglais",
+    "trustPrivacy": "Données protégées",
+    "valuesTitle": "Tout ce qu’il faut pour enseigner",
+    "value1Title": "Cours enregistrés",
+    "value1Body": "Vidéos, PDF et textes organisés en modules et en leçons, accessibles depuis un téléphone.",
+    "value2Title": "Sessions en direct",
+    "value2Body": "Cours individuels ou collectifs planifiés dans un calendrier, avec rappels automatiques.",
+    "value3Title": "Suivi pédagogique",
+    "value3Body": "Présence, progression et historique de chaque élève, sans tableur.",
+    "preferences": "Préférences d’affichage"
   }
 }

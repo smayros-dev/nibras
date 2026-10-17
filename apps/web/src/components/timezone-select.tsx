@@ -2,34 +2,21 @@
 
 import { Select } from '@tt/ui';
 import type { SelectHTMLAttributes } from 'react';
+import { useTimezones } from '../lib/timezones';
 
-const FALLBACK_TIMEZONES = [
-  'Africa/Tunis',
-  'Africa/Cairo',
-  'Africa/Algiers',
-  'Africa/Casablanca',
-  'Europe/Paris',
-  'Europe/London',
-  'UTC',
-];
-
-function supportedTimezones(): string[] {
-  try {
-    return Intl.supportedValuesOf('timeZone');
-  } catch {
-    return FALLBACK_TIMEZONES;
-  }
-}
-
-/** Time-zone `<select>` backed by `Intl.supportedValuesOf` (no static list shipped). */
+/**
+ * Time-zone `<select>`: the PRD zones on the server and in the first client render, the runtime's
+ * full list after mount (`useTimezones`), so hydration never mismatches. An unlisted `value` is
+ * kept; an empty one shows a blank placeholder until the caller fills it.
+ */
 export function TimezoneSelect({
   value,
   ...props
 }: { value: string } & SelectHTMLAttributes<HTMLSelectElement>) {
-  const timezones = supportedTimezones();
-  const options = timezones.includes(value) ? timezones : [value, ...timezones];
+  const { options } = useTimezones(value || undefined);
   return (
     <Select value={value} {...props}>
+      {value ? null : <option value="" disabled />}
       {options.map((tz) => (
         <option key={tz} value={tz}>
           {tz}

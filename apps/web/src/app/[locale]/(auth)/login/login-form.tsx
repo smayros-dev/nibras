@@ -1,10 +1,11 @@
 'use client';
 
 import type { LoginResponse } from '@tt/contracts';
-import { Button, Checkbox, Field, TextInput } from '@tt/ui';
-import { useLocale, useTranslations } from 'next-intl';
+import { Alert, Button, Checkbox, Field, Input, useSubmit } from '@tt/ui';
+import { useTranslations } from 'next-intl';
 import { useState } from 'react';
-import { useRouter } from '../../../../i18n/navigation';
+import { AuthCard } from '../../../../components/auth-card';
+import { Link, useRouter } from '../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../lib/api-error';
 import { api, asApiResult } from '../../../../lib/api';
 import { sanitizeNext } from '../../../../lib/sanitize-next';
@@ -17,7 +18,6 @@ function setLocaleCookie(locale: string) {
 
 export function LoginForm({ next }: { next: string | null }) {
   const t = useTranslations();
-  const locale = useLocale();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -25,27 +25,24 @@ export function LoginForm({ next }: { next: string | null }) {
   const [remember, setRemember] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  const login = useSubmit(async () => {
     setFieldErrors({});
     setFormError(null);
-    setBusy(true);
-    const { data, error } = asApiResult<LoginResponse>(
-      await api.POST('/auth/login', {
-        body: { email, password, remember },
-      }),
-    );
-    setBusy(false);
+    let result: { data?: LoginResponse; error?: unknown };
+    try {
+      result = asApiResult<LoginResponse>(
+        await api.POST('/auth/login', { body: { email, password, remember } }),
+      );
+    } catch {
+      setFormError(t('errors.INTERNAL_ERROR'));
+      return;
+    }
+    const { data, error } = result;
     if (error) {
-      const body = error as unknown;
-      const mapped = issuesToFieldErrors(t, body);
-      if (Object.keys(mapped).length > 0) {
-        setFieldErrors(mapped);
-      } else {
-        setFormError(apiErrorMessage(t, body));
-      }
+      const mapped = issuesToFieldErrors(t, error);
+      if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
+      else setFormError(apiErrorMessage(t, error));
       return;
     }
     if (data?.status === 'TWO_FACTOR_REQUIRED') {
@@ -60,19 +57,31 @@ export function LoginForm({ next }: { next: string | null }) {
       setLocaleCookie(data.user.locale);
       router.push(sanitizeNext(next) ?? '/app');
     }
-  }
+  });
 
   return (
-    <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
-      <h1 className="mb-4 text-2xl font-bold">{t('auth.login.title')}</h1>
-      {formError ? (
-        <p role="alert" className="mb-3 text-sm text-danger">
-          {formError}
+    <AuthCard
+      title={t('auth.login.title')}
+      description={t('auth.login.subtitle')}
+      footer={
+        <p>
+          {t('auth.login.noAccount')}{' '}
+          <Link href="/register" className="font-semibold text-primary hover:underline">
+            {t('auth.login.registerLink')}
+          </Link>
         </p>
-      ) : null}
-      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+      }
+    >
+      {formError ? <Alert variant="danger">{formError}</Alert> : null}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void login.submit();
+        }}
+        className="flex flex-col gap-4"
+      >
         <Field htmlFor="email" label={t('auth.login.email')} error={fieldErrors.email}>
-          <TextInput
+          <Input
             id="email"
             name="email"
             type="email"
@@ -83,7 +92,7 @@ export function LoginForm({ next }: { next: string | null }) {
           />
         </Field>
         <Field htmlFor="password" label={t('auth.login.password')} error={fieldErrors.password}>
-          <TextInput
+          <Input
             id="password"
             name="password"
             type="password"
@@ -93,26 +102,23 @@ export function LoginForm({ next }: { next: string | null }) {
             required
           />
         </Field>
-        <Checkbox
-          label={t('auth.login.remember')}
-          checked={remember}
-          onChange={(e) => setRemember(e.target.checked)}
-        />
-        <Button type="submit" variant="primary" disabled={busy}>
+        <div className="flex flex-wrap items-center justify-between gap-x-4">
+          <Checkbox
+            label={t('auth.login.remember')}
+            checked={remember}
+            onCheckedChange={(checked) => setRemember(checked === true)}
+          />
+          <Link
+            href="/forgot-password"
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
+          >
+            {t('auth.login.forgot')}
+          </Link>
+        </div>
+        <Button type="submit" variant="primary" loading={login.busy}>
           {t('auth.login.submit')}
         </Button>
       </form>
-      <p className="mt-4 text-sm">
-        <a href={`/${locale}/forgot-password`} className="text-brand-700 hover:underline">
-          {t('auth.login.forgot')}
-        </a>
-      </p>
-      <p className="mt-2 text-sm">
-        {t('auth.login.noAccount')}{' '}
-        <a href={`/${locale}/register`} className="text-brand-700 hover:underline">
-          {t('auth.login.registerLink')}
-        </a>
-      </p>
-    </div>
+    </AuthCard>
   );
 }
