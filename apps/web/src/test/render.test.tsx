@@ -28,7 +28,8 @@ describe('renderWithIntl', () => {
   it('uses the ar catalogue and rtl direction for ar', () => {
     renderWithIntl(<AppName />, { locale: 'ar' });
     expect(document.documentElement.dir).toBe('rtl');
-    expect(screen.getByText(/\S/)).toBeInTheDocument();
+    // `common.appName` in ar.json (fr: "Plateforme cours").
+    expect(screen.getByText('منصة الدروس')).toBeInTheDocument();
   });
 
   it('exposes the mocked locale-aware router', () => {

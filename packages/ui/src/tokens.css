@@ -106,6 +106,15 @@
   --color-info-subtle: #f0f9ff;
   --color-focus: #0d9488;
   --color-overlay: rgb(28 25 23 / 0.5);
+  /* Avatar tones (initials fallback), text is `fg`: picked by hash(id) % 8. */
+  --color-avatar-0: #ccfbf1;
+  --color-avatar-1: #fde68a;
+  --color-avatar-2: #bae6fd;
+  --color-avatar-3: #fecdd3;
+  --color-avatar-4: #ddd6fe;
+  --color-avatar-5: #d9f99d;
+  --color-avatar-6: #fed7aa;
+  --color-avatar-7: #e2e8f0;
 }
 
 :root[data-theme='dark'] {
@@ -137,6 +146,14 @@
   --color-info-subtle: #0f2433;
   --color-focus: #5eead4;
   --color-overlay: rgb(0 0 0 / 0.6);
+  --color-avatar-0: #134e4a;
+  --color-avatar-1: #78350f;
+  --color-avatar-2: #0c4a6e;
+  --color-avatar-3: #881337;
+  --color-avatar-4: #4c1d95;
+  --color-avatar-5: #365314;
+  --color-avatar-6: #7c2d12;
+  --color-avatar-7: #334155;
 }
 
 @theme inline {
@@ -168,6 +185,14 @@
   --color-info-subtle: var(--color-info-subtle);
   --color-focus: var(--color-focus);
   --color-overlay: var(--color-overlay);
+  --color-avatar-0: var(--color-avatar-0);
+  --color-avatar-1: var(--color-avatar-1);
+  --color-avatar-2: var(--color-avatar-2);
+  --color-avatar-3: var(--color-avatar-3);
+  --color-avatar-4: var(--color-avatar-4);
+  --color-avatar-5: var(--color-avatar-5);
+  --color-avatar-6: var(--color-avatar-6);
+  --color-avatar-7: var(--color-avatar-7);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -5,8 +5,8 @@ import { expect } from 'vitest';
  * `rtl:` are stripped first). Same list as the lint rule in `@tt/config/eslint/logical-css`; the
  * one allowed physical utility, `rtl:-scale-x-100`, does not match.
  */
-const PHYSICAL_TOKEN =
-  /^-?(ml|mr|pl|pr|left|right|rounded-[lr]|rounded-[tb][lr]|border-[lr]|text-left|text-right|inset-x|scroll-ml|scroll-mr|float-left|float-right)(-|$)/;
+export const PHYSICAL_TOKEN =
+  /^-?(ml|mr|pl|pr|left|right|rounded-[lr]|rounded-[tb][lr]|border-[lr]|text-left|text-right|inset-x|scroll-ml|scroll-mr|scroll-pl|scroll-pr|float-left|float-right|clear-left|clear-right|origin-(top-|bottom-)?(left|right)|bg-(left|right)|object-(left|right)|bg-(linear|gradient)-to-[tb]?[lr])(-|\/|$)/;
 
 /** Every class token used under `container`. */
 export function classTokens(container: Element): string[] {

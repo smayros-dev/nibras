@@ -118,6 +118,36 @@ describe('logical CSS rule', () => {
     expect(PHYSICAL_CLASS.test(RTL_FLIP_ALLOWED)).toBe(false);
   });
 
+  it('flags origin, background/object position, clear, scroll padding and left/right gradients', async () => {
+    const bad = [
+      'origin-left',
+      'origin-top-right',
+      'rtl:origin-bottom-left',
+      'bg-left',
+      'bg-right-top',
+      'object-left',
+      'object-right-bottom',
+      'clear-left',
+      'clear-right',
+      'scroll-pl-4',
+      'scroll-pr-2',
+      'bg-linear-to-l',
+      'bg-linear-to-r',
+      'bg-linear-to-tr',
+      'bg-linear-to-r/oklch',
+      'bg-gradient-to-l',
+    ];
+    for (const cls of bad) {
+      const code = `export const a = 'p-2 ${cls}';\n`;
+      expect(await ruleIds(nextWithoutTypes, code, 'src/a.tsx'), cls).toEqual([
+        'no-restricted-syntax',
+      ]);
+    }
+    const ok =
+      "export const a = 'origin-center origin-top bg-center bg-top object-center object-cover clear-both scroll-ps-4 scroll-pe-2 bg-linear-to-t bg-linear-to-b';\n";
+    expect(await ruleIds(nextWithoutTypes, ok, 'src/a.tsx')).toEqual([]);
+  });
+
   it('keeps the tenancy SQL ban alive next to it', async () => {
     const code = 'export const s = "SET LOCAL app.bypass_tenant = \'on\'";\n';
     expect(await ruleIds(nextWithoutTypes, code, 'src/a.ts')).toEqual(['no-restricted-syntax']);

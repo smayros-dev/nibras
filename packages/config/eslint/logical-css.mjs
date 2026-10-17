@@ -2,10 +2,14 @@
  * Logical-CSS lint rule (PRD §8.16.1): class strings must not use physical left/right Tailwind
  * utilities, because direction comes from `<html dir>` and the same markup serves fr/en (LTR) and
  * ar (RTL). Matches a utility at the start of a string, after whitespace or after a variant prefix
- * (`md:`, `hover:`), optionally negative (`-mr-4`).
+ * (`md:`, `hover:`), optionally negative (`-mr-4`). Besides spacing/inset/radius/border/text-align it
+ * covers scroll padding/margin, float/clear, `origin-*-left/right`, `bg-left/right`,
+ * `object-left/right` and left/right gradients (`bg-linear-to-r`). `\x2f` is a slash (an opacity or
+ * interpolation suffix): esquery's regex literal cannot contain a slash. Keep in sync with
+ * `PHYSICAL_TOKEN` in `packages/ui/src/test/logical-classes.ts`.
  */
 export const PHYSICAL_CLASS =
-  /(^|\s|:)-?(ml|mr|pl|pr|left|right|rounded-[lr]|rounded-[tb][lr]|border-[lr]|text-left|text-right|inset-x|scroll-ml|scroll-mr|float-left|float-right)(-|\s|$)/;
+  /(^|\s|:)-?(ml|mr|pl|pr|left|right|rounded-[lr]|rounded-[tb][lr]|border-[lr]|text-left|text-right|inset-x|scroll-ml|scroll-mr|scroll-pl|scroll-pr|float-left|float-right|clear-left|clear-right|origin-(top-|bottom-)?(left|right)|bg-(left|right)|object-(left|right)|bg-(linear|gradient)-to-[tb]?[lr])(-|\x2f|\s|$)/;
 
 /** The one physical utility allowed: mirroring a directional icon. `PHYSICAL_CLASS` must not match it. */
 export const RTL_FLIP_ALLOWED = 'rtl:-scale-x-100';

@@ -68,6 +68,14 @@ const TEXT_PAIRS: [string, string][] = [
   ['primary', 'surface'],
   ['primary', 'bg'],
   ['danger', 'surface'],
+  ['fg', 'avatar-0'],
+  ['fg', 'avatar-1'],
+  ['fg', 'avatar-2'],
+  ['fg', 'avatar-3'],
+  ['fg', 'avatar-4'],
+  ['fg', 'avatar-5'],
+  ['fg', 'avatar-6'],
+  ['fg', 'avatar-7'],
 ];
 const NON_TEXT_PAIRS: [string, string][] = [
   ['fg-subtle', 'bg'],
