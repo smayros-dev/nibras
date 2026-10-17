@@ -719,5 +719,14 @@
     "value3Title": "Suivi pédagogique",
     "value3Body": "Présence, progression et historique de chaque élève, sans tableur.",
     "preferences": "Préférences d’affichage"
+  },
+  "pwa": {
+    "offlineTitle": "Vous êtes hors ligne",
+    "offlineDescription": "Cette page a besoin d’une connexion. Vérifiez votre réseau puis réessayez.",
+    "offlineSessionsSoon": "Bientôt, vos sessions à venir s’afficheront ici même sans connexion.",
+    "retry": "Réessayer",
+    "updateAvailable": "Une nouvelle version est disponible",
+    "updateDescription": "Enregistrez vos modifications en cours, puis rechargez la page.",
+    "reload": "Recharger"
   }
 }

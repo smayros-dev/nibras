@@ -9,6 +9,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { IntlProvider } from '../../components/intl-provider';
+import { SwRegister } from '../../components/sw-register';
 import { ThemeProvider } from '../../components/theme-provider';
 import { routing } from '../../i18n/routing';
 import '../globals.css';
@@ -43,7 +44,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) return {};
   const t = await getTranslations({ locale, namespace: 'common' });
-  return { title: t('appName') };
+  // The manifest link comes from `app/manifest.ts`; iOS still reads these instead (PRD §14.6).
+  return {
+    title: t('appName'),
+    icons: {
+      icon: [{ url: '/icons/icon.svg', type: 'image/svg+xml' }],
+      apple: '/icons/apple-touch-icon.png',
+    },
+    appleWebApp: { capable: true, title: BRAND.shortName, statusBarStyle: 'default' },
+  };
 }
 
 export default async function LocaleLayout({
@@ -79,6 +88,7 @@ export default async function LocaleLayout({
                 }}
               >
                 {children}
+                <SwRegister />
               </ToastProvider>
             </DirectionProvider>
           </IntlProvider>

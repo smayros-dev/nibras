@@ -719,5 +719,14 @@
     "value3Title": "Progress tracking",
     "value3Body": "Attendance, progress and history for every student, no spreadsheet needed.",
     "preferences": "Display preferences"
+  },
+  "pwa": {
+    "offlineTitle": "You are offline",
+    "offlineDescription": "This page needs a connection. Check your network, then try again.",
+    "offlineSessionsSoon": "Soon, your upcoming sessions will show here even without a connection.",
+    "retry": "Try again",
+    "updateAvailable": "A new version is available",
+    "updateDescription": "Save any changes in progress, then reload the page.",
+    "reload": "Reload"
   }
 }

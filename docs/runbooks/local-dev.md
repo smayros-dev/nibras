@@ -114,6 +114,24 @@ have dev-only defaults in `.env.example`. Operations on this slice (first super-
 rotation, unlocking a locked account, reading dev OTPs, audit actions, tenant isolation) are in
 [auth-and-tenancy.md](auth-and-tenancy.md).
 
+### PWA: icons and service worker
+
+- **Icons.** The source is `apps/web/public/icons/icon.svg` (the flame mark on `BRAND.themeColor`).
+  After editing it, run `pnpm --filter @tt/web icons` (sharp renders `icon-192.png`,
+  `icon-512.png`, `maskable-512.png` and `apple-touch-icon.png`, deterministically) and commit the
+  PNGs.
+- **Service worker** (`apps/web/public/sw.js`, hand-written, no build step). It registers **only in
+  production builds** (`next build` + `next start` or the standalone server); `next dev`
+  unregisters any worker left in the browser, so dev never serves a stale shell. It caches only
+  `/_next/static/` and the anonymous `/{fr,ar,en}/offline` pages; `/api/*`, HTML navigations and
+  non-GET requests always go to the network. Bump `SW_VERSION` (`apps/web/src/lib/sw-version.ts`)
+  when the offline page's copy or the cache layout changes: the new worker refetches the offline
+  pages and deletes the previous version's caches. A new worker waits until the user clicks
+  _Recharger_ in the update toast.
+- **Testing it locally.** Build and start the web app, open DevTools > Application > Service
+  workers, then tick _Offline_ and navigate: a page under `/ar/` shows the Arabic offline page.
+  To start clean, _Unregister_ and clear the site data.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
