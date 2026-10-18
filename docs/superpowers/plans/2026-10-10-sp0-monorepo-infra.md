@@ -43,7 +43,7 @@ Five failure modes the spec implies but no acceptance criterion exercises; each 
 .gitignore .editorconfig .prettierrc .prettierignore .npmrc .node-version
 package.json pnpm-workspace.yaml turbo.json
 .env.example docker-compose.yml
-infra/docker/postgres/init.sql           roles app_user/app_system, DBs tt + tt_test
+infra/docker/postgres/init.sql           roles app_user/app_system, DBs nibras + nibras_test
 infra/docker/{web,api,worker}.Dockerfile  multi-stage, turbo prune
 infra/compose.staging.yml                 images from GHCR + env file
 .github/workflows/ci.yml                  check (linux) · windows-check · migrate-check · e2e · images
@@ -140,7 +140,7 @@ git add -A && git commit -m "chore: bootstrap pnpm + turborepo workspace and sha
 - Test: `packages/db/src/client.test.ts`
 
 **Interfaces:**
-- Produces (`@nibras/db`): `createPrismaClient(url?: string): PrismaClient` (default `process.env.DATABASE_URL`); `systemPrisma(): PrismaClient` (singleton on `DATABASE_URL_SYSTEM`); `resetDatabase(client = systemPrisma()): Promise<void>` — truncates every table in `public` except `_prisma_migrations` with `RESTART IDENTITY CASCADE`; re-exports `Prisma`, `PrismaClient` and generated types. Scripts: `generate`, `migrate:dev` (`prisma migrate dev`), `migrate:deploy`, `migrate:check` (`prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --shadow-database-url $DATABASE_URL_SYSTEM --exit-code`), `studio`. Env: `DATABASE_URL=postgresql://app_user:app@localhost:5432/tt`, `DATABASE_URL_SYSTEM=postgresql://app_system:app@localhost:5432/tt`, `DATABASE_URL_TEST=postgresql://app_user:app@localhost:5432/tt_test`, `DATABASE_URL_TEST_SYSTEM=postgresql://app_system:app@localhost:5432/tt_test`.
+- Produces (`@nibras/db`): `createPrismaClient(url?: string): PrismaClient` (default `process.env.DATABASE_URL`); `systemPrisma(): PrismaClient` (singleton on `DATABASE_URL_SYSTEM`); `resetDatabase(client = systemPrisma()): Promise<void>` — truncates every table in `public` except `_prisma_migrations` with `RESTART IDENTITY CASCADE`; re-exports `Prisma`, `PrismaClient` and generated types. Scripts: `generate`, `migrate:dev` (`prisma migrate dev`), `migrate:deploy`, `migrate:check` (`prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --shadow-database-url $DATABASE_URL_SYSTEM --exit-code`), `studio`. Env: `DATABASE_URL=postgresql://app_user:app@localhost:5432/nibras`, `DATABASE_URL_SYSTEM=postgresql://app_system:app@localhost:5432/nibras`, `DATABASE_URL_TEST=postgresql://app_user:app@localhost:5432/nibras_test`, `DATABASE_URL_TEST_SYSTEM=postgresql://app_system:app@localhost:5432/nibras_test`.
 
 - [ ] **Step 1: Write the failing client test**
 
@@ -172,7 +172,7 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('db client', () => {
 });
 ```
 
-The test uses `DATABASE_URL_TEST*`; `packages/db/vitest.config.ts` maps `DATABASE_URL_TEST_SYSTEM` into `process.env.DATABASE_URL_SYSTEM` in `setupFiles` so `systemPrisma()` hits `tt_test`.
+The test uses `DATABASE_URL_TEST*`; `packages/db/vitest.config.ts` maps `DATABASE_URL_TEST_SYSTEM` into `process.env.DATABASE_URL_SYSTEM` in `setupFiles` so `systemPrisma()` hits `nibras_test`.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -182,8 +182,8 @@ Expected: FAIL — cannot resolve `./index` / connection refused.
 - [ ] **Step 3: Write the Compose stack and init script**
 
 `docker-compose.yml` services: `postgres` (`postgres:17-alpine`, `POSTGRES_PASSWORD=postgres`, volume `./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql`, port 5432, healthcheck `pg_isready`), `redis` (`redis:7-alpine`, 6379, healthcheck `redis-cli ping`), `mailpit` (`axllent/mailpit`, 1025/8025), `minio` (`minio/minio`, `server /data --console-address ":9001"`, 9000/9001, `MINIO_ROOT_USER=minioadmin`, `MINIO_ROOT_PASSWORD=minioadmin`, volume). Named volumes for postgres and minio.
-`init.sql`: `CREATE ROLE app_system LOGIN PASSWORD 'app' BYPASSRLS CREATEDB; CREATE ROLE app_user LOGIN PASSWORD 'app' NOBYPASSRLS;` then for each of `tt` and `tt_test`: `CREATE DATABASE <db> OWNER app_system;` and, connected to it (`\c <db>`): `CREATE EXTENSION IF NOT EXISTS citext; GRANT USAGE ON SCHEMA public TO app_user; ALTER DEFAULT PRIVILEGES FOR ROLE app_system IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user; ALTER DEFAULT PRIVILEGES FOR ROLE app_system IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_user;` (SP1 revokes UPDATE/DELETE on `audit_log` in its own migration).
-`.env.example`: the four `DATABASE_URL*` values, `REDIS_URL=redis://localhost:6379`, `NODE_ENV=development`, `PORT=3001`, `WORKER_PORT=3002`, `WEB_ORIGIN=http://localhost:3000`, `API_URL=http://localhost:3001`, `LOG_LEVEL=debug`, `OTEL_EXPORTER_OTLP_ENDPOINT=` (empty = tracing off), `SMTP_URL=smtp://localhost:1025`, `S3_ENDPOINT=http://localhost:9000`, `S3_ACCESS_KEY=minioadmin`, `S3_SECRET_KEY=minioadmin`, `S3_BUCKET=tt-dev`.
+`init.sql`: `CREATE ROLE app_system LOGIN PASSWORD 'app' BYPASSRLS CREATEDB; CREATE ROLE app_user LOGIN PASSWORD 'app' NOBYPASSRLS;` then for each of `nibras` and `nibras_test`: `CREATE DATABASE <db> OWNER app_system;` and, connected to it (`\c <db>`): `CREATE EXTENSION IF NOT EXISTS citext; GRANT USAGE ON SCHEMA public TO app_user; ALTER DEFAULT PRIVILEGES FOR ROLE app_system IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user; ALTER DEFAULT PRIVILEGES FOR ROLE app_system IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_user;` (SP1 revokes UPDATE/DELETE on `audit_log` in its own migration).
+`.env.example`: the four `DATABASE_URL*` values, `REDIS_URL=redis://localhost:6379`, `NODE_ENV=development`, `PORT=3001`, `WORKER_PORT=3002`, `WEB_ORIGIN=http://localhost:3000`, `API_URL=http://localhost:3001`, `LOG_LEVEL=debug`, `OTEL_EXPORTER_OTLP_ENDPOINT=` (empty = tracing off), `SMTP_URL=smtp://localhost:1025`, `S3_ENDPOINT=http://localhost:9000`, `S3_ACCESS_KEY=minioadmin`, `S3_SECRET_KEY=minioadmin`, `S3_BUCKET=nibras-dev`.
 
 - [ ] **Step 4: Write `packages/db` with the empty schema and the init migration**
 
@@ -194,7 +194,7 @@ Expected: FAIL — cannot resolve `./index` / connection refused.
 
 - [ ] **Step 5: Run the stack, migrate, run the test**
 
-Run: `docker compose up -d && cp .env.example .env && pnpm --filter @nibras/db generate && pnpm --filter @nibras/db migrate:dev` then `cross-env DATABASE_URL_SYSTEM=<tt_test system url> pnpm --filter @nibras/db exec prisma migrate deploy` (apply to the test DB), then `pnpm --filter @nibras/db test`
+Run: `docker compose up -d && cp .env.example .env && pnpm --filter @nibras/db generate && pnpm --filter @nibras/db migrate:dev` then `cross-env DATABASE_URL_SYSTEM=<nibras_test system url> pnpm --filter @nibras/db exec prisma migrate deploy` (apply to the test DB), then `pnpm --filter @nibras/db test`
 Expected: migration applied in both DBs; 3 tests PASS.
 
 - [ ] **Step 6: Commit**
@@ -350,7 +350,7 @@ git add apps/api && git commit -m "feat(api): nestjs bootstrap with env validati
 - Test: `apps/api/test/observability.e2e-spec.ts`, `apps/api/src/observability/logger.spec.ts`
 
 **Interfaces:**
-- Produces: nestjs-pino `LoggerModule` with `pino-http`, `genReqId` = `RequestContext` request id, `customProps` adds `request_id`; redaction paths `req.headers.authorization`, `req.headers.cookie`, `*.password`, `*.email`; pretty transport only when `NODE_ENV=development`. `GET /metrics` (outside the prefix) exposing prom-client default metrics + histogram `http_request_duration_seconds{method,route,status}` filled by `MetricsInterceptor`. `tracing.ts` is imported first in `main.ts` and starts `NodeSDK` with OTLP HTTP exporter + auto-instrumentations only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (service name `tt-api`). `openapi:export` writes `packages/contracts/openapi/openapi.json` (SwaggerModule document, title "TT API", version `1`, server `/api/v1`); `@nibras/contracts` exports `createApiClient(baseUrl: string, fetchImpl?: typeof fetch)` = `openapi-fetch` `createClient<paths>`.
+- Produces: nestjs-pino `LoggerModule` with `pino-http`, `genReqId` = `RequestContext` request id, `customProps` adds `request_id`; redaction paths `req.headers.authorization`, `req.headers.cookie`, `*.password`, `*.email`; pretty transport only when `NODE_ENV=development`. `GET /metrics` (outside the prefix) exposing prom-client default metrics + histogram `http_request_duration_seconds{method,route,status}` filled by `MetricsInterceptor`. `tracing.ts` is imported first in `main.ts` and starts `NodeSDK` with OTLP HTTP exporter + auto-instrumentations only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (service name `nibras-api`). `openapi:export` writes `packages/contracts/openapi/openapi.json` (SwaggerModule document, title "Nibras API", version `1`, server `/api/v1`); `@nibras/contracts` exports `createApiClient(baseUrl: string, fetchImpl?: typeof fetch)` = `openapi-fetch` `createClient<paths>`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -366,7 +366,7 @@ it('serves prometheus metrics with the request duration histogram', async () => 
 });
 it('openapi document lists the health routes under the /api/v1 server', async () => {
   const doc = buildOpenApiDocument(app); // exported from src/openapi/export.ts
-  expect(doc.info.title).toBe('TT API'); expect(doc.servers?.[0].url).toBe('/api/v1');
+  expect(doc.info.title).toBe('Nibras API'); expect(doc.servers?.[0].url).toBe('/api/v1');
 });
 ```
 
@@ -531,7 +531,7 @@ it('live 200, ready 200 with redis, ready 503 when redis is down', ...) // secon
 
 - [ ] **Step 2: Run the tests to verify they fail** — Run: `pnpm --filter @nibras/worker test` — Expected: FAIL.
 
-- [ ] **Step 3: Implement the worker** — scripts `dev: nest start --watch`, `build`, `start`, `test`; pino logger with `service: 'tt-worker'`; graceful shutdown closes workers then Redis.
+- [ ] **Step 3: Implement the worker** — scripts `dev: nest start --watch`, `build`, `start`, `test`; pino logger with `service: 'nibras-worker'`; graceful shutdown closes workers then Redis.
 
 - [ ] **Step 4: Run the tests to verify they pass** — Run: `pnpm --filter @nibras/worker test` — Expected: PASS. Then `pnpm dev` from the root: web, api, worker all start; `curl localhost:3002/health/ready` → 200.
 
@@ -550,14 +550,14 @@ git add apps/worker && git commit -m "feat(worker): bullmq worker with queue reg
 - Modify: `docs/runbooks/local-dev.md` (CI + images section), `turbo.json` (if `prune` needs `globalDependencies` tweaks)
 
 **Interfaces:**
-- Produces: `ci.yml` jobs — `check` (ubuntu-latest, services `postgres:17` with `init.sql` mounted via a checkout step + `psql`, `redis:7`, `axllent/mailpit`; steps: pnpm install with cache, `pnpm lint`, `pnpm typecheck`, `pnpm --filter @nibras/db migrate:deploy` on both DBs, `pnpm test`, `pnpm build`, `pnpm --filter @nibras/api openapi:export && pnpm --filter @nibras/contracts generate && git diff --exit-code packages/contracts`), `windows-check` (windows-latest: install, `pnpm lint`, `pnpm typecheck`, `pnpm test --filter=@nibras/contracts --filter=@nibras/i18n --filter=@nibras/ui` — DB-free packages), `migrate-check` (`pnpm --filter @nibras/db migrate:check` → fails on schema/migration drift), `e2e` (ubuntu: services as above, `pnpm --filter @nibras/web exec playwright install --with-deps chromium`, start api + worker in background, `pnpm --filter @nibras/web e2e`), `images` (on push to `main` only: `docker/build-push-action` for the three Dockerfiles → `ghcr.io/<owner>/tt-{web,api,worker}:{sha,latest}`). Dockerfiles: multi-stage with `turbo prune --docker`, `node:22-alpine`, non-root user, `HEALTHCHECK` hitting `/health/live`; API image runs `prisma migrate deploy` only via an explicit `migrate` entrypoint arg (never on boot). `compose.staging.yml`: `web`, `api`, `worker` from GHCR + `postgres`, `redis`, `minio` with `env_file: .env.staging`, api runs the `migrate` one-shot before start. `deploy-staging.yml`: on `workflow_run` of `images` success, `if: ${{ secrets.STAGING_SSH_HOST != '' }}` guarded through a `vars` check, uses `appleboy/ssh-action` to `docker compose -f compose.staging.yml pull && up -d`.
+- Produces: `ci.yml` jobs — `check` (ubuntu-latest, services `postgres:17` with `init.sql` mounted via a checkout step + `psql`, `redis:7`, `axllent/mailpit`; steps: pnpm install with cache, `pnpm lint`, `pnpm typecheck`, `pnpm --filter @nibras/db migrate:deploy` on both DBs, `pnpm test`, `pnpm build`, `pnpm --filter @nibras/api openapi:export && pnpm --filter @nibras/contracts generate && git diff --exit-code packages/contracts`), `windows-check` (windows-latest: install, `pnpm lint`, `pnpm typecheck`, `pnpm test --filter=@nibras/contracts --filter=@nibras/i18n --filter=@nibras/ui` — DB-free packages), `migrate-check` (`pnpm --filter @nibras/db migrate:check` → fails on schema/migration drift), `e2e` (ubuntu: services as above, `pnpm --filter @nibras/web exec playwright install --with-deps chromium`, start api + worker in background, `pnpm --filter @nibras/web e2e`), `images` (on push to `main` only: `docker/build-push-action` for the three Dockerfiles → `ghcr.io/<owner>/nibras-{web,api,worker}:{sha,latest}`). Dockerfiles: multi-stage with `turbo prune --docker`, `node:22-alpine`, non-root user, `HEALTHCHECK` hitting `/health/live`; API image runs `prisma migrate deploy` only via an explicit `migrate` entrypoint arg (never on boot). `compose.staging.yml`: `web`, `api`, `worker` from GHCR + `postgres`, `redis`, `minio` with `env_file: .env.staging`, api runs the `migrate` one-shot before start. `deploy-staging.yml`: on `workflow_run` of `images` success, `if: ${{ secrets.STAGING_SSH_HOST != '' }}` guarded through a `vars` check, uses `appleboy/ssh-action` to `docker compose -f compose.staging.yml pull && up -d`.
 
 - [ ] **Step 1: Write the workflows and Dockerfiles** (no unit test applies; verification is the pipeline itself)
 
 - [ ] **Step 2: Verify images build locally**
 
-Run: `docker build -f infra/docker/api.Dockerfile -t tt-api . && docker run --rm --env-file .env --network host tt-api node -e "console.log('ok')"` and the same for `web` and `worker`.
-Expected: three images build; `docker run --rm --network host --env-file .env tt-api` then `curl localhost:3001/health/live` → 200.
+Run: `docker build -f infra/docker/api.Dockerfile -t nibras-api . && docker run --rm --env-file .env --network host nibras-api node -e "console.log('ok')"` and the same for `web` and `worker`.
+Expected: three images build; `docker run --rm --network host --env-file .env nibras-api` then `curl localhost:3001/health/live` → 200.
 
 - [ ] **Step 3: Verify CI** — push a branch and open a PR: Expected: `check`, `windows-check`, `migrate-check`, `e2e` all green; `images` skipped on the PR, runs on merge to `main`.
 

@@ -25,7 +25,7 @@ built and how to change it safely.
   `[data-theme='dark']`). A new semantic colour gets a light and a dark value in `tokens.css` and
   a pair in `tokens.test.ts`, which enforces WCAG AA contrast in both themes.
 - The theme (`light` / `dark` / `system`) is per browser: `next-themes` stores it in
-  `localStorage` `tt-theme` and sets `data-theme` on `<html>` before first paint with an inline
+  `localStorage` `nibras-theme` and sets `data-theme` on `<html>` before first paint with an inline
   script that carries the request's CSP nonce.
 - **Direction.** Logical utilities only (`ps-*`, `me-*`, `start-0`, `text-start`, `rounded-s-*`,
   `border-s`). The logical-CSS lint rule (`packages/config/eslint/logical-css.mjs`) fails

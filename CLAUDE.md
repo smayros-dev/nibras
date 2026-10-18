@@ -1,4 +1,4 @@
-# TT — Plateforme de cours en ligne avec sessions vidéo en direct
+# Nibras — Plateforme de cours en ligne avec sessions vidéo en direct
 
 ## Source of truth
 - `PRD.md` — product requirements (v2.1, French). Authoritative spec.
