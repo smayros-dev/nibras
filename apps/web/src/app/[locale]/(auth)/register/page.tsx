@@ -1,8 +1,8 @@
 'use client';
 
-import { LOCALES } from '@tt/contracts/web';
-import type { MeUser } from '@tt/contracts';
-import { Alert, Button, Checkbox, Field, Input, Select, useSubmit } from '@tt/ui';
+import { LOCALES } from '@nibras/contracts/web';
+import type { MeUser } from '@nibras/contracts';
+import { Alert, Button, Checkbox, Field, Input, Select, useSubmit } from '@nibras/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AuthCard } from '../../../../components/auth-card';
@@ -16,9 +16,9 @@ import { useTimezones } from '../../../../lib/timezones';
 
 const MIN_PASSWORD_LENGTH = 12;
 
-/** `tt_locale` cookie: the proxy prefers it over `Accept-Language` on the next request. */
+/** `nibras_locale` cookie: the proxy prefers it over `Accept-Language` on the next request. */
 function setLocaleCookie(locale: string) {
-  document.cookie = `tt_locale=${locale}; path=/; max-age=31536000`;
+  document.cookie = `nibras_locale=${locale}; path=/; max-age=31536000`;
 }
 
 /** Legal page link inside the terms checkbox label; a new tab keeps the half-filled form. */

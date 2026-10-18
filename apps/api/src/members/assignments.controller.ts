@@ -9,7 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import type { Assignment, AssignmentsPage } from '@tt/contracts';
+import type { Assignment, AssignmentsPage } from '@nibras/contracts';
 import { RequirePermission } from '../tenancy/decorators';
 import { AssignmentsService } from './assignments.service';
 import { AssignmentsQueryDto, CreateAssignmentDto } from './dto';

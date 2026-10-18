@@ -14,7 +14,7 @@ import type {
   AbuseReportCreated,
   AbuseReportsPage,
   MyAbuseReportsPage,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import { CurrentUser } from '../auth/decorators/current-user';
 import type { AuthUser } from '../common/request-context';
 import { CrossTenant, RequirePermission, SuperAdminOnly } from '../tenancy/decorators';

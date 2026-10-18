@@ -13,13 +13,13 @@ test('access cookie expiry is transparent: server navigation and client call bot
   await uiLogin(page, locale, user);
 
   // Simulate the 15-minute expiry, then a server navigation: (app) layout -> /auth/resume -> back.
-  await context.clearCookies({ name: 'tt_access' });
+  await context.clearCookies({ name: 'nibras_access' });
   await page.goto(`/${locale}/app/settings/profile`);
   await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/profile`), { timeout: 15_000 });
-  expect((await context.cookies()).some((c) => c.name === 'tt_access')).toBe(true);
+  expect((await context.cookies()).some((c) => c.name === 'nibras_access')).toBe(true);
 
   // Again, then a client call: 401 -> one refresh -> the PATCH is retried with its body.
-  await context.clearCookies({ name: 'tt_access' });
+  await context.clearCookies({ name: 'nibras_access' });
   const refreshes: string[] = [];
   page.on('request', (r) => {
     if (r.url().endsWith('/api/v1/auth/refresh')) refreshes.push(r.url());
@@ -57,7 +57,7 @@ test('login with ?next and 2FA keeps the deep link and remember', async ({
   await expect(page).toHaveURL(appUrl(`/${locale}/app/settings/security`), { timeout: 15_000 });
 
   // "Se souvenir de moi" survives the 2FA step: the refresh cookie is persistent.
-  const refresh = (await context.cookies()).find((c) => c.name === 'tt_refresh');
+  const refresh = (await context.cookies()).find((c) => c.name === 'nibras_refresh');
   expect(refresh?.expires ?? -1).toBeGreaterThan(0);
 });
 
@@ -81,8 +81,8 @@ test('logout from the user menu clears the session', async ({
   await page.getByRole('menuitem', { name: t(locale, 'shell.logout') }).click();
   await expect(page).toHaveURL(appUrl(`/${locale}/login`), { timeout: 15_000 });
   const names = (await context.cookies()).map((c) => c.name);
-  expect(names).not.toContain('tt_access');
-  expect(names).not.toContain('tt_refresh');
+  expect(names).not.toContain('nibras_access');
+  expect(names).not.toContain('nibras_refresh');
   // Back to the app: no session left, so the layout sends the visitor to login again.
   await page.goto(`/${locale}/app`);
   await expect(page).toHaveURL(new RegExp(`/${locale}/login\\?next=`), { timeout: 15_000 });

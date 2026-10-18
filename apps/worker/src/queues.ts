@@ -4,7 +4,7 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { DEFAULT_JOB_OPTIONS, QUEUES, type QueueName } from '@tt/contracts';
+import { DEFAULT_JOB_OPTIONS, QUEUES, type QueueName } from '@nibras/contracts';
 import { type Job, Queue, type RedisOptions, UnrecoverableError, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import type { Logger } from 'pino';

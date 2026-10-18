@@ -3,13 +3,13 @@ import { EnvSchema } from './env';
 
 const valid = {
   NODE_ENV: 'test',
-  DATABASE_URL: 'postgresql://app_user:app@localhost:5432/tt',
-  DATABASE_URL_SYSTEM: 'postgresql://app_system:app@localhost:5432/tt',
+  DATABASE_URL: 'postgresql://app_user:app@localhost:5432/nibras',
+  DATABASE_URL_SYSTEM: 'postgresql://app_system:app@localhost:5432/nibras',
   REDIS_URL: 'redis://localhost:6379/0',
   WEB_ORIGIN: 'http://localhost:3000',
   LOG_LEVEL: 'info',
   SMTP_URL: 'smtp://localhost:1025',
-  EMAIL_FROM: 'TT <no-reply@tt.localhost>',
+  EMAIL_FROM: 'Nibras <no-reply@nibras.localhost>',
   JWT_SECRET: 'test-only-jwt-secret-0123456789abcdef',
   // 'test-only-totp-key-32-bytes-long' (32 bytes)
   TOTP_ENCRYPTION_KEY: Buffer.from('test-only-totp-key-32-bytes-long').toString('base64'),

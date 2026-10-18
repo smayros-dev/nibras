@@ -1,7 +1,7 @@
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
-import { MINOR_SAFETY_REMINDER_JOB, QUEUES, type MinorSafetyReminderJob } from '@tt/contracts';
-import type { PrismaClient } from '@tt/db';
-import type { EmailProvider } from '@tt/providers';
+import { MINOR_SAFETY_REMINDER_JOB, QUEUES, type MinorSafetyReminderJob } from '@nibras/contracts';
+import type { PrismaClient } from '@nibras/db';
+import type { EmailProvider } from '@nibras/providers';
 import type { Job } from 'bullmq';
 import type { Logger } from 'pino';
 

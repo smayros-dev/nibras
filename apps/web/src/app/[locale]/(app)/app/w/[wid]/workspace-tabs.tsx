@@ -1,6 +1,6 @@
 'use client';
 
-import { Tabs, useCurrentPath } from '@tt/ui';
+import { Tabs, useCurrentPath } from '@nibras/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import NextLink from 'next/link';
 import { localizedPath } from '../../../../../../components/shell-path-provider';

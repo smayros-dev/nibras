@@ -6,7 +6,7 @@ import {
   HealthIndicatorResult,
   HealthIndicatorService,
 } from '@nestjs/terminus';
-import type { PrismaClient } from '@tt/db';
+import type { PrismaClient } from '@nibras/db';
 import type { Response } from 'express';
 import type Redis from 'ioredis';
 import { REDIS } from '../redis/redis.module';

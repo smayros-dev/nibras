@@ -1,7 +1,7 @@
 'use client';
 
-import type { TwoFactorRecoveryCodes, TwoFactorSetupResponse } from '@tt/contracts';
-import { Alert, Button, Checkbox, Field, Input, useSubmit, useToast } from '@tt/ui';
+import type { TwoFactorRecoveryCodes, TwoFactorSetupResponse } from '@nibras/contracts';
+import { Alert, Button, Checkbox, Field, Input, useSubmit, useToast } from '@nibras/ui';
 import { Copy, Download } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';

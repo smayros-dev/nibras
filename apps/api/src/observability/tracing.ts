@@ -13,7 +13,7 @@ import { env } from '../config/env';
 export function startTracing(endpoint: string | undefined): NodeSDK | undefined {
   if (!endpoint) return undefined;
   const sdk = new NodeSDK({
-    serviceName: 'tt-api',
+    serviceName: 'nibras-api',
     traceExporter: new OTLPTraceExporter(),
     metricReaders: [],
     logRecordProcessors: [],

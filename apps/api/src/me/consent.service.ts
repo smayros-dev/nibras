@@ -5,8 +5,8 @@ import {
   testConsentTermsVersion,
   type ConsentRecord,
   type CurrentConsentType,
-} from '@tt/contracts';
-import type { Consent, GuardedClient } from '@tt/db';
+} from '@nibras/contracts';
+import type { Consent, GuardedClient } from '@nibras/db';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
 import { RequestContext, type AuthUser } from '../common/request-context';

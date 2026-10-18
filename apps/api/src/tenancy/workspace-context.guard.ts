@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PATH_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
-import { tenantDb, type GuardedClient } from '@tt/db';
+import { tenantDb, type GuardedClient } from '@nibras/db';
 import type { Request } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { isPublicRequest } from '../auth/decorators/public';

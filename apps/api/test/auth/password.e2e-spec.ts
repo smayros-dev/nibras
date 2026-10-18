@@ -3,7 +3,7 @@ import {
   extractFirstLink,
   type EmailMessage,
   type EmailTemplateKey,
-} from '@tt/providers';
+} from '@nibras/providers';
 import type Redis from 'ioredis';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { generateToken } from '../../src/auth/crypto/tokens';

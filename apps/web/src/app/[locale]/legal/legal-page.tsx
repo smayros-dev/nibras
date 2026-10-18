@@ -1,4 +1,4 @@
-import { Alert, Badge, PageHeader } from '@tt/ui';
+import { Alert, Badge, PageHeader } from '@nibras/ui';
 import type { Metadata } from 'next';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';

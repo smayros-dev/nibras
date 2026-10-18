@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { seedRefusal } from './seed-guard';
 
-const url = (host: string) => `postgresql://tt:tt@${host}:5432/tt`;
+const url = (host: string) => `postgresql://nibras:nibras@${host}:5432/nibras`;
 
 describe('seedRefusal', () => {
   it.each(['localhost', '127.0.0.1', '[::1]', 'LOCALHOST'])(

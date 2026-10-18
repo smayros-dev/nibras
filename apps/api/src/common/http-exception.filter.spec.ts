@@ -1,5 +1,5 @@
 import type { ArgumentsHost } from '@nestjs/common';
-import { ApiErrorBodySchema, ValidationIssueSchema } from '@tt/contracts';
+import { ApiErrorBodySchema, ValidationIssueSchema } from '@nibras/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { HttpExceptionFilter } from './http-exception.filter';

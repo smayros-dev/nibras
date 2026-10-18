@@ -110,7 +110,7 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
       .post('/api/v1/auth/2fa/verify')
       .send({ challengeToken: first.body.challengeToken, otpCode: authenticator.generate(secret) })
       .expect(200);
-    expect(setCookies(ok).join()).toMatch(/tt_access=/);
+    expect(setCookies(ok).join()).toMatch(/nibras_access=/);
     expect(ok.body.status).toBe('OK');
     expect(ok.body.user).toMatchObject({ id: u.id, twoFactor: { enabled: true, required: false } });
     expect(await ctx.db.userSession.count({ where: { userId: u.id } })).toBe(2);
@@ -124,7 +124,7 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
     const { secret, recoveryCodes } = await enable((await loginAs(ctx, u)).cookie);
 
     const { challengeToken } = (await login(u)).body;
-    await http.get('/api/v1/me').set('Cookie', `tt_access=${challengeToken}`).expect(401);
+    await http.get('/api/v1/me').set('Cookie', `nibras_access=${challengeToken}`).expect(401);
     await http.get('/api/v1/me').set('Authorization', `Bearer ${challengeToken}`).expect(401);
 
     // Wrong code: 401 TWO_FACTOR_INVALID, audited as a failed login; the challenge stays usable.
@@ -176,7 +176,7 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
       })
       .expect(200);
     expect(r1.body.status).toBe('OK');
-    expect(setCookies(r1).join()).toMatch(/tt_refresh=.*Expires=/);
+    expect(setCookies(r1).join()).toMatch(/nibras_refresh=.*Expires=/);
     const used = ctx.email.findByTemplate('security.recovery_code_used', u.email);
     expect(used).toHaveLength(1);
     expect(used[0]!.params).toMatchObject({ remaining: 9 });

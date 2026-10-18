@@ -1,7 +1,7 @@
 import { sanitizeNext } from './sanitize-next';
 
 /** `sessionStorage` key of the pending 2FA login challenge (JSON since SP1.5). */
-export const CHALLENGE_STORAGE_KEY = 'tt.2fa.challenge';
+export const CHALLENGE_STORAGE_KEY = 'nibras.2fa.challenge';
 
 export interface TwoFactorChallenge {
   challengeToken: string;

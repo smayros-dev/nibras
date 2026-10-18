@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
-import { QUEUES } from '@tt/contracts';
+import { QUEUES } from '@nibras/contracts';
 import type { Job } from 'bullmq';
 
 import { ProcessorRegistry } from '../queues';

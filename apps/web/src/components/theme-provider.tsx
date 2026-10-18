@@ -1,12 +1,12 @@
 'use client';
 
-import { ThemeToggle, type ThemeValue } from '@tt/ui';
+import { ThemeToggle, type ThemeValue } from '@nibras/ui';
 import { ThemeProvider as NextThemesProvider, useTheme } from 'next-themes';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState, type ReactNode } from 'react';
 
 /** `localStorage` key of the stored theme (spec §2). */
-export const THEME_STORAGE_KEY = 'tt-theme';
+export const THEME_STORAGE_KEY = 'nibras-theme';
 
 /**
  * `next-themes` applies `data-theme="light|dark"` on `<html>` before first paint with an inline

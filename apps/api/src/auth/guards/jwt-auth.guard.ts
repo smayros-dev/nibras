@@ -6,7 +6,7 @@ import {
   type ExecutionContext,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { GuardedClient } from '@tt/db';
+import type { GuardedClient } from '@nibras/db';
 import type { Request } from 'express';
 import { ApiError } from '../../common/api-error';
 import { RequestContext, type AuthUser } from '../../common/request-context';
@@ -37,7 +37,7 @@ const unauthenticated = () =>
 /**
  * Global guard #1 (skipped by `@Public()`, and by `@PublicWithChallenge()` when the body has a
  * `challengeToken`): a valid `typ: 'access'` JWT from
- * `Authorization: Bearer` or the `tt_access` cookie (else `401 UNAUTHENTICATED`), whose session
+ * `Authorization: Bearer` or the `nibras_access` cookie (else `401 UNAUTHENTICATED`), whose session
  * is read with its user in ONE query on every request, so a revocation or a deleted account takes
  * effect immediately rather than when the 15-minute token expires: missing, revoked or expired
  * session, session of another user, or deleted account → `401 SESSION_REVOKED`. Fills

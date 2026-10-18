@@ -8,10 +8,10 @@ import {
 } from './test-env.mjs';
 
 describe('per-package test env', () => {
-  it('derives tt_<pkg>_test from the base URL, keeping credentials and query', () => {
+  it('derives nibras_<pkg>_test from the base URL, keeping credentials and query', () => {
     expect(
-      testDatabaseUrl('postgresql://app_user:app@localhost:5432/tt_test?schema=public', 'api'),
-    ).toBe('postgresql://app_user:app@localhost:5432/tt_api_test?schema=public');
+      testDatabaseUrl('postgresql://app_user:app@localhost:5432/nibras_test?schema=public', 'api'),
+    ).toBe('postgresql://app_user:app@localhost:5432/nibras_api_test?schema=public');
   });
 
   it('gives each package its own non-zero Redis index', () => {
@@ -24,29 +24,29 @@ describe('per-package test env', () => {
 
   it('rewrites only the base test variables that are set', () => {
     const env: Record<string, string | undefined> = {
-      DATABASE_URL_TEST: 'postgresql://app_user:app@localhost:5432/tt_test',
-      DATABASE_URL_TEST_SYSTEM: 'postgresql://app_system:app@localhost:5432/tt_test',
-      DATABASE_URL: 'postgresql://app_user:app@localhost:5432/tt',
+      DATABASE_URL_TEST: 'postgresql://app_user:app@localhost:5432/nibras_test',
+      DATABASE_URL_TEST_SYSTEM: 'postgresql://app_system:app@localhost:5432/nibras_test',
+      DATABASE_URL: 'postgresql://app_user:app@localhost:5432/nibras',
     };
     applyTestEnv('worker', env);
     expect(env).toEqual({
-      DATABASE_URL_TEST: 'postgresql://app_user:app@localhost:5432/tt_worker_test',
-      DATABASE_URL_TEST_SYSTEM: 'postgresql://app_system:app@localhost:5432/tt_worker_test',
-      DATABASE_URL: 'postgresql://app_user:app@localhost:5432/tt',
+      DATABASE_URL_TEST: 'postgresql://app_user:app@localhost:5432/nibras_worker_test',
+      DATABASE_URL_TEST_SYSTEM: 'postgresql://app_system:app@localhost:5432/nibras_worker_test',
+      DATABASE_URL: 'postgresql://app_user:app@localhost:5432/nibras',
     });
   });
 
   it('TEST_DB_PREFIX and TEST_REDIS_DB_BASE drive the per-worktree names', () => {
     const env: Record<string, string | undefined> = {
-      TEST_DB_PREFIX: 'tt_t3',
+      TEST_DB_PREFIX: 'nibras_t3',
       TEST_REDIS_DB_BASE: '10',
-      DATABASE_URL_TEST: 'postgresql://u:p@h:5432/tt_test?schema=public',
+      DATABASE_URL_TEST: 'postgresql://u:p@h:5432/nibras_test?schema=public',
       REDIS_URL_TEST: 'redis://h:6379/15',
     };
     applyTestEnv('api', env);
-    expect(env.DATABASE_URL_TEST).toBe('postgresql://u:p@h:5432/tt_t3_api_test?schema=public');
+    expect(env.DATABASE_URL_TEST).toBe('postgresql://u:p@h:5432/nibras_t3_api_test?schema=public');
     expect(env.REDIS_URL_TEST).toBe('redis://h:6379/11');
-    expect(testDbName('worker', {})).toBe('tt_worker_test');
+    expect(testDbName('worker', {})).toBe('nibras_worker_test');
     expect(testRedisDb('worker', {})).toBe(15);
     for (const bad of ['0', '14', 'x', '-1']) {
       expect(() => testRedisDb('db', { TEST_REDIS_DB_BASE: bad })).toThrow(/TEST_REDIS_DB_BASE/);
@@ -54,9 +54,9 @@ describe('per-package test env', () => {
   });
 
   it('rejects a TEST_DB_PREFIX that is not a lower-case Postgres identifier', () => {
-    for (const bad of ['', 'TT_T1', 'tt-t1']) {
+    for (const bad of ['', 'NIBRAS_T1', 'nibras-t1']) {
       expect(() => testDbName('db', { TEST_DB_PREFIX: bad })).toThrow(/TEST_DB_PREFIX/);
     }
-    expect(testDbName('api', { TEST_DB_PREFIX: 'tt_t1' })).toBe('tt_t1_api_test');
+    expect(testDbName('api', { TEST_DB_PREFIX: 'nibras_t1' })).toBe('nibras_t1_api_test');
   });
 });

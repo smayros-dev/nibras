@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { withTenantTx, type PrismaClient } from '@tt/db';
+import { withTenantTx, type PrismaClient } from '@nibras/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MEMBERSHIP_REMOVED, type MembershipRemovedEvent } from '../../src/members/events';
 import { MembershipService } from '../../src/members/membership.service';

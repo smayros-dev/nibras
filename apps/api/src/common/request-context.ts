@@ -5,7 +5,7 @@ import type {
   User,
   WorkspaceStatus,
   WorkspaceType,
-} from '@tt/db';
+} from '@nibras/db';
 
 /** The authenticated user as guards load it: never hashes or secrets. */
 export type AuthUser = Pick<

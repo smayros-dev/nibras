@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
-import type { User } from '@tt/db';
-import { InMemoryEmailProvider } from '@tt/providers';
+import type { User } from '@nibras/db';
+import { InMemoryEmailProvider } from '@nibras/providers';
 import Redis from 'ioredis';
 import type { PinoLogger } from 'nestjs-pino';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

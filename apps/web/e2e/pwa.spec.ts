@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { BRAND } from '@tt/ui/brand';
+import { BRAND } from '@nibras/ui/brand';
 import { t } from './helpers';
 
 /** PWA (spec D6, Review Focus 5): manifest, service worker script, translated offline page. */

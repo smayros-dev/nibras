@@ -1,5 +1,5 @@
 import { Writable } from 'node:stream';
-import { REDACT_KEYS, REDACT_SCOPED_PATHS, redactPaths } from '@tt/contracts';
+import { REDACT_KEYS, REDACT_SCOPED_PATHS, redactPaths } from '@nibras/contracts';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
@@ -51,7 +51,7 @@ describe('createLogger', () => {
     for (const secret of ['a@b.c', 'TOTP-SECRET', 'rc-1', 'Bearer', 'key-1', 'sid=2']) {
       expect(line).not.toContain(secret);
     }
-    expect(JSON.parse(line)).toMatchObject({ service: 'tt-worker', queue: 'notifications' });
+    expect(JSON.parse(line)).toMatchObject({ service: 'nibras-worker', queue: 'notifications' });
   });
 
   it('keeps err.code readable but censors otpCode and body.code', () => {

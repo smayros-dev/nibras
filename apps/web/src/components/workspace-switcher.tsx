@@ -1,7 +1,7 @@
 'use client';
 
-import type { MyWorkspace } from '@tt/contracts';
-import { Badge, DropdownMenu, VisuallyHidden } from '@tt/ui';
+import type { MyWorkspace } from '@nibras/contracts';
+import { Badge, DropdownMenu, VisuallyHidden } from '@nibras/ui';
 import { ChevronDown } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from '../i18n/navigation';

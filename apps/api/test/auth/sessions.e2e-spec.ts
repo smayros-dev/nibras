@@ -26,30 +26,31 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
       .send({ email: u.email, password: u.password, ...extra })
       .expect(200);
   const refresh = (token: string) =>
-    ctx.http.post('/api/v1/auth/refresh').set('Cookie', `tt_refresh=${token}`);
-  const me = (access: string) => ctx.http.get('/api/v1/me').set('Cookie', `tt_access=${access}`);
+    ctx.http.post('/api/v1/auth/refresh').set('Cookie', `nibras_refresh=${token}`);
+  const me = (access: string) =>
+    ctx.http.get('/api/v1/me').set('Cookie', `nibras_access=${access}`);
 
   it('AC-AUTH-04: refresh rotates; replaying the old refresh token revokes the sessions and emails the user', async () => {
     const { db, email } = ctx;
     const u = await createUser();
     const login = await loginHttp(u);
-    const refresh1 = cookieValue(login, 'tt_refresh');
+    const refresh1 = cookieValue(login, 'nibras_refresh');
     const r2 = await refresh(refresh1).expect(200);
-    const refresh2 = cookieValue(r2, 'tt_refresh');
+    const refresh2 = cookieValue(r2, 'nibras_refresh');
     expect(refresh2).not.toBe(refresh1);
-    expect(cookieValue(r2, 'tt_access')).not.toBe(cookieValue(login, 'tt_access'));
-    await me(cookieValue(r2, 'tt_access')).expect(200);
+    expect(cookieValue(r2, 'nibras_access')).not.toBe(cookieValue(login, 'nibras_access'));
+    await me(cookieValue(r2, 'nibras_access')).expect(200);
 
     const replay = await refresh(refresh1).expect(401);
     expect(replay.body.code).toBe('SESSION_REVOKED');
     // The reuse response clears the cookies it would otherwise have rotated.
-    expect(setCookieLine(replay, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+    expect(setCookieLine(replay, 'nibras_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
     await refresh(refresh2).expect(401); // whole family dead
     expect(email.findByTemplate('security.token_reuse', u.email)).toHaveLength(1);
     expect(email.findByTemplate('security.token_reuse', u.email)[0]!.params).toEqual({
       firstName: u.firstName,
     });
-    await me(cookieValue(r2, 'tt_access'))
+    await me(cookieValue(r2, 'nibras_access'))
       .expect(401)
       .expect(({ body }) => expect(body.code).toBe('SESSION_REVOKED'));
 
@@ -66,9 +67,9 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     const other = await loginAs(ctx, u); // another device (another family)
     const theirs = await loginAs(ctx, bystander);
     const login = await loginHttp(u);
-    const t1 = cookieValue(login, 'tt_refresh');
-    const t2 = cookieValue(await refresh(t1).expect(200), 'tt_refresh');
-    const t3 = cookieValue(await refresh(t2).expect(200), 'tt_refresh');
+    const t1 = cookieValue(login, 'nibras_refresh');
+    const t2 = cookieValue(await refresh(t1).expect(200), 'nibras_refresh');
+    const t3 = cookieValue(await refresh(t2).expect(200), 'nibras_refresh');
     expect(await ctx.db.refreshTokenHistory.count()).toBe(2);
     await refresh(t1)
       .expect(401)
@@ -104,8 +105,8 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
       const res = await refresh(forged)
         .expect(401)
         .expect(({ body }) => expect(body.code).toBe('UNAUTHENTICATED'));
-      expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
-      expect(setCookieLine(res, 'tt_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(setCookieLine(res, 'nibras_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(setCookieLine(res, 'nibras_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
     }
     expect(await ctx.db.userSession.count({ where: { userId: u.id, revokedAt: null } })).toBe(3);
     await as(ctx.http, s.cookie).get('/api/v1/me').expect(200);
@@ -130,7 +131,7 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
       const res = await refresh(s.refreshToken)
         .expect(401)
         .expect(({ body }) => expect(body.code).toBe('SESSION_REVOKED'));
-      expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(setCookieLine(res, 'nibras_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
       expect(
         (await ctx.db.userSession.findUniqueOrThrow({ where: { id: s.sessionId } })).revokedAt,
       ).toBeInstanceOf(Date);
@@ -141,7 +142,7 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
   it("two concurrent refreshes with the same token: one rotation, both get the winner's token, no reuse alarm", async () => {
     const u = await createUser();
     const login = await loginHttp(u);
-    const t1 = cookieValue(login, 'tt_refresh');
+    const t1 = cookieValue(login, 'nibras_refresh');
     const sessions = ctx.app.get(SessionService);
     const meta = { ip: '127.0.0.1', userAgent: 'vitest' };
     const run = () =>
@@ -157,16 +158,16 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     expect(ctx.email.findByTemplate('security.token_reuse', u.email)).toHaveLength(0);
     // The shared token keeps working; the presented one is now spent for good.
     const next = await refresh(a.refreshToken).expect(200);
-    await me(cookieValue(next, 'tt_access')).expect(200);
+    await me(cookieValue(next, 'nibras_access')).expect(200);
     await refresh(t1).expect(401);
   });
 
   it('parallel HTTP refreshes with the same cookie never trigger reuse detection', async () => {
     const u = await createUser();
-    const t1 = cookieValue(await loginHttp(u), 'tt_refresh');
+    const t1 = cookieValue(await loginHttp(u), 'nibras_refresh');
     const results = await Promise.all([refresh(t1), refresh(t1), refresh(t1)]);
     expect(results.map((r) => r.status)).toEqual([200, 200, 200]);
-    const tokens = new Set(results.map((r) => cookieValue(r, 'tt_refresh')));
+    const tokens = new Set(results.map((r) => cookieValue(r, 'nibras_refresh')));
     expect(tokens.size).toBe(1);
     expect(ctx.email.findByTemplate('security.token_reuse', u.email)).toHaveLength(0);
     expect(await ctx.db.userSession.count({ where: { userId: u.id, revokedAt: null } })).toBe(1);
@@ -175,12 +176,12 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
   it('refresh keeps the remember-me persistence and the absolute 30-day expiry', async () => {
     const u = await createUser();
     const remembered = await loginHttp(u, { remember: true });
-    const rotated = await refresh(cookieValue(remembered, 'tt_refresh')).expect(200);
-    expect(setCookieLine(rotated, 'tt_refresh')).toMatch(/Max-Age=259\d{4};/);
+    const rotated = await refresh(cookieValue(remembered, 'nibras_refresh')).expect(200);
+    expect(setCookieLine(rotated, 'nibras_refresh')).toMatch(/Max-Age=259\d{4};/);
     const plain = await loginHttp(u);
-    const rotatedPlain = await refresh(cookieValue(plain, 'tt_refresh')).expect(200);
-    expect(setCookieLine(rotatedPlain, 'tt_refresh')).not.toMatch(/Max-Age|Expires/);
-    expect(setCookieLine(rotatedPlain, 'tt_access')).toMatch(/Max-Age=900;/);
+    const rotatedPlain = await refresh(cookieValue(plain, 'nibras_refresh')).expect(200);
+    expect(setCookieLine(rotatedPlain, 'nibras_refresh')).not.toMatch(/Max-Age|Expires/);
+    expect(setCookieLine(rotatedPlain, 'nibras_access')).toMatch(/Max-Age=900;/);
   });
 
   it('refresh without a cookie or with a malformed/unknown token is 401 UNAUTHENTICATED and clears the cookies', async () => {
@@ -197,8 +198,8 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
       const res = await refresh(t)
         .expect(401)
         .expect(({ body }) => expect(body.code).toBe('UNAUTHENTICATED'));
-      expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
-      expect(setCookieLine(res, 'tt_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(setCookieLine(res, 'nibras_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(setCookieLine(res, 'nibras_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
     }
     expect(ctx.email.sent).toEqual([]);
   });
@@ -223,9 +224,9 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     const u = await createUser();
     const [a, b] = [await loginAs(ctx, u), await loginAs(ctx, u)];
     const res = await as(ctx.http, a.cookie).post('/api/v1/auth/logout').expect(204);
-    expect(setCookieLine(res, 'tt_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
-    expect(setCookieLine(res, 'tt_refresh')).toMatch(/Path=\/api\/v1\/auth/);
-    expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+    expect(setCookieLine(res, 'nibras_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
+    expect(setCookieLine(res, 'nibras_refresh')).toMatch(/Path=\/api\/v1\/auth/);
+    expect(setCookieLine(res, 'nibras_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
     await me(a.accessToken).expect(401);
     await me(b.accessToken).expect(200);
     await refresh(a.refreshToken)
@@ -243,9 +244,9 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     );
     const res = await ctx.http
       .post('/api/v1/auth/logout')
-      .set('Cookie', `tt_access=${expired}; tt_refresh=${s.refreshToken}`)
+      .set('Cookie', `nibras_access=${expired}; nibras_refresh=${s.refreshToken}`)
       .expect(204);
-    expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+    expect(setCookieLine(res, 'nibras_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
     expect(
       (await ctx.db.userSession.findUniqueOrThrow({ where: { id: s.sessionId } })).revokedAt,
     ).toBeInstanceOf(Date);
@@ -258,13 +259,13 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     const s = await loginAs(ctx, u);
     for (const cookie of [
       undefined,
-      `tt_access=junk; tt_refresh=${s.sessionId}.${generateToken().raw}`,
+      `nibras_access=junk; nibras_refresh=${s.sessionId}.${generateToken().raw}`,
     ]) {
       const req = ctx.http.post('/api/v1/auth/logout');
       if (cookie) req.set('Cookie', cookie);
       const res = await req.expect(204);
-      expect(setCookieLine(res, 'tt_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
-      expect(setCookieLine(res, 'tt_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(setCookieLine(res, 'nibras_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
+      expect(setCookieLine(res, 'nibras_refresh')).toMatch(/Expires=Thu, 01 Jan 1970/);
     }
     await as(ctx.http, s.cookie).get('/api/v1/me').expect(200);
   });
@@ -276,7 +277,7 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     const list = await as(http, s[0]!.cookie).get('/api/v1/auth/sessions').expect(200);
     expect(list.body).toHaveLength(3);
     const del = await as(http, s[0]!.cookie).delete('/api/v1/auth/sessions').expect(204);
-    expect(setCookieLine(del, 'tt_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
+    expect(setCookieLine(del, 'nibras_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
     for (const x of s) {
       await as(http, x.cookie)
         .get('/api/v1/me')
@@ -347,7 +348,7 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     const res = await as(ctx.http, a.cookie)
       .delete(`/api/v1/auth/sessions/${b.sessionId}`)
       .expect(204);
-    expect(setCookieLine(res, 'tt_access')).toBeUndefined(); // not the current session
+    expect(setCookieLine(res, 'nibras_access')).toBeUndefined(); // not the current session
     await as(ctx.http, b.cookie).get('/api/v1/me').expect(401);
     await as(ctx.http, a.cookie).get('/api/v1/me').expect(200);
     const audit = await ctx.db.auditLog.findFirstOrThrow({
@@ -363,7 +364,7 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
     const self = await as(ctx.http, a.cookie)
       .delete(`/api/v1/auth/sessions/${a.sessionId}`)
       .expect(204);
-    expect(setCookieLine(self, 'tt_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
+    expect(setCookieLine(self, 'nibras_access')).toMatch(/Expires=Thu, 01 Jan 1970/);
     await as(ctx.http, a.cookie).get('/api/v1/me').expect(401);
   });
 
@@ -440,16 +441,16 @@ describe('sessions: refresh rotation, reuse detection, device list', () => {
   it('never writes access or refresh tokens to the logs', async () => {
     const u = await createUser();
     const login = await loginHttp(u);
-    const t1 = cookieValue(login, 'tt_refresh');
+    const t1 = cookieValue(login, 'nibras_refresh');
     const r2 = await refresh(t1).expect(200);
     await refresh(t1).expect(401);
     const logs = JSON.stringify(ctx.logs.lines());
     for (const secret of [
-      cookieValue(login, 'tt_access'),
+      cookieValue(login, 'nibras_access'),
       t1,
       t1.split('.')[1]!,
-      cookieValue(r2, 'tt_refresh').split('.')[1]!,
-      cookieValue(r2, 'tt_access'),
+      cookieValue(r2, 'nibras_refresh').split('.')[1]!,
+      cookieValue(r2, 'nibras_access'),
     ]) {
       expect(logs).not.toContain(secret);
     }

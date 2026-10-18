@@ -9,7 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import type { AdminHealth, AdminWorkspacesPage, WorkspaceStorage } from '@tt/contracts';
+import type { AdminHealth, AdminWorkspacesPage, WorkspaceStorage } from '@nibras/contracts';
 import { CurrentUser } from '../auth/decorators/current-user';
 import type { AuthUser } from '../common/request-context';
 import { CrossTenant, SuperAdminOnly } from '../tenancy/decorators';

@@ -1,6 +1,6 @@
 'use client';
 
-import { Spinner } from '@tt/ui';
+import { Spinner } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef } from 'react';
 import { useRouter } from '../../../../../i18n/navigation';
@@ -8,7 +8,7 @@ import { refreshSession, RESUME_COOKIE } from '../../../../../lib/auth-refresh';
 
 /**
  * Refreshes once, then returns to `next` (sanitized, locale-less) or goes to login. The short-lived
- * `tt_resume` cookie is the loop guard: if the `(app)` layout still sees no session while it is
+ * `nibras_resume` cookie is the loop guard: if the `(app)` layout still sees no session while it is
  * set, it sends the user to login instead of back here.
  */
 export function ResumeClient({ next }: { next: string }) {

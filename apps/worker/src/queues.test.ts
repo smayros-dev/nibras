@@ -1,4 +1,4 @@
-import { DEFAULT_JOB_OPTIONS } from '@tt/contracts';
+import { DEFAULT_JOB_OPTIONS } from '@nibras/contracts';
 import type { JobsOptions } from 'bullmq';
 import { describe, expect, it } from 'vitest';
 
@@ -41,7 +41,7 @@ describe('redisConnection', () => {
   });
 });
 
-describe('DEFAULT_JOB_OPTIONS (from @tt/contracts)', () => {
+describe('DEFAULT_JOB_OPTIONS (from @nibras/contracts)', () => {
   it('is a valid BullMQ JobsOptions', () => {
     const options: JobsOptions = DEFAULT_JOB_OPTIONS;
     expect(options).toMatchObject({ attempts: 3, backoff: { type: 'exponential', delay: 1000 } });

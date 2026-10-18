@@ -1,6 +1,6 @@
 'use client';
 
-import { useDebouncedValue } from '@tt/ui';
+import { useDebouncedValue } from '@nibras/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface AbortableQuery<T> {

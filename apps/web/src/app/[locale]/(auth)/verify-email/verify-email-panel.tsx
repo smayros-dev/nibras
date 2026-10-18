@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Button, useSubmit, useToast } from '@tt/ui';
+import { Alert, Button, useSubmit, useToast } from '@nibras/ui';
 import { MailCheck } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';

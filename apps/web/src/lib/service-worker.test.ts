@@ -158,8 +158,8 @@ function setup({
   return { self, stores, fetchMock, dispatch, settle, request };
 }
 
-const SHELL = `tt-shell-${SW_VERSION}`;
-const STATIC = `tt-static-${SW_VERSION}`;
+const SHELL = `nibras-shell-${SW_VERSION}`;
+const STATIC = `nibras-static-${SW_VERSION}`;
 
 describe('service worker (public/sw.js)', () => {
   let env: ReturnType<typeof setup>;
@@ -224,8 +224,17 @@ describe('service worker (public/sw.js)', () => {
     });
   });
 
-  it('activate deletes the caches of other versions and claims the clients', async () => {
-    env = setup({ existingCaches: ['tt-shell-old', 'tt-static-old', 'other-app'] });
+  it('activate deletes the caches of other versions (and the legacy tt-* ones) and claims the clients', async () => {
+    env = setup({
+      existingCaches: [
+        'nibras-shell-old',
+        'nibras-static-old',
+        // Pre-rename caches (the app was called TT): removed too.
+        'tt-shell-old',
+        'tt-static-old',
+        'other-app',
+      ],
+    });
     await env.settle(env.dispatch('install'));
     await env.settle(env.dispatch('activate'));
     // (The static cache is only opened by the first `/_next/static/` fetch.)

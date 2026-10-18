@@ -1,4 +1,4 @@
-import type { QueueName } from '@tt/contracts';
+import type { QueueName } from '@nibras/contracts';
 import type { Queue } from 'bullmq';
 import { describe, expect, it, vi } from 'vitest';
 import { redisConnection } from './queue.module';

@@ -1,5 +1,5 @@
-import { CONSENT_VERSIONS, REQUIRED_CONSENTS } from '@tt/contracts';
-import { db, resetDatabase, systemPrisma } from '@tt/db';
+import { CONSENT_VERSIONS, REQUIRED_CONSENTS } from '@nibras/contracts';
+import { db, resetDatabase, systemPrisma } from '@nibras/db';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FakePwnedClient } from '../auth/crypto/hibp';
 import { verifyPassword } from '../auth/crypto/password';

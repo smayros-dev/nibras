@@ -1,7 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { normalizeIp } from '@nestjs/throttler';
-import type { User } from '@tt/db';
-import type { EmailProvider } from '@tt/providers';
+import type { User } from '@nibras/db';
+import type { EmailProvider } from '@nibras/providers';
 import type Redis from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';

@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@tt/ui';
+import { Button } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 
 /**

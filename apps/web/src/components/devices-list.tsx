@@ -1,7 +1,7 @@
 'use client';
 
-import type { SessionSummary } from '@tt/contracts';
-import { formatDate } from '@tt/i18n';
+import type { SessionSummary } from '@nibras/contracts';
+import { formatDate } from '@nibras/i18n';
 import {
   Alert,
   AlertDialog,
@@ -11,7 +11,7 @@ import {
   Table,
   useSubmit,
   useToast,
-} from '@tt/ui';
+} from '@nibras/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from '../i18n/navigation';

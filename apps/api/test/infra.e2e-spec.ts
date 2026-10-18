@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Controller, Get, Param } from '@nestjs/common';
-import { db as guardedDb } from '@tt/db';
+import { db as guardedDb } from '@nibras/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AuditService } from '../src/audit/audit.service';
 import { FakePwnedClient } from '../src/auth/crypto/hibp';
@@ -61,7 +61,7 @@ describe('test infrastructure', () => {
     expect(workspace.type).toBe('ORGANIZATION');
     expect(email.sent).toEqual([]);
     expect(queue.jobs).toEqual([]);
-    // Per-package / per-worktree DB, never tt.
+    // Per-package / per-worktree DB, never nibras.
     expect(new URL(process.env.DATABASE_URL!).pathname).toMatch(/_api_test$/);
   });
 

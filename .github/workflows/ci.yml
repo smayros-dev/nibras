@@ -19,14 +19,14 @@ env:
   # Same layout as .env.example, against the job's service containers. Test-only credentials
   # (created by infra/docker/postgres/init.sql), not secrets. Every variable a test or build reads
   # must be listed here AND in turbo.json (strict env mode), or the task does not see it.
-  # DATABASE_URL_TEST*/REDIS_URL_TEST are bases: each package derives tt_<pkg>_test and its own
+  # DATABASE_URL_TEST*/REDIS_URL_TEST are bases: each package derives nibras_<pkg>_test and its own
   # Redis index (packages/config/vitest/test-env.mjs). TEST_DB_PREFIX/TEST_REDIS_DB_BASE (turbo.json)
   # are left unset here: the defaults apply.
-  DATABASE_URL: postgresql://app_user:app@localhost:5432/tt
-  DATABASE_URL_SYSTEM: postgresql://app_system:app@localhost:5432/tt
-  DATABASE_URL_TEST: postgresql://app_user:app@localhost:5432/tt_test
-  DATABASE_URL_TEST_SYSTEM: postgresql://app_system:app@localhost:5432/tt_test
-  DATABASE_URL_SHADOW: postgresql://app_system:app@localhost:5432/tt_shadow
+  DATABASE_URL: postgresql://app_user:app@localhost:5432/nibras
+  DATABASE_URL_SYSTEM: postgresql://app_system:app@localhost:5432/nibras
+  DATABASE_URL_TEST: postgresql://app_user:app@localhost:5432/nibras_test
+  DATABASE_URL_TEST_SYSTEM: postgresql://app_system:app@localhost:5432/nibras_test
+  DATABASE_URL_SHADOW: postgresql://app_system:app@localhost:5432/nibras_shadow
   REDIS_URL: redis://localhost:6379
   REDIS_URL_TEST: redis://localhost:6379/15
   WEB_ORIGIN: http://localhost:3000
@@ -38,7 +38,7 @@ env:
   APP_ENV: development
   SMTP_URL: smtp://localhost:1025
   # SP1 auth settings: CI-only dummy values, not secrets.
-  EMAIL_FROM: TT CI <no-reply@tt.localhost>
+  EMAIL_FROM: Nibras CI <no-reply@nibras.localhost>
   JWT_SECRET: ci-only-jwt-secret-not-a-real-secret-0123456789
   TOTP_ENCRYPTION_KEY: Y2ktb25seS10b3RwLWtleS0zMi1ieXRlcy1sb25nISE=
   SMS_PROVIDER: console
@@ -79,22 +79,22 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Service containers start before checkout, so init.sql (roles + tt, the per-package test DBs
-      # tt_db_test/tt_api_test/tt_worker_test and tt_shadow) is applied here.
+      # Service containers start before checkout, so init.sql (roles + nibras, the per-package test DBs
+      # nibras_db_test/nibras_api_test/nibras_worker_test and nibras_shadow) is applied here.
       - name: Initialise Postgres (roles and databases)
         run: psql "$PG_ADMIN_URL" -v ON_ERROR_STOP=1 -f infra/docker/postgres/init.sql
       - run: pnpm lint
       - run: pnpm typecheck
-      - name: Migrate tt
-        run: pnpm --filter @tt/db migrate:deploy
-      - name: Migrate the test DBs (tt_db_test, tt_api_test, tt_worker_test)
+      - name: Migrate nibras
+        run: pnpm --filter @nibras/db migrate:deploy
+      - name: Migrate the test DBs (nibras_db_test, nibras_api_test, nibras_worker_test)
         run: pnpm db:migrate:test
       - run: pnpm test
       - run: pnpm build
       - name: First-load JS budget (PRD §14.1, < 250 kB gzip per route)
-        run: pnpm --filter @tt/web budget
+        run: pnpm --filter @nibras/web budget
       - name: OpenAPI contracts are up to date
-        run: pnpm --filter @tt/api openapi:export && pnpm --filter @tt/contracts generate && git diff --exit-code packages/contracts
+        run: pnpm --filter @nibras/api openapi:export && pnpm --filter @nibras/contracts generate && git diff --exit-code packages/contracts
 
   windows-check:
     # Developers run Windows 11: scripts must not be Linux-only. No Docker services on this
@@ -112,7 +112,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test --filter=@tt/config --filter=@tt/contracts --filter=@tt/i18n --filter=@tt/ui
+      - run: pnpm test --filter=@nibras/config --filter=@nibras/contracts --filter=@nibras/i18n --filter=@nibras/ui
 
   migrate-check:
     # Fails when schema.prisma and prisma/migrations drift apart (a model change without a migration).
@@ -136,7 +136,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Initialise Postgres (roles and databases)
         run: psql "$PG_ADMIN_URL" -v ON_ERROR_STOP=1 -f infra/docker/postgres/init.sql
-      - run: pnpm --filter @tt/db migrate:check
+      - run: pnpm --filter @nibras/db migrate:check
 
   e2e:
     runs-on: ubuntu-latest
@@ -175,11 +175,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Initialise Postgres (roles and databases)
         run: psql "$PG_ADMIN_URL" -v ON_ERROR_STOP=1 -f infra/docker/postgres/init.sql
-      - run: pnpm --filter @tt/db migrate:deploy
+      - run: pnpm --filter @nibras/db migrate:deploy
       # The api/worker dist and the web standalone output (`.next/standalone`) the e2e runs.
       - run: pnpm build
-      - run: pnpm --filter @tt/web exec playwright install --with-deps chromium
-      - run: pnpm --filter @tt/web e2e
+      - run: pnpm --filter @nibras/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @nibras/web e2e
       - name: App logs
         if: failure()
         run: tail -n 200 api.log worker.log
@@ -216,7 +216,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Image name (GHCR needs a lowercase owner)
         id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/tt-${{ matrix.app }}" >> "$GITHUB_OUTPUT"
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/nibras-${{ matrix.app }}" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:

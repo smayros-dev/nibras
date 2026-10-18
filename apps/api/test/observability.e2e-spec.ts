@@ -119,7 +119,7 @@ describe('observability', () => {
       .set('Cookie', 'sid=s3cret')
       .expect(200);
     const line = logs.lines().find((l) => l.msg === 'request completed');
-    expect(line).toMatchObject({ service: 'tt-api', request_id: 'obs-1', level: 30 });
+    expect(line).toMatchObject({ service: 'nibras-api', request_id: 'obs-1', level: 30 });
     // Only the status of the response: its headers (helmet, CORS) would repeat on every line.
     expect(line?.res).toEqual({ statusCode: 200 });
     expect(JSON.stringify(logs.lines())).not.toContain('s3cret');
@@ -156,7 +156,7 @@ describe('observability', () => {
 
   it('openapi document lists the health routes under the /api/v1 server', async () => {
     const doc = buildOpenApiDocument(app);
-    expect(doc.info.title).toBe('TT API');
+    expect(doc.info.title).toBe('Nibras API');
     expect(doc.info.version).toBe('1');
     expect(doc.servers?.[0]?.url).toBe('/api/v1');
     expect(doc.paths['/health/live']).toBeDefined();

@@ -4,7 +4,7 @@ import {
   TransferOwnershipSchema,
   UpdateWorkspaceSchema,
   WorkspaceSettingsPatchSchema,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import { createZodDto } from 'nestjs-zod';
 
 export class CreateOrganizationDto extends createZodDto(CreateOrganizationSchema) {}

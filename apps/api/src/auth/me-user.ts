@@ -1,5 +1,5 @@
-import type { CurrentConsentType, MeUser } from '@tt/contracts';
-import type { User } from '@tt/db';
+import type { CurrentConsentType, MeUser } from '@nibras/contracts';
+import type { User } from '@nibras/db';
 
 type MeUserSource = Pick<
   User,

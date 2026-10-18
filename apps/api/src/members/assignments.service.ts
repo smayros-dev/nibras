@@ -4,8 +4,8 @@ import type {
   AssignmentsPage,
   AssignmentsQuery,
   CreateAssignmentInput,
-} from '@tt/contracts';
-import { Prisma, tenantDb, withTenantTx, type TeacherStudentAssignment } from '@tt/db';
+} from '@nibras/contracts';
+import { Prisma, tenantDb, withTenantTx, type TeacherStudentAssignment } from '@nibras/db';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
 import { validationFailed } from '../workspaces/workspaces.service';

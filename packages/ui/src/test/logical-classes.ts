@@ -2,7 +2,7 @@ import { expect } from 'vitest';
 
 /**
  * A single class token that is a physical left/right utility (variant prefixes such as `md:` or
- * `rtl:` are stripped first). Same list as the lint rule in `@tt/config/eslint/logical-css`; the
+ * `rtl:` are stripped first). Same list as the lint rule in `@nibras/config/eslint/logical-css`; the
  * one allowed physical utility, `rtl:-scale-x-100`, does not match.
  */
 export const PHYSICAL_TOKEN =

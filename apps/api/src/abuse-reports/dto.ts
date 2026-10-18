@@ -4,7 +4,7 @@ import {
   CreateAbuseReportSchema,
   MyAbuseReportsQuerySchema,
   UpdateAbuseReportSchema,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import { createZodDto } from 'nestjs-zod';
 
 export class CreateAbuseReportDto extends createZodDto(CreateAbuseReportSchema) {}

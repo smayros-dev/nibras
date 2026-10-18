@@ -4,7 +4,7 @@ import {
   MembersQuerySchema,
   RemoveMemberSchema,
   UpdateMemberSchema,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import { createZodDto } from 'nestjs-zod';
 
 export class MembersQueryDto extends createZodDto(MembersQuerySchema) {}

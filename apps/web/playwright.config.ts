@@ -6,7 +6,7 @@ const baseURL = 'http://localhost:3000';
 const ci = !!process.env.CI;
 /**
  * Production-build mode (spec D11): in CI, or locally with `E2E_PROD=1` after
- * `pnpm --filter @tt/web build`, the web app is the standalone server the container runs (the
+ * `pnpm --filter @nibras/web build`, the web app is the standalone server the container runs (the
  * service worker registers, the CSP is the strict one, no cold compiles). The API and worker run
  * their builds too (`pnpm build` first): a `nest start --watch` server restarts whenever its
  * watcher sees a change, and requests in flight then fail with a 500 through the web proxy.
@@ -16,14 +16,14 @@ const ci = !!process.env.CI;
 const prod = ci || process.env.E2E_PROD === '1';
 
 function apiCommand(): string {
-  if (ci) return 'pnpm --filter @tt/api start > ../../api.log 2>&1';
-  if (prod) return 'pnpm --filter @tt/api exec dotenv -e ../../.env -- node dist/main.js';
-  return 'pnpm --filter @tt/api dev';
+  if (ci) return 'pnpm --filter @nibras/api start > ../../api.log 2>&1';
+  if (prod) return 'pnpm --filter @nibras/api exec dotenv -e ../../.env -- node dist/main.js';
+  return 'pnpm --filter @nibras/api dev';
 }
 
 function workerCommand(): string {
-  if (ci) return 'pnpm --filter @tt/worker start > ../../worker.log 2>&1';
-  return prod ? 'pnpm --filter @tt/worker start' : 'pnpm --filter @tt/worker dev';
+  if (ci) return 'pnpm --filter @nibras/worker start > ../../worker.log 2>&1';
+  return prod ? 'pnpm --filter @nibras/worker start' : 'pnpm --filter @nibras/worker dev';
 }
 
 export default defineConfig<LocaleTestOptions>({
@@ -95,7 +95,9 @@ export default defineConfig<LocaleTestOptions>({
       timeout: 180_000,
     },
     {
-      command: prod ? 'pnpm --filter @tt/web start:standalone' : 'pnpm --filter @tt/web dev',
+      command: prod
+        ? 'pnpm --filter @nibras/web start:standalone'
+        : 'pnpm --filter @nibras/web dev',
       // Probing a page (not /health) compiles the [locale] route before parallel workers hit it:
       // concurrent cold compiles in `next dev` can race ("Unexpected end of JSON input").
       url: `${baseURL}/fr`,
@@ -103,7 +105,7 @@ export default defineConfig<LocaleTestOptions>({
       timeout: 180_000,
       // The (app) layout reads it server-side to compute the current TERMS version. The override
       // is honoured only under an explicit APP_ENV=development, whatever NODE_ENV says (the
-      // standalone build runs NODE_ENV=production) — `testConsentTermsVersion`, @tt/contracts.
+      // standalone build runs NODE_ENV=production) — `testConsentTermsVersion`, @nibras/contracts.
       env: { TEST_CONSENT_TERMS_VERSION, APP_ENV: 'development' },
     },
   ],

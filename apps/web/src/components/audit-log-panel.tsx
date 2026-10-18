@@ -1,9 +1,19 @@
 'use client';
 
-import type { AuditEntry, AuditLogPage } from '@tt/contracts';
-import { MEMBERSHIP_ROLES } from '@tt/contracts/web';
-import { formatDate } from '@tt/i18n';
-import { Alert, Badge, Button, Card, EmptyState, Field, Input, SkeletonTable, Table } from '@tt/ui';
+import type { AuditEntry, AuditLogPage } from '@nibras/contracts';
+import { MEMBERSHIP_ROLES } from '@nibras/contracts/web';
+import { formatDate } from '@nibras/i18n';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  SkeletonTable,
+  Table,
+} from '@nibras/ui';
 import { ChevronLeft, ChevronRight, ScrollText } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';

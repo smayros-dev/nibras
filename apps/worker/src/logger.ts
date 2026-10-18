@@ -1,5 +1,5 @@
 import type { LoggerService } from '@nestjs/common';
-import { redactPaths } from '@tt/contracts';
+import { redactPaths } from '@nibras/contracts';
 import { pino, type DestinationStream, type Level, type LevelWithSilent, type Logger } from 'pino';
 
 export const WORKER_LOGGER = Symbol('WORKER_LOGGER');
@@ -11,7 +11,7 @@ export const WORKER_LOGGER = Symbol('WORKER_LOGGER');
 export function createLogger(level: LevelWithSilent, destination?: DestinationStream): Logger {
   const options = {
     level,
-    base: { service: 'tt-worker' },
+    base: { service: 'nibras-worker' },
     redact: { paths: redactPaths(), censor: '[REDACTED]' },
   };
   return destination ? pino(options, destination) : pino(options);

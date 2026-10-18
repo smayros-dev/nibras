@@ -1,6 +1,6 @@
-import type { Locale } from '@tt/contracts';
+import type { Locale } from '@nibras/contracts';
 
-/** Every transactional email of SP1; messages live in `@tt/i18n` under `emails.<key>`. */
+/** Every transactional email of SP1; messages live in `@nibras/i18n` under `emails.<key>`. */
 export const EMAIL_TEMPLATE_KEYS = [
   'auth.verify_email',
   'auth.password_reset',

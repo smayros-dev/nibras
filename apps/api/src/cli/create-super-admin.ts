@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { CONSENT_VERSIONS, REQUIRED_CONSENTS } from '@tt/contracts';
-import { db, type GuardedClient } from '@tt/db';
+import { CONSENT_VERSIONS, REQUIRED_CONSENTS } from '@nibras/contracts';
+import { db, type GuardedClient } from '@nibras/db';
 import { z } from 'zod';
 import { hashPassword } from '../auth/crypto/password';
 import { PasswordPolicy } from '../auth/crypto/password-policy';
@@ -10,7 +10,7 @@ import { createPwnedClient } from '../providers/providers.module';
 /**
  * First super-admin bootstrap (PRD §8.16.4). Run from the repo with the environment loaded:
  *
- *     pnpm --filter @tt/api cli create-super-admin --email <e> --password <p> \
+ *     pnpm --filter @nibras/api cli create-super-admin --email <e> --password <p> \
  *       [--first-name <f>] [--last-name <l>]
  *
  * The super-admin console has no sign-up: this is the only way to grant `SUPER_ADMIN`.

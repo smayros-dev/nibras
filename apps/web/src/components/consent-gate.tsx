@@ -1,7 +1,7 @@
 'use client';
 
-import type { CurrentConsentType } from '@tt/contracts';
-import { Alert, Badge, Button, Dialog, useSubmit, VisuallyHidden } from '@tt/ui';
+import type { CurrentConsentType } from '@nibras/contracts';
+import { Alert, Badge, Button, Dialog, useSubmit, VisuallyHidden } from '@nibras/ui';
 import { ExternalLink } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState, useTransition } from 'react';

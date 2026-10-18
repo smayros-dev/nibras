@@ -1,8 +1,8 @@
 import { hkdfSync } from 'node:crypto';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import type { SessionSummary } from '@tt/contracts';
-import { uuidv7, type GuardedClient, type User, type UserSession } from '@tt/db';
-import type { EmailProvider } from '@tt/providers';
+import type { SessionSummary } from '@nibras/contracts';
+import { uuidv7, type GuardedClient, type User, type UserSession } from '@nibras/db';
+import type { EmailProvider } from '@nibras/providers';
 import type Redis from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
@@ -121,7 +121,7 @@ type RotateOutcome =
 export class SessionService {
   private readonly graceBox = new SecretBox(
     Buffer.from(
-      hkdfSync('sha256', env.JWT_SECRET, Buffer.alloc(0), 'tt/refresh-rotation-grace', 32),
+      hkdfSync('sha256', env.JWT_SECRET, Buffer.alloc(0), 'nibras/refresh-rotation-grace', 32),
     ).toString('base64'),
   );
 

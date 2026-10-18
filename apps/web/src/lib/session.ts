@@ -1,4 +1,4 @@
-import type { MeUser } from '@tt/contracts';
+import type { MeUser } from '@nibras/contracts';
 import { asApiResult, serverApi } from './api';
 
 /**

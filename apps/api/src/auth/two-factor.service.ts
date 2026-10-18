@@ -1,6 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { Prisma, type GuardedClient, type User } from '@tt/db';
-import type { EmailParams, EmailProvider, EmailTemplateKey } from '@tt/providers';
+import { Prisma, type GuardedClient, type User } from '@nibras/db';
+import type { EmailParams, EmailProvider, EmailTemplateKey } from '@nibras/providers';
 import type Redis from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 import { authenticator } from 'otplib';

@@ -10,7 +10,7 @@ import {
   TwoFactorRecoverySchema,
   TwoFactorVerifySchema,
   VerifyEmailSchema,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { PASSWORD_MAX_LENGTH } from './crypto/password-policy';

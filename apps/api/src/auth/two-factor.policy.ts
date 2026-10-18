@@ -1,4 +1,4 @@
-import { crossTenantDb, type User } from '@tt/db';
+import { crossTenantDb, type User } from '@nibras/db';
 
 /**
  * PRD D-P12 / §8.1.2: 2FA is mandatory for a `SUPER_ADMIN` and for an ACTIVE `OWNER`/`ADMIN` of

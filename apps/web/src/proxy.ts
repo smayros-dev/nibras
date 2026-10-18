@@ -14,7 +14,7 @@ const LOCALE_PREFIX = new RegExp(`^/(?:${VALID_LOCALES.join('|')})(?=/|$)`);
  * `Accept-Language` header first reduced to the locale our strict negotiation picks: next-intl's
  * own matcher would send `ar-TN,fr;q=0.8` to `/fr` (Review Focus 1).
  *
- * The `tt_locale` cookie (set at register/login from the account's own locale) wins over both:
+ * The `nibras_locale` cookie (set at register/login from the account's own locale) wins over both:
  * it is copied to `NEXT_LOCALE` before next-intl reads the request cookies.
  *
  * Security headers (spec D7): a fresh nonce per request goes into the CSP, which is set on the
@@ -23,7 +23,7 @@ const LOCALE_PREFIX = new RegExp(`^/(?:${VALID_LOCALES.join('|')})(?=/|$)`);
  * the other security headers.
  */
 export default function proxy(request: NextRequest) {
-  const stored = request.cookies.get('tt_locale')?.value;
+  const stored = request.cookies.get('nibras_locale')?.value;
   if (stored && VALID_LOCALES.includes(stored)) {
     request.cookies.set('NEXT_LOCALE', stored);
   }

@@ -1,6 +1,6 @@
 import { Inject, Logger, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { TerminusModule } from '@nestjs/terminus';
-import { createPrismaClient, type PrismaClient } from '@tt/db';
+import { createPrismaClient, type PrismaClient } from '@nibras/db';
 import { env } from '../config/env';
 import { DB_HEALTH_CLIENT, HealthController } from './health.controller';
 

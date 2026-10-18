@@ -1,4 +1,4 @@
-import { createPrismaClient } from '@tt/db';
+import { createPrismaClient } from '@nibras/db';
 import Redis from 'ioredis';
 import { describe, expect, it } from 'vitest';
 import { DB_HEALTH_CLIENT } from '../src/health/health.module';

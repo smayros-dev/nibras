@@ -1,3 +1,3 @@
-import next from '@tt/config/eslint/next';
+import next from '@nibras/config/eslint/next';
 
 export default next;

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# Worker image. Build from the repo root: docker build -f infra/docker/worker.Dockerfile -t tt-worker .
+# Worker image. Build from the repo root: docker build -f infra/docker/worker.Dockerfile -t nibras-worker .
 # BullMQ worker; health server on WORKER_PORT (default 3002). Never runs migrations.
 
 ARG NODE_IMAGE=node:22.23.3-alpine3.24@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
@@ -14,7 +14,7 @@ ENV TURBO_TELEMETRY_DISABLED=1 \
 FROM base AS pruner
 WORKDIR /repo
 COPY . .
-RUN turbo prune @tt/worker --docker
+RUN turbo prune @nibras/worker --docker
 
 FROM base AS builder
 WORKDIR /repo
@@ -23,7 +23,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 COPY --from=pruner /repo/out/full/ .
-RUN pnpm turbo run build --filter=@tt/worker
+RUN pnpm turbo run build --filter=@nibras/worker
 
 FROM ${NODE_IMAGE} AS runner
 RUN apk add --no-cache libc6-compat openssl
@@ -32,9 +32,9 @@ ENV NODE_ENV=production \
     APP_ENV=production \
     WORKER_PORT=3002
 WORKDIR /app
-RUN addgroup -S -g 1001 tt && adduser -S -u 1001 -G tt tt
+RUN addgroup -S -g 1001 nibras && adduser -S -u 1001 -G nibras nibras
 COPY --from=builder /repo .
-USER tt
+USER nibras
 EXPOSE 3002
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -q -O /dev/null "http://127.0.0.1:${WORKER_PORT}/health/live" || exit 1

@@ -1,5 +1,5 @@
 {
-  "extends": "@tt/config/tsconfig/package",
+  "extends": "@nibras/config/tsconfig/package",
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2023"],
     "module": "ESNext",

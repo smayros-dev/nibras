@@ -1,5 +1,5 @@
 {
-  "name": "@tt/i18n",
+  "name": "@nibras/i18n",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -29,10 +29,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tt/contracts": "workspace:*"
+    "@nibras/contracts": "workspace:*"
   },
   "devDependencies": {
-    "@tt/config": "workspace:*",
+    "@nibras/config": "workspace:*",
     "eslint": "^9.39.5",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3",

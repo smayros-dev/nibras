@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { WorkspaceSettingsSchema } from '@tt/contracts';
-import type { PrismaClient } from '@tt/db';
-import type { InMemoryEmailProvider } from '@tt/providers';
+import { WorkspaceSettingsSchema } from '@nibras/contracts';
+import type { PrismaClient } from '@nibras/db';
+import type { InMemoryEmailProvider } from '@nibras/providers';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
 import { as, loginAs } from '../helpers/auth';

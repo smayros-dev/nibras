@@ -20,7 +20,7 @@ function importGraph(file: string, seen = new Set<string>(), packages = new Set<
   return { seen, packages };
 }
 
-describe('@tt/contracts/web', () => {
+describe('@nibras/contracts/web', () => {
   it('never reaches zod (it ships in browser bundles; PRD §14.1 budget)', () => {
     const { seen, packages } = importGraph('web.ts');
     expect(seen.size).toBeGreaterThan(5);

@@ -1,4 +1,4 @@
-import { QUEUES } from '@tt/contracts';
+import { QUEUES } from '@nibras/contracts';
 import { Queue, type RedisOptions } from 'bullmq';
 
 import { redisConnection } from '../src/queues';

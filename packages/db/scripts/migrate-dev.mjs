@@ -1,4 +1,4 @@
-// `prisma migrate dev` with extra arguments, e.g. `pnpm --filter @tt/db migrate:dev -- --name x --create-only`.
+// `prisma migrate dev` with extra arguments, e.g. `pnpm --filter @nibras/db migrate:dev -- --name x --create-only`.
 // pnpm forwards the `--` separator literally, and Prisma would treat everything after it as
 // positional (dropping `--name`), so this wrapper strips it. Run through `dotenv -e ../../.env`.
 import { spawnSync } from 'node:child_process';

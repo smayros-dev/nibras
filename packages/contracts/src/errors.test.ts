@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ApiErrorBodySchema, DEFAULT_LOCALE, QUEUES, dirOf, intlTag } from './index';
 
-describe('@tt/contracts', () => {
+describe('@nibras/contracts', () => {
   it('accepts a well-formed error body and rejects unknown codes', () => {
     expect(
       ApiErrorBodySchema.safeParse({ code: 'NOT_FOUND', message: 'x', requestId: 'r1' }).success,

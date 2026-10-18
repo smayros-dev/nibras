@@ -1,8 +1,8 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { OWNER_SUSPENDED_REASON } from '@tt/contracts';
-import type { GuardedClient, User } from '@tt/db';
-import type { EmailMessage, EmailProvider } from '@tt/providers';
+import { OWNER_SUSPENDED_REASON } from '@nibras/contracts';
+import type { GuardedClient, User } from '@nibras/db';
+import type { EmailMessage, EmailProvider } from '@nibras/providers';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { SessionService } from '../auth/session.service';

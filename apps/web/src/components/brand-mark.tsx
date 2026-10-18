@@ -1,4 +1,4 @@
-import { cn } from '@tt/ui';
+import { cn } from '@nibras/ui';
 import { Flame } from 'lucide-react';
 
 /**

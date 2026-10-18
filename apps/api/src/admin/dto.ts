@@ -2,7 +2,7 @@ import {
   AdminWorkspacesQuerySchema,
   SuspensionSchema,
   UpdateWorkspaceQuotaSchema,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import { createZodDto } from 'nestjs-zod';
 
 export class AdminWorkspacesQueryDto extends createZodDto(AdminWorkspacesQuerySchema) {}

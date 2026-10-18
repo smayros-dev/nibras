@@ -28,7 +28,7 @@ jobs:
     environment: staging
     env:
       IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
-      STAGING_DIR: ${{ vars.STAGING_DIR || '/opt/tt' }}
+      STAGING_DIR: ${{ vars.STAGING_DIR || '/opt/nibras' }}
     steps:
       - name: Check deploy secrets
         id: secrets
@@ -63,23 +63,23 @@ jobs:
       - uses: appleboy/ssh-action@v1
         if: steps.secrets.outputs.ready == 'true'
         env:
-          TT_IMAGE_OWNER: ${{ steps.owner.outputs.name }}
-          TT_IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          NIBRAS_IMAGE_OWNER: ${{ steps.owner.outputs.name }}
+          NIBRAS_IMAGE_TAG: ${{ env.IMAGE_TAG }}
           GHCR_USER: ${{ secrets.GHCR_READ_USER }}
           GHCR_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
         with:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
-          envs: TT_IMAGE_OWNER,TT_IMAGE_TAG,GHCR_USER,GHCR_TOKEN,STAGING_DIR
+          envs: NIBRAS_IMAGE_OWNER,NIBRAS_IMAGE_TAG,GHCR_USER,GHCR_TOKEN,STAGING_DIR
           script: |
             set -eu
             cd "$STAGING_DIR/infra"
             if [ -n "$GHCR_TOKEN" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
-            export TT_IMAGE_OWNER TT_IMAGE_TAG
+            export NIBRAS_IMAGE_OWNER NIBRAS_IMAGE_TAG
             # Record the deployed tag (rollback = previous line of this file).
-            echo "$(date -u +%FT%TZ) $TT_IMAGE_TAG" >> deployed-tags.log
+            echo "$(date -u +%FT%TZ) $NIBRAS_IMAGE_TAG" >> deployed-tags.log
             docker compose --env-file .env.staging -f compose.staging.yml pull
             docker compose --env-file .env.staging -f compose.staging.yml up -d --remove-orphans

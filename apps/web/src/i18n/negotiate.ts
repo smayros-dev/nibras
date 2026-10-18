@@ -1,5 +1,5 @@
-import { LOCALES } from '@tt/contracts/web';
-import type { Locale } from '@tt/contracts';
+import { LOCALES } from '@nibras/contracts/web';
+import type { Locale } from '@nibras/contracts';
 
 /**
  * Picks the supported locale from an `Accept-Language` header, honouring the user's order of

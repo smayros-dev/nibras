@@ -90,7 +90,7 @@ describe('Table', () => {
   it('stacks below md by default, never when asked', () => {
     const { unmount } = render(<Members />);
     expect(screen.getByRole('table')).toHaveAttribute('data-stack');
-    expect(screen.getByRole('table')).toHaveClass('tt-table');
+    expect(screen.getByRole('table')).toHaveClass('nb-table');
     unmount();
     render(<Members stackBelow="never" />);
     expect(screen.getByRole('table')).not.toHaveAttribute('data-stack');
@@ -104,7 +104,7 @@ describe('Table', () => {
 
   it('tokens.css defines the stacking CSS with data-label headers', () => {
     const css = readFileSync(join(import.meta.dirname, 'tokens.css'), 'utf8');
-    expect(css).toMatch(/\.tt-table\[data-stack\]/);
+    expect(css).toMatch(/\.nb-table\[data-stack\]/);
     // Alt-text form: the label is visual only, screen readers already get the column header.
     expect(css).toMatch(/content:\s*attr\(data-label\)\s*\/\s*(""|'')/);
     expect(css).not.toMatch(/content:\s*attr\(data-label\)\s*;/);

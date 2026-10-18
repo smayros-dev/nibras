@@ -1,4 +1,4 @@
-import { CONSENT_VERSIONS, type CurrentConsentType } from '@tt/contracts';
+import { CONSENT_VERSIONS, type CurrentConsentType } from '@nibras/contracts';
 import { request as playwrightRequest } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -158,7 +158,7 @@ export function addOrgMember(
   try {
     execFileSync(
       'docker',
-      ['exec', 'tt-postgres-1', 'psql', '-U', 'postgres', '-d', 'tt', '-c', sql],
+      ['exec', 'nibras-postgres-1', 'psql', '-U', 'postgres', '-d', 'nibras', '-c', sql],
       {
         stdio: 'pipe',
       },

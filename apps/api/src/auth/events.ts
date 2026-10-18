@@ -1,4 +1,4 @@
-import type { Locale } from '@tt/contracts';
+import type { Locale } from '@nibras/contracts';
 
 /** Event name of {@link TeacherRegisteredEvent} (`EventEmitter2`). */
 export const TEACHER_REGISTERED = 'auth.teacher_registered';

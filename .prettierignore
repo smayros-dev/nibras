@@ -13,6 +13,6 @@ PRD.md
 CLAUDE.md
 docs/archive/
 docs/superpowers/
-# Generated and diffed verbatim by CI (`openapi:export`, `@tt/contracts generate`).
+# Generated and diffed verbatim by CI (`openapi:export`, `@nibras/contracts generate`).
 packages/contracts/openapi/openapi.json
 packages/contracts/src/generated/

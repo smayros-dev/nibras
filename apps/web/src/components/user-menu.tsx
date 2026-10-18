@@ -1,6 +1,6 @@
 'use client';
 
-import { Avatar, Button, DropdownMenu, useToast } from '@tt/ui';
+import { Avatar, Button, DropdownMenu, useToast } from '@nibras/ui';
 import { LogOut, Shield, UserRound } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';

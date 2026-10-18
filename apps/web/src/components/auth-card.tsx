@@ -1,4 +1,4 @@
-import { Card, cn, VisuallyHidden } from '@tt/ui';
+import { Card, cn, VisuallyHidden } from '@nibras/ui';
 import type { ReactNode } from 'react';
 
 /**

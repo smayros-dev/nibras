@@ -22,8 +22,8 @@ In this order:
 pnpm install
 cp .env.example .env   # PowerShell: Copy-Item .env.example .env
 docker compose up -d   # Postgres, Redis, Mailpit, MinIO (init.sql creates roles and databases)
-pnpm db:migrate        # migrate the dev database `tt`
-pnpm db:migrate:test   # migrate the test databases tt_db_test, tt_api_test, tt_worker_test
+pnpm db:migrate        # migrate the dev database `nibras`
+pnpm db:migrate:test   # migrate the test databases nibras_db_test, nibras_api_test, nibras_worker_test
 pnpm dev               # docker compose up -d (no-op now), then turbo run dev
 ```
 
@@ -35,13 +35,22 @@ Stop the apps with `Ctrl+C`; stop the containers with `docker compose down`
 databases existed, `pnpm db:migrate:test` still works: Prisma creates a missing database
 (`app_system` has `CREATEDB`). Re-run it after pulling new migrations, like `pnpm db:migrate`.
 
+**Volumes from before the rename to Nibras.** The compose project was called `tt`; its volumes are
+pinned to their old names (`tt_postgres-data`, `tt_minio-data`) so the data is kept. Such a volume
+has the old `tt*` databases and no `nibras` ones: stop the old containers once
+(`docker compose -p tt down`, without `-v`), `docker compose up -d`, then run the `CREATE DATABASE` lines of `infra/docker/postgres/init.sql`
+(`docker compose exec postgres psql -U postgres -c "CREATE DATABASE nibras OWNER app_system;"`,
+and so on; the roles already exist). Update `.env` from `.env.example` (database names,
+`EMAIL_FROM`, `S3_BUCKET`), then `pnpm db:migrate`, `pnpm db:migrate:test` and `pnpm db:seed`. The
+old `tt*` databases stay untouched until you drop them.
+
 ### Demo data (`pnpm db:seed`)
 
 ```bash
-pnpm db:seed           # builds @tt/db (and @tt/contracts), then runs packages/db/prisma/seed.ts
+pnpm db:seed           # builds @nibras/db (and @nibras/contracts), then runs packages/db/prisma/seed.ts
 ```
 
-Fills the dev database `tt` with demo accounts, their personal workspaces and the organisation
+Fills the dev database `nibras` with demo accounts, their personal workspaces and the organisation
 _Académie El Manar_ (`academie-el-manar`, TN): members in every role, teacher ↔ student
 assignments, teacher profiles, consent history, an audit log and two abuse reports. Re-running it
 is safe (idempotent): rows are upserted, history is only added while the organisation has none,
@@ -61,25 +70,25 @@ Every account uses the password **`mot-de-passe-demo-2026`**:
 | `noussa@example.test`  | STUDENT                          | no personal workspace                    |
 | `tarek@example.test`   | STUDENT (`SUSPENDED_NO_CONSENT`) | minor without guardian consent; reported |
 
-The super-admin console needs its own account (`pnpm --filter @tt/api cli create-super-admin`,
+The super-admin console needs its own account (`pnpm --filter @nibras/api cli create-super-admin`,
 [auth-and-tenancy.md](auth-and-tenancy.md)). The seed is for local development only: it refuses
 to run (exit 1) unless `APP_ENV` is unset or `development`, `NODE_ENV` is not `production`, and
 the host of `DATABASE_URL_SYSTEM` is `localhost`, `127.0.0.1` or `::1`. Any other host, including
 the compose service name `postgres` (staging uses the same host name, and its `.env` may still say
 `APP_ENV=development`), is refused unless `SEED_ALLOW_HOST` names that exact host, for example
 `SEED_ALLOW_HOST=postgres pnpm db:seed` from inside the compose network. Never set it on staging.
-`argon2` and `@tt/contracts` are dev dependencies of `@tt/db`: only the seed uses them.
+`argon2` and `@nibras/contracts` are dev dependencies of `@nibras/db`: only the seed uses them.
 
 ### Migrations
 
 New migration (from `packages/db`'s schema), extra arguments go after `--`:
 
 ```bash
-pnpm --filter @tt/db migrate:dev -- --name add_users --create-only
+pnpm --filter @nibras/db migrate:dev -- --name add_users --create-only
 ```
 
 TypeScript configs extend the shared ones without the `.json` extension
-(`"extends": "@tt/config/tsconfig/nest"`): `@tt/config`'s `exports` map `./tsconfig/*` to
+(`"extends": "@nibras/config/tsconfig/nest"`): `@nibras/config`'s `exports` map `./tsconfig/*` to
 `./tsconfig/*.json`.
 
 ## Ports
@@ -111,25 +120,25 @@ Each app exposes `/health/live` and `/health/ready` (the API serves them outside
 | `pnpm e2e`             | Playwright end-to-end tests                    |
 | `pnpm build`           | Production build of every package              |
 | `pnpm format`          | Prettier write (`pnpm format:check` to verify) |
-| `pnpm db:migrate`      | Apply/create Prisma migrations (`@tt/db`)      |
+| `pnpm db:migrate`      | Apply/create Prisma migrations (`@nibras/db`)  |
 | `pnpm db:migrate:test` | Apply migrations to the three test databases   |
-| `pnpm db:generate`     | Regenerate the Prisma client (`@tt/db`)        |
+| `pnpm db:generate`     | Regenerate the Prisma client (`@nibras/db`)    |
 | `pnpm db:seed`         | Load the local demo data (dev database only)   |
 
-Run a task for a single package with a filter, e.g. `pnpm --filter @tt/api test` or
-`pnpm turbo run test --filter=@tt/api`.
+Run a task for a single package with a filter, e.g. `pnpm --filter @nibras/api test` or
+`pnpm turbo run test --filter=@nibras/api`.
 
 ## End-to-end tests (Playwright)
 
 Projects: `chromium-fr`, `chromium-ar` (desktop), `mobile-fr`, `mobile-ar` (Pixel 7). The docker
 stack must be up and migrated. Two modes (`apps/web/playwright.config.ts`):
 
-- **Dev mode** (default): `pnpm --filter @tt/web e2e`. Playwright starts (or reuses) the api,
+- **Dev mode** (default): `pnpm --filter @nibras/web e2e`. Playwright starts (or reuses) the api,
   worker and `next dev` servers; `e2e/warmup.ts` compiles every route first. The service-worker
   test is skipped (the SW registers only on production builds).
-- **Production mode** (CI, or `E2E_PROD=1`): `pnpm build && E2E_PROD=1 pnpm --filter @tt/web e2e`.
+- **Production mode** (CI, or `E2E_PROD=1`): `pnpm build && E2E_PROD=1 pnpm --filter @nibras/web e2e`.
   Every server runs its build: the web app is the standalone server the container runs
-  (`pnpm --filter @tt/web start:standalone`, `scripts/start-standalone.mjs`: copies `public/` and
+  (`pnpm --filter @nibras/web start:standalone`, `scripts/start-standalone.mjs`: copies `public/` and
   `.next/static` next to `server.js`, listens on 127.0.0.1:3000), and the api/worker run `dist`
   (a `nest start --watch` server restarts when its watcher fires, failing in-flight requests).
   The strict production CSP and HSTS apply and the SW test runs. API and web honour the e2e TERMS
@@ -151,17 +160,17 @@ Integration tests need the containers running (`docker compose up -d`) and migra
 parallel, so each package's Vitest setup derives its own database and Redis index
 (`packages/config/vitest/test-env.mjs`):
 
-| Package      | Database         | Redis DB |
-| ------------ | ---------------- | -------- |
-| `@tt/db`     | `tt_db_test`     | 13       |
-| `@tt/api`    | `tt_api_test`    | 14       |
-| `@tt/worker` | `tt_worker_test` | 15       |
+| Package          | Database             | Redis DB |
+| ---------------- | -------------------- | -------- |
+| `@nibras/db`     | `nibras_db_test`     | 13       |
+| `@nibras/api`    | `nibras_api_test`    | 14       |
+| `@nibras/worker` | `nibras_worker_test` | 15       |
 
 Within a package, spec files run one at a time (`fileParallelism: false`).
 
 **Parallel worktrees.** Several git worktrees can share the one compose stack when each gets its own
 test databases and Redis indexes. In the worktree's `.env` (a copy of the root one) set
-`TEST_DB_PREFIX` (e.g. `tt_t1`: databases `tt_t1_db_test`, `tt_t1_api_test`, `tt_t1_worker_test`;
+`TEST_DB_PREFIX` (e.g. `nibras_t1`: databases `nibras_t1_db_test`, `nibras_t1_api_test`, `nibras_t1_worker_test`;
 keep the `_test` suffix that `resetDatabase` requires, which the derivation appends) and
 `TEST_REDIS_DB_BASE` (an integer 1..13; the packages use `base`, `base+1`, `base+2`, e.g. `10` for
 the first worktree and `7` for the second, while the main checkout keeps the default `13`), then
@@ -184,7 +193,7 @@ rotation, unlocking a locked account, reading dev OTPs, audit actions, tenant is
 ### PWA: icons and service worker
 
 - **Icons.** The source is `apps/web/public/icons/icon.svg` (the flame mark on `BRAND.themeColor`).
-  After editing it, run `pnpm --filter @tt/web icons` (sharp renders `icon-192.png`,
+  After editing it, run `pnpm --filter @nibras/web icons` (sharp renders `icon-192.png`,
   `icon-512.png`, `maskable-512.png` and `apple-touch-icon.png`, deterministically) and commit the
   PNGs.
 - **Service worker** (`apps/web/public/sw.js`, hand-written, no build step). It registers **only in
@@ -203,13 +212,13 @@ rotation, unlocking a locked account, reading dev OTPs, audit actions, tenant is
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
 
-| Job             | Runner         | What it runs                                                                                               |
-| --------------- | -------------- | ---------------------------------------------------------------------------------------------------------- |
-| `check`         | ubuntu-latest  | lint, typecheck, `migrate:deploy` (tt) + `db:migrate:test`, `pnpm test`, `pnpm build`, OpenAPI drift check |
-| `windows-check` | windows-latest | lint, typecheck, tests of the DB-free packages (`@tt/config`, `@tt/contracts`, `@tt/i18n`, `@tt/ui`)       |
-| `migrate-check` | ubuntu-latest  | `pnpm --filter @tt/db migrate:check` (schema vs migrations drift)                                          |
-| `e2e`           | ubuntu-latest  | `pnpm build`, Playwright against the production build (see below); artefact `rtl-screens`                  |
-| `images`        | ubuntu-latest  | `main` pushes only: builds and pushes `ghcr.io/<owner>/tt-{web,api,worker}:{sha,latest}`                   |
+| Job             | Runner         | What it runs                                                                                                         |
+| --------------- | -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `check`         | ubuntu-latest  | lint, typecheck, `migrate:deploy` (nibras) + `db:migrate:test`, `pnpm test`, `pnpm build`, OpenAPI drift check       |
+| `windows-check` | windows-latest | lint, typecheck, tests of the DB-free packages (`@nibras/config`, `@nibras/contracts`, `@nibras/i18n`, `@nibras/ui`) |
+| `migrate-check` | ubuntu-latest  | `pnpm --filter @nibras/db migrate:check` (schema vs migrations drift)                                                |
+| `e2e`           | ubuntu-latest  | `pnpm build`, Playwright against the production build (see below); artefact `rtl-screens`                            |
+| `images`        | ubuntu-latest  | `main` pushes only: builds and pushes `ghcr.io/<owner>/nibras-{web,api,worker}:{sha,latest}`                         |
 
 The Linux jobs use Postgres 17, Redis 7 and Mailpit service containers; `init.sql` is applied with
 `psql` after checkout. The Windows runner has no Docker services, so only packages that need neither
@@ -225,9 +234,9 @@ non-root runtime on `node:22-alpine` with a `HEALTHCHECK` on `/health/live`. The
 Next.js `output: 'standalone'`.
 
 ```bash
-docker build -f infra/docker/api.Dockerfile -t tt-api .
-docker build -f infra/docker/worker.Dockerfile -t tt-worker .
-docker build -f infra/docker/web.Dockerfile -t tt-web .
+docker build -f infra/docker/api.Dockerfile -t nibras-api .
+docker build -f infra/docker/worker.Dockerfile -t nibras-worker .
+docker build -f infra/docker/web.Dockerfile -t nibras-web .
 ```
 
 Each build adds roughly 1 GB (api, worker) or 300 MB (web) plus build cache to Docker's disk;
@@ -238,11 +247,11 @@ host on Docker Desktop, so publish the port and point the env at `host.docker.in
 
 ```bash
 sed 's/localhost/host.docker.internal/g' .env | grep -v '^NODE_ENV' > .env.docker   # gitignored (.env.*)
-docker run --rm --env-file .env.docker tt-api migrate                # one-shot: prisma migrate deploy
-docker run --rm -d --name tt-api -p 3001:3001 --env-file .env.docker tt-api
+docker run --rm --env-file .env.docker nibras-api migrate                # one-shot: prisma migrate deploy
+docker run --rm -d --name nibras-api -p 3001:3001 --env-file .env.docker nibras-api
 curl -fsS http://localhost:3001/health/live
-docker run --rm -d --name tt-worker -p 3002:3002 --env-file .env.docker tt-worker
-docker run --rm -d --name tt-web -p 3000:3000 tt-web
+docker run --rm -d --name nibras-worker -p 3002:3002 --env-file .env.docker nibras-worker
+docker run --rm -d --name nibras-web -p 3000:3000 nibras-web
 ```
 
 The api image never migrates on boot: `migrate` is an explicit argument. Staging deployment is

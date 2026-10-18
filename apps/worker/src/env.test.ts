@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { loadEnv } from './env';
 
 const base = {
-  DATABASE_URL_SYSTEM: 'postgresql://app_system:app@localhost:5432/tt',
+  DATABASE_URL_SYSTEM: 'postgresql://app_system:app@localhost:5432/nibras',
   SMTP_URL: 'smtp://localhost:1025',
-  EMAIL_FROM: 'TT <no-reply@tt.localhost>',
+  EMAIL_FROM: 'Nibras <no-reply@nibras.localhost>',
   WEB_ORIGIN: 'http://localhost:3000',
 };
 

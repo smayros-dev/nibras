@@ -1,5 +1,5 @@
-import type { MyWorkspace } from '@tt/contracts';
-import { Badge, Card } from '@tt/ui';
+import type { MyWorkspace } from '@nibras/contracts';
+import { Badge, Card } from '@nibras/ui';
 import { CircleCheck, Circle } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '../i18n/navigation';

@@ -1,12 +1,12 @@
 /**
- * Per-package test isolation. Turbo runs the `@tt/db`, `@tt/api` and `@tt/worker` test tasks in
+ * Per-package test isolation. Turbo runs the `@nibras/db`, `@nibras/api` and `@nibras/worker` test tasks in
  * parallel, so each package gets its own Postgres database and Redis DB index, derived from the
  * shared base variables (`DATABASE_URL_TEST`, `DATABASE_URL_TEST_SYSTEM`, `REDIS_URL_TEST`):
- * the database name becomes `<TEST_DB_PREFIX>_<pkg>_test` (prefix `tt` by default), the Redis path
+ * the database name becomes `<TEST_DB_PREFIX>_<pkg>_test` (prefix `nibras` by default), the Redis path
  * `/<TEST_REDIS_DB_BASE + offset>` (base 13 by default: db 13, api 14, worker 15).
  *
  * The two knobs let parallel git worktrees share one Postgres/Redis without colliding (e.g.
- * `TEST_DB_PREFIX=tt_t1`, `TEST_REDIS_DB_BASE=10`). Plain ESM (types in `test-env.d.mts`) so
+ * `TEST_DB_PREFIX=nibras_t1`, `TEST_REDIS_DB_BASE=10`). Plain ESM (types in `test-env.d.mts`) so
  * `packages/db/scripts/migrate-test.mjs` imports this same file with Node alone.
  */
 
@@ -18,11 +18,11 @@ const REDIS_DB_OFFSET = { db: 0, api: 1, worker: 2 };
 const DB_PREFIX = /^[a-z_][a-z0-9_]*$/;
 
 /**
- * `<TEST_DB_PREFIX ?? 'tt'>_<pkg>_test`. A set prefix (even empty) must match
+ * `<TEST_DB_PREFIX ?? 'nibras'>_<pkg>_test`. A set prefix (even empty) must match
  * `/^[a-z_][a-z0-9_]*$/` (an unquoted lower-case Postgres identifier), else this throws.
  */
 export function testDbName(pkg, env = process.env) {
-  const prefix = env.TEST_DB_PREFIX ?? 'tt';
+  const prefix = env.TEST_DB_PREFIX ?? 'nibras';
   if (!DB_PREFIX.test(prefix)) {
     throw new Error(`TEST_DB_PREFIX must match ${DB_PREFIX}, got "${prefix}"`);
   }
@@ -42,7 +42,7 @@ export function testRedisDb(pkg, env = process.env) {
   return base + REDIS_DB_OFFSET[pkg];
 }
 
-/** `postgresql://u:p@h:5432/tt_test?x=y` -> `postgresql://u:p@h:5432/<testDbName(pkg)>?x=y`. */
+/** `postgresql://u:p@h:5432/nibras_test?x=y` -> `postgresql://u:p@h:5432/<testDbName(pkg)>?x=y`. */
 export function testDatabaseUrl(base, pkg, env = process.env) {
   const url = new URL(base);
   url.pathname = `/${testDbName(pkg, env)}`;

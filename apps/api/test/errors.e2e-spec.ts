@@ -12,7 +12,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { ApiErrorBodySchema } from '@tt/contracts';
+import { ApiErrorBodySchema } from '@nibras/contracts';
 import { createZodDto } from 'nestjs-zod';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';

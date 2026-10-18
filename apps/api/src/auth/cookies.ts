@@ -3,8 +3,8 @@ import { API_PREFIX } from '../app.setup';
 import { env } from '../config/env';
 import { ACCESS_TTL_S } from './jwt.service';
 
-export const ACCESS_COOKIE = 'tt_access';
-export const REFRESH_COOKIE = 'tt_refresh';
+export const ACCESS_COOKIE = 'nibras_access';
+export const REFRESH_COOKIE = 'nibras_refresh';
 /** The refresh token only travels to the auth routes (refresh, logout). */
 export const REFRESH_COOKIE_PATH = `/${API_PREFIX}/auth`;
 /** PRD §8.1.2: rotating refresh token, 30 days. */
@@ -25,7 +25,7 @@ export interface IssuedTokens {
 }
 
 /**
- * Sets `tt_access` (path `/`, 15 min) and `tt_refresh` (path `/api/v1/auth`). The refresh cookie
+ * Sets `nibras_access` (path `/`, 15 min) and `nibras_refresh` (path `/api/v1/auth`). The refresh cookie
  * is persistent only when `remember`, and then never outlives the session: Max-Age is the time
  * left until `expiresAt` (30 days at sign-in), rounded up to a whole second. Otherwise it is a
  * browser-session cookie.
@@ -52,7 +52,7 @@ export function clearAuthCookies(res: Response): void {
   res.clearCookie(REFRESH_COOKIE, { ...base, path: REFRESH_COOKIE_PATH });
 }
 
-/** The access token of a request: `Authorization: Bearer …` first, else the `tt_access` cookie. */
+/** The access token of a request: `Authorization: Bearer …` first, else the `nibras_access` cookie. */
 export function accessTokenOf(req: Request): string | undefined {
   const header = req.get('authorization');
   if (header !== undefined) {

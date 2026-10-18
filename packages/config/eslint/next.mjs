@@ -26,9 +26,9 @@ export default defineConfig(
     },
   },
   {
-    // `@tt/contracts` bundles every zod schema and zod itself (~60 kB gzip): one value imported
+    // `@nibras/contracts` bundles every zod schema and zod itself (~60 kB gzip): one value imported
     // from it into a client component blows the PRD §14.1 first-load budget. Browser-reachable
-    // code imports values from the zod-free `@tt/contracts/web`; type imports are erased.
+    // code imports values from the zod-free `@nibras/contracts/web`; type imports are erased.
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['**/*.test.ts', '**/*.test.tsx', 'src/test/**'],
     rules: {
@@ -37,10 +37,10 @@ export default defineConfig(
         {
           paths: [
             {
-              name: '@tt/contracts',
+              name: '@nibras/contracts',
               allowTypeImports: true,
               message:
-                'Import values from `@tt/contracts/web` (zod-free); `@tt/contracts` ships zod to the browser.',
+                'Import values from `@nibras/contracts/web` (zod-free); `@nibras/contracts` ships zod to the browser.',
             },
           ],
         },

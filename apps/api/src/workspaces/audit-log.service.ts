@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { AuditEntry, AuditLogPage, AuditLogQuery } from '@tt/contracts';
-import type { AuditLog, GuardedClient, Prisma } from '@tt/db';
+import type { AuditEntry, AuditLogPage, AuditLogQuery } from '@nibras/contracts';
+import type { AuditLog, GuardedClient, Prisma } from '@nibras/db';
 import { DB } from '../db/db.module';
 import { validationFailed } from './workspaces.service';
 

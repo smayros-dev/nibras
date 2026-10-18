@@ -1,4 +1,4 @@
-import { LogSmsProvider, SmtpEmailProvider } from '@tt/providers';
+import { LogSmsProvider, SmtpEmailProvider } from '@nibras/providers';
 import { describe, expect, it, vi } from 'vitest';
 import { FakePwnedClient, HibpClient } from '../auth/crypto/hibp';
 import { SecretBox } from '../auth/crypto/secret-box';
@@ -34,7 +34,7 @@ describe('provider factories', () => {
 
   it('sends email over SMTP from SMTP_URL / EMAIL_FROM', () => {
     expect(
-      createEmailProvider({ SMTP_URL: 'smtp://localhost:1025', EMAIL_FROM: 'TT <a@b.c>' }),
+      createEmailProvider({ SMTP_URL: 'smtp://localhost:1025', EMAIL_FROM: 'Nibras <a@b.c>' }),
     ).toBeInstanceOf(SmtpEmailProvider);
   });
 });

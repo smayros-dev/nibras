@@ -1,8 +1,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { HttpStatus, Inject, Injectable, type OnModuleInit } from '@nestjs/common';
-import type { LoginInput } from '@tt/contracts';
-import type { GuardedClient, User } from '@tt/db';
-import type { EmailProvider } from '@tt/providers';
+import type { LoginInput } from '@nibras/contracts';
+import type { GuardedClient, User } from '@nibras/db';
+import type { EmailProvider } from '@nibras/providers';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';

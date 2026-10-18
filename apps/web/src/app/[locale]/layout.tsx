@@ -1,6 +1,6 @@
-import { dirOf } from '@tt/contracts/web';
-import { getMessages } from '@tt/i18n';
-import { BRAND, DirectionProvider, ToastProvider } from '@tt/ui';
+import { dirOf } from '@nibras/contracts/web';
+import { getMessages } from '@nibras/i18n';
+import { BRAND, DirectionProvider, ToastProvider } from '@nibras/ui';
 import type { Metadata, Viewport } from 'next';
 import { hasLocale } from 'next-intl';
 import { getTimeZone, getTranslations, setRequestLocale } from 'next-intl/server';

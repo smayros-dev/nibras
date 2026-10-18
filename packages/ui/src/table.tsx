@@ -14,7 +14,7 @@ export interface TableProps extends HTMLAttributes<HTMLTableElement> {
   hideCaption?: boolean;
   /**
    * Below `md` each row becomes a card and each cell shows its header via `data-label`
-   * (`.tt-table[data-stack]` in `tokens.css`). `never` keeps the table (it scrolls horizontally).
+   * (`.nb-table[data-stack]` in `tokens.css`). `never` keeps the table (it scrolls horizontally).
    */
   stackBelow?: 'md' | 'never';
 }
@@ -29,7 +29,7 @@ const TableRoot = forwardRef<HTMLTableElement, TableProps>(function Table(
         ref={ref}
         role="table"
         data-stack={stackBelow === 'md' ? '' : undefined}
-        className={cn('tt-table w-full border-collapse text-sm text-fg', className)}
+        className={cn('nb-table w-full border-collapse text-sm text-fg', className)}
         {...props}
       >
         <caption
@@ -125,7 +125,7 @@ const TableActions = forwardRef<HTMLTableCellElement, TdHTMLAttributes<HTMLTable
  * implicit table semantics in WebKit and some Chromium versions.
  *
  * Native `<table>` with a caption, `scope="col"` headers and a stacked-card layout below `md`. Cell
- * padding and row rules come from `.tt-table` in `tokens.css` so the stacked layout can override them.
+ * padding and row rules come from `.nb-table` in `tokens.css` so the stacked layout can override them.
  */
 export const Table = Object.assign(TableRoot, {
   Head: TableHead,

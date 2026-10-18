@@ -7,7 +7,7 @@ import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { AppModule } from '../app.module';
 import { API_PREFIX, UNPREFIXED_ROUTES } from '../app.setup';
 
-/** Committed contract, consumed by `@tt/contracts` (`generate` → `src/generated/api.d.ts`). */
+/** Committed contract, consumed by `@nibras/contracts` (`generate` → `src/generated/api.d.ts`). */
 const OUTPUT = resolve(__dirname, '../../../../packages/contracts/openapi/openapi.json');
 
 /**
@@ -16,7 +16,7 @@ const OUTPUT = resolve(__dirname, '../../../../packages/contracts/openapi/openap
  */
 export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
-    .setTitle('TT API')
+    .setTitle('Nibras API')
     .setVersion('1')
     .addServer(`/${API_PREFIX}`)
     .build();
@@ -95,7 +95,7 @@ function sortKeys(value: unknown): unknown {
   );
 }
 
-/** `pnpm --filter @tt/api openapi:export`: builds the app without listening and writes the file. */
+/** `pnpm --filter @nibras/api openapi:export`: builds the app without listening and writes the file. */
 async function main(): Promise<void> {
   const app = await NestFactory.create(AppModule, { logger: false });
   try {

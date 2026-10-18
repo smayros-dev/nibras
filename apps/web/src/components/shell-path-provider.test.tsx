@@ -1,6 +1,6 @@
-import type { MyWorkspace } from '@tt/contracts';
+import type { MyWorkspace } from '@nibras/contracts';
 import { screen, within } from '@testing-library/react';
-import { AppShell } from '@tt/ui';
+import { AppShell } from '@nibras/ui';
 import type { AnchorHTMLAttributes } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { buildNavModel } from '../lib/navigation';
@@ -31,7 +31,7 @@ function frame() {
       <AppShell
         dir="ltr"
         locale="fr"
-        brand={{ name: 'TT', href: '/fr/app' }}
+        brand={{ name: 'Nibras', href: '/fr/app' }}
         sections={sections}
         labels={{
           skipToContent: 'skip',

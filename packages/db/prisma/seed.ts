@@ -1,5 +1,5 @@
 /**
- * Demo data for the local dev database — `pnpm db:seed` from the repo root (builds @tt/db and
+ * Demo data for the local dev database — `pnpm db:seed` from the repo root (builds @nibras/db and
  * its workspace dependencies first, then runs this file through Node's type stripping, Node
  * >= 22.18). Local development only: it refuses to run unless `APP_ENV` is unset or
  * `development`, `NODE_ENV` is not `production` and `DATABASE_URL_SYSTEM` points at localhost,
@@ -12,10 +12,14 @@
  * matches the demo password, and then `credentialsVersion` is bumped (open sessions end). Every
  * account (`@example.test`, a reserved TLD) shares the password `mot-de-passe-demo-2026` (HIBP
  * is off locally). The org owner has no 2FA yet, so the first login as them demos the forced
- * `/2fa/setup` flow; the super-admin console needs its own user (`pnpm --filter @tt/api cli`).
+ * `/2fa/setup` flow; the super-admin console needs its own user (`pnpm --filter @nibras/api cli`).
  */
 import { PrismaClient } from '@prisma/client';
-import { CONSENT_VERSIONS, defaultWorkspaceSettings, type CurrentConsentType } from '@tt/contracts';
+import {
+  CONSENT_VERSIONS,
+  defaultWorkspaceSettings,
+  type CurrentConsentType,
+} from '@nibras/contracts';
 import argon2 from 'argon2';
 import { seedRefusal } from '../src/seed-guard.ts';
 

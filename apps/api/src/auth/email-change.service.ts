@@ -1,7 +1,11 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import type { EmailChangeConfirmResponse, EmailChangeRequestInput, Locale } from '@tt/contracts';
-import { Prisma, type GuardedClient, type User, type VerificationPurpose } from '@tt/db';
-import type { EmailProvider } from '@tt/providers';
+import type {
+  EmailChangeConfirmResponse,
+  EmailChangeRequestInput,
+  Locale,
+} from '@nibras/contracts';
+import { Prisma, type GuardedClient, type User, type VerificationPurpose } from '@nibras/db';
+import type { EmailProvider } from '@nibras/providers';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';

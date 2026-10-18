@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { redactPaths } from '@tt/contracts';
+import { redactPaths } from '@nibras/contracts';
 import { LoggerModule, type Params } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
 import type { Options } from 'pino-http';
@@ -39,14 +39,14 @@ function serializeRequest(req: SerializedRequest): SerializedRequest {
   return { id, method, url: path, params, headers, remoteAddress, remotePort };
 }
 
-/** pino-http options: JSON lines tagged `service: tt-api` and `request_id`, secrets redacted. */
+/** pino-http options: JSON lines tagged `service: nibras-api` and `request_id`, secrets redacted. */
 export function buildPinoOptions(
   env: Pick<Env, 'NODE_ENV' | 'LOG_LEVEL'>,
   destination?: DestinationStream,
 ): Params {
   const options: Options = {
     level: env.LOG_LEVEL,
-    base: { service: 'tt-api' },
+    base: { service: 'nibras-api' },
     redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
     serializers: {
       req: serializeRequest,

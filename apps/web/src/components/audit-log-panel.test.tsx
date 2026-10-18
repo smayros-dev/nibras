@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { AuditEntry } from '@tt/contracts';
+import type { AuditEntry } from '@nibras/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithIntl, tr } from '../test/render';
 import { AuditLogPanel } from './audit-log-panel';

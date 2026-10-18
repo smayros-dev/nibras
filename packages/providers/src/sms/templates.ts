@@ -1,4 +1,4 @@
-import { dirOf, type Locale } from '@tt/contracts';
+import { dirOf, type Locale } from '@nibras/contracts';
 import { formatMessage } from '../email/templates/layout';
 import type { SmsParamsByKey, SmsTemplateKey } from './types';
 

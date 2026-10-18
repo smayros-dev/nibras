@@ -1,7 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { CONSENT_VERSIONS, REQUIRED_CONSENTS, type RegisterTeacherInput } from '@tt/contracts';
-import { uuidv7, withTenantTx, type GuardedClient, type User, type Workspace } from '@tt/db';
+import { CONSENT_VERSIONS, REQUIRED_CONSENTS, type RegisterTeacherInput } from '@nibras/contracts';
+import { uuidv7, withTenantTx, type GuardedClient, type User, type Workspace } from '@nibras/db';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';

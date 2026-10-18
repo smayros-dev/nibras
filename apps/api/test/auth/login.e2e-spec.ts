@@ -29,23 +29,23 @@ describe('POST /auth/login', () => {
     const { db } = ctx;
     const u = await createUser({ email: 'ahmed@example.com' });
     const res = await login({ email: ' Ahmed@Example.com ', password: u.password }).expect(200);
-    expect(setCookies(res).join(';')).toMatch(/tt_access=.*HttpOnly/);
+    expect(setCookies(res).join(';')).toMatch(/nibras_access=.*HttpOnly/);
     expect(res.body.status).toBe('OK');
     expect(res.body.user).toMatchObject({ id: u.id, email: 'ahmed@example.com' });
     expect(JSON.stringify(res.body)).not.toMatch(/argon2|passwordHash|totp/i);
 
-    const access = setCookieLine(res, 'tt_access')!;
+    const access = setCookieLine(res, 'nibras_access')!;
     expect(access).toMatch(/; Path=\/;/);
     expect(access).toMatch(/HttpOnly/);
     expect(access).toMatch(/SameSite=Lax/);
     expect(access).toMatch(/Max-Age=900;/);
-    const refresh = setCookieLine(res, 'tt_refresh')!;
+    const refresh = setCookieLine(res, 'nibras_refresh')!;
     expect(refresh).toMatch(/Path=\/api\/v1\/auth/);
     expect(refresh).toMatch(/HttpOnly/);
     expect(refresh).toMatch(/SameSite=Lax/);
 
     const session = await db.userSession.findFirstOrThrow({ where: { userId: u.id } });
-    const raw = cookieValue(res, 'tt_refresh');
+    const raw = cookieValue(res, 'nibras_refresh');
     expect(raw.startsWith(`${session.id}.`)).toBe(true);
     expect(session.refreshTokenHash).toBe(
       createHash('sha256')
@@ -164,14 +164,14 @@ describe('POST /auth/login', () => {
   it('remember=false yields a session cookie without Max-Age; remember=true yields Max-Age=2592000', async () => {
     const u = await createUser();
     const plain = await login({ email: u.email, password: u.password }).expect(200);
-    const sessionCookie = setCookieLine(plain, 'tt_refresh')!;
+    const sessionCookie = setCookieLine(plain, 'nibras_refresh')!;
     expect(sessionCookie).not.toMatch(/Max-Age/i);
     expect(sessionCookie).not.toMatch(/Expires/i);
 
     const remembered = await login({ email: u.email, password: u.password, remember: true }).expect(
       200,
     );
-    expect(setCookieLine(remembered, 'tt_refresh')!).toMatch(/Max-Age=2592000;/);
+    expect(setCookieLine(remembered, 'nibras_refresh')!).toMatch(/Max-Age=2592000;/);
 
     // Same 30-day server lifetime either way (planner ruling).
     const sessions = await ctx.db.userSession.findMany({
@@ -203,7 +203,7 @@ describe('POST /auth/login', () => {
     const ok = await login({ email: u.email, password: u.password }).expect(200);
     const logs = JSON.stringify(ctx.logs.lines());
     expect(logs).not.toContain(u.password);
-    expect(logs).not.toContain(cookieValue(ok, 'tt_access'));
-    expect(logs).not.toContain(cookieValue(ok, 'tt_refresh'));
+    expect(logs).not.toContain(cookieValue(ok, 'nibras_access'));
+    expect(logs).not.toContain(cookieValue(ok, 'nibras_refresh'));
   });
 });

@@ -1,4 +1,4 @@
-import { dirOf, type Locale } from '@tt/contracts';
+import { dirOf, type Locale } from '@nibras/contracts';
 import type { EmailParams, EmailTemplateKey, RenderedEmail } from '../types';
 import { escapeHtml, formatMessage, layout, lookup } from './layout';
 

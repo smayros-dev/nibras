@@ -21,7 +21,7 @@ import { NULLABLE_TENANT_MODELS, TENANT_MODELS } from './tenancy';
  *   `crossTenantDb({ reason: 'super_admin', actor })` lifts the filter rule for the admin
  *   console's aggregates only: it checks the actor is a SUPER_ADMIN and writes the
  *   `admin.cross_tenant_query` audit row in the same transaction as the query. ESLint allows that
- *   form only under `apps/api/src/admin/**` and tests (`@tt/config/eslint/base`).
+ *   form only under `apps/api/src/admin/**` and tests (`@nibras/config/eslint/base`).
  *
  * Only top-level model operations are intercepted. Tenant rows reached through a relation of a
  * non-tenant model (`db.user.findMany({ include: { memberships: true } })`), raw SQL outside
@@ -438,7 +438,7 @@ function appClient(): PrismaClient {
 
 const tenancy = bindTenancy(appClient);
 
-/** Defers creating the client to first use, so importing `@tt/db` never needs `DATABASE_URL`. */
+/** Defers creating the client to first use, so importing `@nibras/db` never needs `DATABASE_URL`. */
 function lazy<T extends object>(make: () => T): T {
   return new Proxy({} as T, {
     get(_target, prop) {

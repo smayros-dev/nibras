@@ -1,5 +1,5 @@
-import type { MyWorkspace } from '@tt/contracts';
-import { Badge, Card, EmptyState } from '@tt/ui';
+import type { MyWorkspace } from '@nibras/contracts';
+import { Badge, Card, EmptyState } from '@nibras/ui';
 import { Building2, ChevronRight, User } from 'lucide-react';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';

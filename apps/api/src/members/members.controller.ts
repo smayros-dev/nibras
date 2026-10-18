@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBody } from '@nestjs/swagger';
-import type { MemberSummary, MembersPage } from '@tt/contracts';
+import type { MemberSummary, MembersPage } from '@nibras/contracts';
 import { RequirePermission } from '../tenancy/decorators';
 import { MembersQueryDto, RemoveMemberDto, UpdateMemberDto } from './dto';
 import { MembersService, memberCtx } from './members.service';

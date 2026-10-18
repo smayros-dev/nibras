@@ -1,6 +1,6 @@
-import { dirOf } from '@tt/contracts/web';
-import type { Locale, MeUser, MyWorkspace } from '@tt/contracts';
-import { AppShell } from '@tt/ui';
+import { dirOf } from '@nibras/contracts/web';
+import type { Locale, MeUser, MyWorkspace } from '@nibras/contracts';
+import { AppShell } from '@nibras/ui';
 import { getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import { asApiResult, serverApi } from '../lib/api';

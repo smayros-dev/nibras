@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { grantFor, type Grant, type Permission } from '@tt/contracts';
+import { grantFor, type Grant, type Permission } from '@nibras/contracts';
 import { ApiError } from '../common/api-error';
 import { RequestContext } from '../common/request-context';
 

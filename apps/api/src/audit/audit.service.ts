@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import { REDACT_KEYS } from '@tt/contracts';
-import { CROSS_TENANT_AUDIT_ACTION, Prisma, type GuardedClient } from '@tt/db';
+import { REDACT_KEYS } from '@nibras/contracts';
+import { CROSS_TENANT_AUDIT_ACTION, Prisma, type GuardedClient } from '@nibras/db';
 import { PinoLogger } from 'nestjs-pino';
 import { RequestContext, type RequestStore } from '../common/request-context';
 import { DB } from '../db/db.module';

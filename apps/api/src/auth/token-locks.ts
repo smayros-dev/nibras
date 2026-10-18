@@ -1,4 +1,4 @@
-import type { Prisma } from '@tt/db';
+import type { Prisma } from '@nibras/db';
 
 /**
  * Row-locks, in `id` order, the account tokens that password reset/change and email change

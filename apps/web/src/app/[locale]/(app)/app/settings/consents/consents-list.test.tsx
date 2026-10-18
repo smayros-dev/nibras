@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ConsentRecord } from '@tt/contracts';
+import type { ConsentRecord } from '@nibras/contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithIntl, tr } from '../../../../../../test/render';
 import { ConsentsList } from './consents-list';

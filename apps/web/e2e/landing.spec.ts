@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { messages } from '@tt/i18n';
+import { messages } from '@nibras/i18n';
 import { apiLogin, t } from './helpers';
 import { seedUser } from './helpers/seed';
 

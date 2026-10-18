@@ -1,6 +1,6 @@
 import { Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Permission } from '@tt/contracts';
+import type { Permission } from '@nibras/contracts';
 import { RequestContext } from '../common/request-context';
 import { REQUIRE_PERMISSION_KEY } from './decorators';
 import { currentGrant, permissionDenied } from './permissions';

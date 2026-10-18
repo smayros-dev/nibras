@@ -1,8 +1,8 @@
 'use client';
 
-import { ABUSE_REPORT_STATUSES } from '@tt/contracts/web';
-import type { AbuseReport, AbuseReportStatus } from '@tt/contracts';
-import { formatDate } from '@tt/i18n';
+import { ABUSE_REPORT_STATUSES } from '@nibras/contracts/web';
+import type { AbuseReport, AbuseReportStatus } from '@nibras/contracts';
+import { formatDate } from '@nibras/i18n';
 import {
   Alert,
   AlertDialog,
@@ -15,7 +15,7 @@ import {
   Textarea,
   useSubmit,
   useToast,
-} from '@tt/ui';
+} from '@nibras/ui';
 import { ArrowLeft } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState, type ReactNode } from 'react';

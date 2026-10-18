@@ -1,4 +1,4 @@
-import { extractFirstLink, type SentEmail } from '@tt/providers';
+import { extractFirstLink, type SentEmail } from '@nibras/providers';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PasswordResetService } from '../../src/auth/password-reset.service';
 import { createTestApp, type TestContext } from '../helpers/app';

@@ -6,7 +6,7 @@ import {
   type MembershipRole,
   type MembershipStatus,
   type TenantTx,
-} from '@tt/db';
+} from '@nibras/db';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
 

@@ -1,4 +1,4 @@
-import { BRAND } from '@tt/ui/brand';
+import { BRAND } from '@nibras/ui/brand';
 import type { MetadataRoute } from 'next';
 
 /**

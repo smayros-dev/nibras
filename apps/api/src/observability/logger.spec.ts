@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Writable } from 'node:stream';
-import { redactPaths } from '@tt/contracts';
+import { redactPaths } from '@nibras/contracts';
 import { pino } from 'pino';
 import type { Options } from 'pino-http';
 import { describe, expect, it } from 'vitest';
@@ -144,7 +144,7 @@ describe('buildPinoOptions', () => {
   it('tags lines with the service name and the configured level', () => {
     const opts = httpOptions(buildPinoOptions({ NODE_ENV: 'production', LOG_LEVEL: 'warn' }));
     expect(opts.level).toBe('warn');
-    expect(opts.base).toEqual({ service: 'tt-api' });
+    expect(opts.base).toEqual({ service: 'nibras-api' });
   });
 
   it('uses the pretty transport only in development', () => {

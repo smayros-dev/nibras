@@ -1,5 +1,5 @@
 /**
- * Renders the PWA icons from `public/icons/icon.svg` (run `pnpm --filter @tt/web icons` after
+ * Renders the PWA icons from `public/icons/icon.svg` (run `pnpm --filter @nibras/web icons` after
  * editing the mark, then commit the PNGs). Deterministic: same sharp version, same bytes.
  *   icon-192 / icon-512   purpose "any": the rounded mark on a transparent background;
  *   maskable-512          full-bleed brand colour, the mark scaled to 85 % (glyph inside the 80 % safe zone);

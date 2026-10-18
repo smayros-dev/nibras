@@ -10,7 +10,7 @@ There is no self-serve super-admin signup. Bootstrap one with the CLI (idempoten
 user if missing, otherwise promotes an existing account to `SUPER_ADMIN`, keeping its password):
 
 ```bash
-pnpm --filter @tt/api cli create-super-admin --email ops@example.com --password '<a long password>'
+pnpm --filter @nibras/api cli create-super-admin --email ops@example.com --password '<a long password>'
 ```
 
 The CLI grants the static `CONSENT_VERSIONS` TERMS version. If the deployment runs with a bumped

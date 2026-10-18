@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert } from '@tt/ui';
+import { Alert } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 
 /**

@@ -1,8 +1,12 @@
 'use client';
 
-import type { AbuseCategory } from '@tt/contracts';
-import { ABUSE_CATEGORIES, ABUSE_DESCRIPTION_MAX, ABUSE_DESCRIPTION_MIN } from '@tt/contracts/web';
-import { Alert, Button, Dialog, Field, Select, Textarea, useSubmit, useToast } from '@tt/ui';
+import type { AbuseCategory } from '@nibras/contracts';
+import {
+  ABUSE_CATEGORIES,
+  ABUSE_DESCRIPTION_MAX,
+  ABUSE_DESCRIPTION_MIN,
+} from '@nibras/contracts/web';
+import { Alert, Button, Dialog, Field, Select, Textarea, useSubmit, useToast } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { apiErrorMessage, issuesToFieldErrors } from '../lib/api-error';

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Web image (Next.js standalone output). Build from the repo root:
-#   docker build -f infra/docker/web.Dockerfile -t tt-web .
+#   docker build -f infra/docker/web.Dockerfile -t nibras-web .
 # API_URL is baked into the `/api/*` rewrite at build time (next.config.ts) and also read at runtime
 # by server components; the default targets the `api` service of infra/compose.staging.yml.
 
@@ -16,7 +16,7 @@ ENV TURBO_TELEMETRY_DISABLED=1 \
 FROM base AS pruner
 WORKDIR /repo
 COPY . .
-RUN turbo prune @tt/web --docker
+RUN turbo prune @nibras/web --docker
 
 FROM base AS builder
 ARG API_URL=http://api:3001
@@ -27,7 +27,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 COPY --from=pruner /repo/out/full/ .
-RUN pnpm turbo run build --filter=@tt/web
+RUN pnpm turbo run build --filter=@nibras/web
 
 # Runtime: only the standalone server (traced node_modules) and static assets.
 FROM ${NODE_IMAGE} AS runner
@@ -40,12 +40,12 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0
 WORKDIR /app
-RUN addgroup -S -g 1001 tt && adduser -S -u 1001 -G tt tt
+RUN addgroup -S -g 1001 nibras && adduser -S -u 1001 -G nibras nibras
 COPY --from=builder /repo/apps/web/.next/standalone ./
 COPY --from=builder /repo/apps/web/.next/static ./apps/web/.next/static
 # Next writes its fetch/image cache here at runtime; everything else stays root-owned.
-RUN mkdir -p apps/web/.next/cache && chown tt:tt apps/web/.next/cache
-USER tt
+RUN mkdir -p apps/web/.next/cache && chown nibras:nibras apps/web/.next/cache
+USER nibras
 EXPOSE 3000
 # Probes ${PORT}, the port the server listens on. compose.staging.yml pins PORT per service because
 # the shared .env.staging would otherwise override it (healthy, yet listening on the wrong port).

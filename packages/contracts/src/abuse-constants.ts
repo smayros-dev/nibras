@@ -1,4 +1,4 @@
-// Zod-free (exported by `@tt/contracts/web` for browser bundles); the schemas are in abuse.ts.
+// Zod-free (exported by `@nibras/contracts/web` for browser bundles); the schemas are in abuse.ts.
 /** PRD §11.1 `AbuseCategory`. */
 export const ABUSE_CATEGORIES = [
   'HARASSMENT',

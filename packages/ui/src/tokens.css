@@ -1,9 +1,9 @@
 /*
  * Design tokens — single source of truth (spec §3, PRD §8.16.1). Three layers:
  *   1. Brand (swappable, PRD Q1): the `@theme` block below + `brand.ts`.
- *   2. Semantic (what components use): raw values as `--tt-*` in `:root` (light) and
+ *   2. Semantic (what components use): raw values as `--nb-*` in `:root` (light) and
  *      `[data-theme='dark']`, exposed to Tailwind as `--color-*` through `@theme inline`
- *      (`bg-surface`, `text-fg-muted`, ...). Plain CSS reads `var(--tt-*)` directly.
+ *      (`bg-surface`, `text-fg-muted`, ...). Plain CSS reads `var(--nb-*)` directly.
  *   3. Scales: type, radius, shadow, motion, touch size.
  * Contrast of every semantic pair is enforced by `tokens.test.ts` (WCAG AA, both themes).
  * Components never reference the raw brand/accent scales — only semantic tokens.
@@ -82,52 +82,52 @@
    * utilities: `--motion-inline-sign` is 1 in ltr and -1 under `[dir='rtl']` (below), so
    * `start` enters from the inline-start edge in both directions.
    */
-  --animate-fade-in: tt-fade-in var(--duration-base) var(--ease-out);
-  --animate-fade-out: tt-fade-out var(--duration-fast) var(--ease-out) forwards;
-  --animate-dialog-in: tt-dialog-in var(--duration-base) var(--ease-out);
-  --animate-toast-in: tt-toast-in var(--duration-base) var(--ease-out);
-  --animate-sheet-in-start: tt-sheet-in-start var(--duration-base) var(--ease-out);
-  --animate-sheet-out-start: tt-sheet-in-start var(--duration-fast) var(--ease-out) reverse forwards;
-  --animate-sheet-in-end: tt-sheet-in-end var(--duration-base) var(--ease-out);
-  --animate-sheet-out-end: tt-sheet-in-end var(--duration-fast) var(--ease-out) reverse forwards;
-  --animate-sheet-in-bottom: tt-sheet-in-bottom var(--duration-base) var(--ease-out);
-  --animate-sheet-out-bottom: tt-sheet-in-bottom var(--duration-fast) var(--ease-out) reverse
+  --animate-fade-in: nb-fade-in var(--duration-base) var(--ease-out);
+  --animate-fade-out: nb-fade-out var(--duration-fast) var(--ease-out) forwards;
+  --animate-dialog-in: nb-dialog-in var(--duration-base) var(--ease-out);
+  --animate-toast-in: nb-toast-in var(--duration-base) var(--ease-out);
+  --animate-sheet-in-start: nb-sheet-in-start var(--duration-base) var(--ease-out);
+  --animate-sheet-out-start: nb-sheet-in-start var(--duration-fast) var(--ease-out) reverse forwards;
+  --animate-sheet-in-end: nb-sheet-in-end var(--duration-base) var(--ease-out);
+  --animate-sheet-out-end: nb-sheet-in-end var(--duration-fast) var(--ease-out) reverse forwards;
+  --animate-sheet-in-bottom: nb-sheet-in-bottom var(--duration-base) var(--ease-out);
+  --animate-sheet-out-bottom: nb-sheet-in-bottom var(--duration-fast) var(--ease-out) reverse
     forwards;
 
-  @keyframes tt-fade-in {
+  @keyframes nb-fade-in {
     from {
       opacity: 0;
     }
   }
-  @keyframes tt-fade-out {
+  @keyframes nb-fade-out {
     to {
       opacity: 0;
     }
   }
-  @keyframes tt-dialog-in {
+  @keyframes nb-dialog-in {
     from {
       opacity: 0;
       translate: 0 0.5rem;
       scale: 0.98;
     }
   }
-  @keyframes tt-toast-in {
+  @keyframes nb-toast-in {
     from {
       opacity: 0;
       translate: 0 0.5rem;
     }
   }
-  @keyframes tt-sheet-in-start {
+  @keyframes nb-sheet-in-start {
     from {
       translate: calc(var(--motion-inline-sign, 1) * -100%) 0;
     }
   }
-  @keyframes tt-sheet-in-end {
+  @keyframes nb-sheet-in-end {
     from {
       translate: calc(var(--motion-inline-sign, 1) * 100%) 0;
     }
   }
-  @keyframes tt-sheet-in-bottom {
+  @keyframes nb-sheet-in-bottom {
     from {
       translate: 0 100%;
     }
@@ -144,122 +144,122 @@
 }
 
 :root {
-  --tt-bg: #faf9f7;
-  --tt-bg-subtle: #f3f1ee;
-  --tt-surface: #ffffff;
-  --tt-surface-raised: #ffffff;
-  --tt-fg: #1c1917;
-  --tt-fg-muted: #57534e;
-  --tt-fg-subtle: #78716c;
-  --tt-border: #e7e5e4;
-  --tt-border-strong: #8a827c;
-  --tt-primary: #0f766e;
-  --tt-primary-hover: #115e59;
-  --tt-primary-fg: #ffffff;
-  --tt-primary-subtle: #f0fdfa;
-  --tt-danger: #b91c1c;
-  --tt-danger-hover: #991b1b;
-  --tt-danger-fg: #ffffff;
-  --tt-danger-subtle: #fef2f2;
-  --tt-warning: #b45309;
-  --tt-warning-fg: #ffffff;
-  --tt-warning-subtle: #fffbeb;
-  --tt-success: #15803d;
-  --tt-success-fg: #ffffff;
-  --tt-success-subtle: #f0fdf4;
-  --tt-info: #0369a1;
-  --tt-info-fg: #ffffff;
-  --tt-info-subtle: #f0f9ff;
-  --tt-focus: #0d9488;
-  --tt-overlay: rgb(28 25 23 / 0.5);
+  --nb-bg: #faf9f7;
+  --nb-bg-subtle: #f3f1ee;
+  --nb-surface: #ffffff;
+  --nb-surface-raised: #ffffff;
+  --nb-fg: #1c1917;
+  --nb-fg-muted: #57534e;
+  --nb-fg-subtle: #78716c;
+  --nb-border: #e7e5e4;
+  --nb-border-strong: #8a827c;
+  --nb-primary: #0f766e;
+  --nb-primary-hover: #115e59;
+  --nb-primary-fg: #ffffff;
+  --nb-primary-subtle: #f0fdfa;
+  --nb-danger: #b91c1c;
+  --nb-danger-hover: #991b1b;
+  --nb-danger-fg: #ffffff;
+  --nb-danger-subtle: #fef2f2;
+  --nb-warning: #b45309;
+  --nb-warning-fg: #ffffff;
+  --nb-warning-subtle: #fffbeb;
+  --nb-success: #15803d;
+  --nb-success-fg: #ffffff;
+  --nb-success-subtle: #f0fdf4;
+  --nb-info: #0369a1;
+  --nb-info-fg: #ffffff;
+  --nb-info-subtle: #f0f9ff;
+  --nb-focus: #0d9488;
+  --nb-overlay: rgb(28 25 23 / 0.5);
   /* Avatar tones (initials fallback), text is `fg`: picked by hash(id) % 8. */
-  --tt-avatar-0: #ccfbf1;
-  --tt-avatar-1: #fde68a;
-  --tt-avatar-2: #bae6fd;
-  --tt-avatar-3: #fecdd3;
-  --tt-avatar-4: #ddd6fe;
-  --tt-avatar-5: #d9f99d;
-  --tt-avatar-6: #fed7aa;
-  --tt-avatar-7: #e2e8f0;
+  --nb-avatar-0: #ccfbf1;
+  --nb-avatar-1: #fde68a;
+  --nb-avatar-2: #bae6fd;
+  --nb-avatar-3: #fecdd3;
+  --nb-avatar-4: #ddd6fe;
+  --nb-avatar-5: #d9f99d;
+  --nb-avatar-6: #fed7aa;
+  --nb-avatar-7: #e2e8f0;
 }
 
 /* Any element can carry the dark theme (matches the `dark:` variant), not only `:root`. */
 [data-theme='dark'] {
-  --tt-bg: #0c1116;
-  --tt-bg-subtle: #10171d;
-  --tt-surface: #141b22;
-  --tt-surface-raised: #1b242d;
-  --tt-fg: #f1f5f9;
-  --tt-fg-muted: #a8b0ba;
-  --tt-fg-subtle: #7d8794;
-  --tt-border: #263039;
-  --tt-border-strong: #66717d;
-  --tt-primary: #2dd4bf;
-  --tt-primary-hover: #5eead4;
-  --tt-primary-fg: #042f2e;
-  --tt-primary-subtle: #0f2e2b;
-  --tt-danger: #f87171;
-  --tt-danger-hover: #fca5a5;
-  --tt-danger-fg: #2a0707;
-  --tt-danger-subtle: #2c1416;
-  --tt-warning: #fbbf24;
-  --tt-warning-fg: #261703;
-  --tt-warning-subtle: #2a2110;
-  --tt-success: #4ade80;
-  --tt-success-fg: #052e16;
-  --tt-success-subtle: #10261a;
-  --tt-info: #38bdf8;
-  --tt-info-fg: #082f49;
-  --tt-info-subtle: #0f2433;
-  --tt-focus: #5eead4;
-  --tt-overlay: rgb(0 0 0 / 0.6);
-  --tt-avatar-0: #134e4a;
-  --tt-avatar-1: #78350f;
-  --tt-avatar-2: #0c4a6e;
-  --tt-avatar-3: #881337;
-  --tt-avatar-4: #4c1d95;
-  --tt-avatar-5: #365314;
-  --tt-avatar-6: #7c2d12;
-  --tt-avatar-7: #334155;
+  --nb-bg: #0c1116;
+  --nb-bg-subtle: #10171d;
+  --nb-surface: #141b22;
+  --nb-surface-raised: #1b242d;
+  --nb-fg: #f1f5f9;
+  --nb-fg-muted: #a8b0ba;
+  --nb-fg-subtle: #7d8794;
+  --nb-border: #263039;
+  --nb-border-strong: #66717d;
+  --nb-primary: #2dd4bf;
+  --nb-primary-hover: #5eead4;
+  --nb-primary-fg: #042f2e;
+  --nb-primary-subtle: #0f2e2b;
+  --nb-danger: #f87171;
+  --nb-danger-hover: #fca5a5;
+  --nb-danger-fg: #2a0707;
+  --nb-danger-subtle: #2c1416;
+  --nb-warning: #fbbf24;
+  --nb-warning-fg: #261703;
+  --nb-warning-subtle: #2a2110;
+  --nb-success: #4ade80;
+  --nb-success-fg: #052e16;
+  --nb-success-subtle: #10261a;
+  --nb-info: #38bdf8;
+  --nb-info-fg: #082f49;
+  --nb-info-subtle: #0f2433;
+  --nb-focus: #5eead4;
+  --nb-overlay: rgb(0 0 0 / 0.6);
+  --nb-avatar-0: #134e4a;
+  --nb-avatar-1: #78350f;
+  --nb-avatar-2: #0c4a6e;
+  --nb-avatar-3: #881337;
+  --nb-avatar-4: #4c1d95;
+  --nb-avatar-5: #365314;
+  --nb-avatar-6: #7c2d12;
+  --nb-avatar-7: #334155;
 }
 
 @theme inline {
-  --color-bg: var(--tt-bg);
-  --color-bg-subtle: var(--tt-bg-subtle);
-  --color-surface: var(--tt-surface);
-  --color-surface-raised: var(--tt-surface-raised);
-  --color-fg: var(--tt-fg);
-  --color-fg-muted: var(--tt-fg-muted);
-  --color-fg-subtle: var(--tt-fg-subtle);
-  --color-border: var(--tt-border);
-  --color-border-strong: var(--tt-border-strong);
-  --color-primary: var(--tt-primary);
-  --color-primary-hover: var(--tt-primary-hover);
-  --color-primary-fg: var(--tt-primary-fg);
-  --color-primary-subtle: var(--tt-primary-subtle);
-  --color-danger: var(--tt-danger);
-  --color-danger-hover: var(--tt-danger-hover);
-  --color-danger-fg: var(--tt-danger-fg);
-  --color-danger-subtle: var(--tt-danger-subtle);
-  --color-warning: var(--tt-warning);
-  --color-warning-fg: var(--tt-warning-fg);
-  --color-warning-subtle: var(--tt-warning-subtle);
-  --color-success: var(--tt-success);
-  --color-success-fg: var(--tt-success-fg);
-  --color-success-subtle: var(--tt-success-subtle);
-  --color-info: var(--tt-info);
-  --color-info-fg: var(--tt-info-fg);
-  --color-info-subtle: var(--tt-info-subtle);
-  --color-focus: var(--tt-focus);
-  --color-overlay: var(--tt-overlay);
-  --color-avatar-0: var(--tt-avatar-0);
-  --color-avatar-1: var(--tt-avatar-1);
-  --color-avatar-2: var(--tt-avatar-2);
-  --color-avatar-3: var(--tt-avatar-3);
-  --color-avatar-4: var(--tt-avatar-4);
-  --color-avatar-5: var(--tt-avatar-5);
-  --color-avatar-6: var(--tt-avatar-6);
-  --color-avatar-7: var(--tt-avatar-7);
+  --color-bg: var(--nb-bg);
+  --color-bg-subtle: var(--nb-bg-subtle);
+  --color-surface: var(--nb-surface);
+  --color-surface-raised: var(--nb-surface-raised);
+  --color-fg: var(--nb-fg);
+  --color-fg-muted: var(--nb-fg-muted);
+  --color-fg-subtle: var(--nb-fg-subtle);
+  --color-border: var(--nb-border);
+  --color-border-strong: var(--nb-border-strong);
+  --color-primary: var(--nb-primary);
+  --color-primary-hover: var(--nb-primary-hover);
+  --color-primary-fg: var(--nb-primary-fg);
+  --color-primary-subtle: var(--nb-primary-subtle);
+  --color-danger: var(--nb-danger);
+  --color-danger-hover: var(--nb-danger-hover);
+  --color-danger-fg: var(--nb-danger-fg);
+  --color-danger-subtle: var(--nb-danger-subtle);
+  --color-warning: var(--nb-warning);
+  --color-warning-fg: var(--nb-warning-fg);
+  --color-warning-subtle: var(--nb-warning-subtle);
+  --color-success: var(--nb-success);
+  --color-success-fg: var(--nb-success-fg);
+  --color-success-subtle: var(--nb-success-subtle);
+  --color-info: var(--nb-info);
+  --color-info-fg: var(--nb-info-fg);
+  --color-info-subtle: var(--nb-info-subtle);
+  --color-focus: var(--nb-focus);
+  --color-overlay: var(--nb-overlay);
+  --color-avatar-0: var(--nb-avatar-0);
+  --color-avatar-1: var(--nb-avatar-1);
+  --color-avatar-2: var(--nb-avatar-2);
+  --color-avatar-3: var(--nb-avatar-3);
+  --color-avatar-4: var(--nb-avatar-4);
+  --color-avatar-5: var(--nb-avatar-5);
+  --color-avatar-6: var(--nb-avatar-6);
+  --color-avatar-7: var(--nb-avatar-7);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -272,41 +272,41 @@
 }
 
 /*
- * Responsive `Table` (spec §4): below `md` each row of `.tt-table[data-stack]` becomes a card and
+ * Responsive `Table` (spec §4): below `md` each row of `.nb-table[data-stack]` becomes a card and
  * each cell shows its column header through `data-label` (no duplicate markup). Logical properties
  * only, so the layout mirrors in RTL.
  */
 @layer components {
   /* Cell spacing and row rules live here (not in utilities) so the stacked layout can override
      them; a caller's `className` (utilities layer) still wins over both. */
-  .tt-table > tbody > tr > td {
+  .nb-table > tbody > tr > td {
     padding: 0.75rem;
   }
-  .tt-table > tbody > tr > td[data-actions] {
+  .nb-table > tbody > tr > td[data-actions] {
     padding-block: 0.5rem;
   }
-  .tt-table > tbody > tr + tr {
-    border-block-start: 1px solid var(--tt-border);
+  .nb-table > tbody > tr + tr {
+    border-block-start: 1px solid var(--nb-border);
   }
 
   @media (width < 48rem) {
-    .tt-table[data-stack],
-    .tt-table[data-stack] > tbody,
-    .tt-table[data-stack] > caption {
+    .nb-table[data-stack],
+    .nb-table[data-stack] > tbody,
+    .nb-table[data-stack] > caption {
       display: block;
     }
-    .tt-table[data-stack] > thead {
+    .nb-table[data-stack] > thead {
       @apply sr-only;
     }
-    .tt-table[data-stack] > tbody > tr {
+    .nb-table[data-stack] > tbody > tr {
       display: block;
       margin-block-end: 0.75rem;
       padding: 0.75rem;
-      border: 1px solid var(--tt-border);
+      border: 1px solid var(--nb-border);
       border-radius: var(--radius-md);
-      background: var(--tt-surface);
+      background: var(--nb-surface);
     }
-    .tt-table[data-stack] > tbody > tr > td {
+    .nb-table[data-stack] > tbody > tr > td {
       display: grid;
       grid-template-columns: minmax(6rem, 40%) 1fr;
       gap: 0.5rem;
@@ -315,19 +315,19 @@
       border: 0;
       text-align: start;
     }
-    .tt-table[data-stack] > tbody > tr > td::before {
+    .nb-table[data-stack] > tbody > tr > td::before {
       /* Alt text "": visual only, assistive tech already announces the column header. */
       content: attr(data-label) / '';
-      color: var(--tt-fg-muted);
+      color: var(--nb-fg-muted);
       font-weight: 500;
     }
-    .tt-table[data-stack] > tbody > tr > td:not([data-label]) {
+    .nb-table[data-stack] > tbody > tr > td:not([data-label]) {
       display: block;
     }
-    .tt-table[data-stack] > tbody > tr > td:not([data-label])::before {
+    .nb-table[data-stack] > tbody > tr > td:not([data-label])::before {
       content: none;
     }
-    .tt-table[data-stack] > tbody > tr > td[data-actions] {
+    .nb-table[data-stack] > tbody > tr > td[data-actions] {
       display: flex;
       justify-content: flex-end;
       gap: 0.5rem;

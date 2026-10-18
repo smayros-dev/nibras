@@ -1,5 +1,5 @@
 {
-  "name": "@tt/db",
+  "name": "@nibras/db",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -40,8 +40,8 @@
     "@prisma/client": "~6.19.3"
   },
   "devDependencies": {
-    "@tt/config": "workspace:*",
-    "@tt/contracts": "workspace:*",
+    "@nibras/config": "workspace:*",
+    "@nibras/contracts": "workspace:*",
     "@types/node": "^24.19.2",
     "argon2": "0.44.0",
     "dotenv-cli": "^11.0.0",

@@ -1,16 +1,16 @@
 # Staging
 
-Staging runs the three container images built by CI (`ghcr.io/<owner>/tt-{web,api,worker}`) with
+Staging runs the three container images built by CI (`ghcr.io/<owner>/nibras-{web,api,worker}`) with
 Postgres, Redis and MinIO on a single Docker host, described by `infra/compose.staging.yml`.
 
 ## Pipeline
 
 1. A push to `main` runs **CI** (`.github/workflows/ci.yml`): `check`, `windows-check`,
    `migrate-check` and `e2e`; when all four pass, `images` builds and pushes
-   `tt-{web,api,worker}:<commit sha>` and `:latest` to GHCR. Pull requests never build images.
+   `nibras-{web,api,worker}:<commit sha>` and `:latest` to GHCR. Pull requests never build images.
 2. **Deploy staging** (`.github/workflows/deploy-staging.yml`) runs when CI completes successfully on
    `main`. It copies `infra/compose.staging.yml` and `infra/docker/postgres/init-staging.sh` to the
-   host over SSH, then runs `docker compose pull` and `up -d` with `TT_IMAGE_TAG=<commit sha>`.
+   host over SSH, then runs `docker compose pull` and `up -d` with `NIBRAS_IMAGE_TAG=<commit sha>`.
    The api's `migrate` one-shot service applies migrations before the api and worker start.
 
 The deploy job is **off** until the repository variable `STAGING_DEPLOY_ENABLED` is `true`, and it is
@@ -28,7 +28,7 @@ Settings > Secrets and variables > Actions (or the `staging` environment):
 | `GHCR_READ_USER`         | secret   | GitHub user owning the token below                                        |
 | `GHCR_READ_TOKEN`        | secret   | Classic PAT with `read:packages` only (pulls private images on the host)  |
 | `STAGING_DEPLOY_ENABLED` | variable | `true` to turn deploys on                                                 |
-| `STAGING_DIR`            | variable | Optional; deploy directory on the host (default `/opt/tt`)                |
+| `STAGING_DIR`            | variable | Optional; deploy directory on the host (default `/opt/nibras`)            |
 
 CI pushes images with the workflow's own `GITHUB_TOKEN` (`packages: write`, `images` job only);
 no extra secret is needed for that. If the GHCR packages are public, `GHCR_READ_*` can be omitted.
@@ -52,13 +52,13 @@ value (`openssl rand -hex 24`):
 ```dotenv
 NODE_ENV=production
 LOG_LEVEL=info
-TT_IMAGE_OWNER=<github owner, lowercase>
+NIBRAS_IMAGE_OWNER=<github owner, lowercase>
 
 POSTGRES_PASSWORD=<random>
 APP_SYSTEM_DB_PASSWORD=<random>
 APP_USER_DB_PASSWORD=<random>
-DATABASE_URL=postgresql://app_user:<APP_USER_DB_PASSWORD>@postgres:5432/tt
-DATABASE_URL_SYSTEM=postgresql://app_system:<APP_SYSTEM_DB_PASSWORD>@postgres:5432/tt
+DATABASE_URL=postgresql://app_user:<APP_USER_DB_PASSWORD>@postgres:5432/nibras
+DATABASE_URL_SYSTEM=postgresql://app_system:<APP_SYSTEM_DB_PASSWORD>@postgres:5432/nibras
 
 REDIS_URL=redis://redis:6379
 
@@ -69,7 +69,7 @@ TRUST_PROXY_HOPS=1
 OTEL_EXPORTER_OTLP_ENDPOINT=
 
 SMTP_URL=smtp://<user>:<password>@<smtp relay>:587
-EMAIL_FROM="TT <no-reply@staging.example.com>"
+EMAIL_FROM="Nibras <no-reply@staging.example.com>"
 
 # Auth (SP1): fresh values per environment, never the .env.example ones.
 JWT_SECRET=<openssl rand -base64 48>
@@ -80,7 +80,7 @@ COOKIE_SECURE=true
 S3_ENDPOINT=http://minio:9000
 S3_ACCESS_KEY=<random>
 S3_SECRET_KEY=<random>
-S3_BUCKET=tt-staging
+S3_BUCKET=nibras-staging
 ```
 
 The API validates these at startup and refuses to boot when one is missing or malformed:
@@ -132,10 +132,10 @@ appends to the header (e.g. a cloud load balancer in front of the TLS proxy) is 
 ## First run
 
 ```bash
-sudo mkdir -p /opt/tt/infra/docker/postgres && sudo chown -R deploy:deploy /opt/tt
+sudo mkdir -p /opt/nibras/infra/docker/postgres && sudo chown -R deploy:deploy /opt/nibras
 # copy infra/compose.staging.yml and infra/docker/postgres/init-staging.sh from the repo
-# (the deploy workflow does this on every run), then write /opt/tt/infra/.env.staging
-cd /opt/tt/infra
+# (the deploy workflow does this on every run), then write /opt/nibras/infra/.env.staging
+cd /opt/nibras/infra
 chmod 600 .env.staging
 echo "$GHCR_READ_TOKEN" | docker login ghcr.io -u <GHCR_READ_USER> --password-stdin
 docker compose --env-file .env.staging -f compose.staging.yml pull
@@ -145,10 +145,28 @@ curl -fsS http://127.0.0.1:3000/health/live
 ```
 
 On the empty volume Postgres runs `init-staging.sh` once: roles `app_system` / `app_user` with the
-passwords from `.env.staging` and the `tt` database. Changing those passwords later means
+passwords from `.env.staging` and the `nibras` database. Changing those passwords later means
 `ALTER ROLE ... PASSWORD` in Postgres **and** updating `.env.staging`.
-Create the MinIO bucket once: `docker compose ... exec minio mc mb --ignore-existing local/tt-staging`
+Create the MinIO bucket once: `docker compose ... exec minio mc mb --ignore-existing local/nibras-staging`
 (after `mc alias set local http://localhost:9000 $S3_ACCESS_KEY $S3_SECRET_KEY`).
+
+### Hosts set up before the rename to Nibras
+
+The project was first called TT. A staging host deployed before the rename keeps working once these
+are applied by hand (the repo cannot do them):
+
+- `.env.staging`: rename `TT_IMAGE_OWNER` / `TT_IMAGE_TAG` to `NIBRAS_IMAGE_OWNER` / `NIBRAS_IMAGE_TAG`.
+  The database stays `tt` on the existing volume (`init-staging.sh` never re-runs), so either keep
+  `DATABASE_URL*` pointing at `/tt` or run `ALTER DATABASE tt RENAME TO nibras;` (no open
+  connections: stop api/worker first) and update both URLs. Same for `S3_BUCKET`: keep the existing
+  bucket name or create the new bucket and copy the objects.
+- The compose project is now `nibras-staging`; its volumes are pinned to their old
+  `tt-staging_*` names in `compose.staging.yml`, so the data is kept. Before the first deploy, stop
+  the old project (`docker compose -p tt-staging -f compose.staging.yml down`, **without** `-v`).
+- The images are now `ghcr.io/<owner>/nibras-{web,api,worker}` (the old `tt-*` packages stay in GHCR
+  until deleted). Either keep `/opt/tt` by setting the `STAGING_DIR` variable to it, or move the
+  directory to the new default `/opt/nibras`.
+- Every user is signed out once (the session cookies are now `nibras_access` / `nibras_refresh`).
 
 ## Running migrations manually
 
@@ -156,24 +174,24 @@ Migrations never run on api boot; only the `migrate` one-shot (api image, `migra
 `prisma migrate deploy` as `app_system`:
 
 ```bash
-cd /opt/tt/infra
+cd /opt/nibras/infra
 docker compose --env-file .env.staging -f compose.staging.yml run --rm migrate
 ```
 
-Same thing with plain Docker: `docker run --rm --env-file .env.staging --network tt-staging_default ghcr.io/<owner>/tt-api:<tag> migrate`.
+Same thing with plain Docker: `docker run --rm --env-file .env.staging --network nibras-staging_default ghcr.io/<owner>/nibras-api:<tag> migrate`.
 
 ## Rollback
 
-Every deploy appends `<UTC time> <sha>` to `/opt/tt/infra/deployed-tags.log`. To roll back, start
+Every deploy appends `<UTC time> <sha>` to `/opt/nibras/infra/deployed-tags.log`. To roll back, start
 the previous tag:
 
 ```bash
-cd /opt/tt/infra
-TT_IMAGE_TAG=<previous sha> docker compose --env-file .env.staging -f compose.staging.yml up -d
+cd /opt/nibras/infra
+NIBRAS_IMAGE_TAG=<previous sha> docker compose --env-file .env.staging -f compose.staging.yml up -d
 ```
 
-Alternatively re-tag the previous image as `latest` (`docker tag ghcr.io/<owner>/tt-api:<sha> ghcr.io/<owner>/tt-api:latest`
-for each app) and `up -d` without `TT_IMAGE_TAG`. Prisma migrations are forward-only: a rollback across
+Alternatively re-tag the previous image as `latest` (`docker tag ghcr.io/<owner>/nibras-api:<sha> ghcr.io/<owner>/nibras-api:latest`
+for each app) and `up -d` without `NIBRAS_IMAGE_TAG`. Prisma migrations are forward-only: a rollback across
 a migration needs a new forward migration (or a restore), not an older image alone.
 
 ## Health

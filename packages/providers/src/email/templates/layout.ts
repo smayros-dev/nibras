@@ -1,5 +1,5 @@
-import { dirOf, intlTag, type Locale } from '@tt/contracts';
-import { getMessages, type AbstractIntlMessages } from '@tt/i18n';
+import { dirOf, intlTag, type Locale } from '@nibras/contracts';
+import { getMessages, type AbstractIntlMessages } from '@nibras/i18n';
 import { IntlMessageFormat } from 'intl-messageformat';
 
 const HTML_ESCAPES: Record<string, string> = {

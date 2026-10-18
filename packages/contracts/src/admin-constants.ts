@@ -1,4 +1,4 @@
-// Zod-free (exported by `@tt/contracts/web` for browser bundles); the schemas are in admin.ts.
+// Zod-free (exported by `@nibras/contracts/web` for browser bundles); the schemas are in admin.ts.
 /** PRD §11.2 `WorkspaceStatus`. */
 export const WORKSPACE_STATUSES = ['ACTIVE', 'SUSPENDED', 'DELETING'] as const;
 

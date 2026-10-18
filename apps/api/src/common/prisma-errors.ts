@@ -1,4 +1,4 @@
-import { Prisma } from '@tt/db';
+import { Prisma } from '@nibras/db';
 
 /** Whether `err` is a unique-constraint violation (`P2002`) on `column`. */
 export function uniqueViolationOn(err: unknown, column: string): boolean {

@@ -1,5 +1,5 @@
 {
-  "extends": "@tt/config/tsconfig/package",
+  "extends": "@nibras/config/tsconfig/package",
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",

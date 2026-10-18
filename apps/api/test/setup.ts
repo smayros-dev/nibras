@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { applyTestEnv } from '@tt/config/vitest/test-env';
+import { applyTestEnv } from '@nibras/config/vitest/test-env';
 
 // Load the monorepo root `.env` (already-set variables win, e.g. CI secrets),
-// derive this package's own test database and Redis index (`tt_api_test`, DB 14 by default; see
-// @tt/config/vitest/test-env), then point the API at them and mark the process as `test`.
+// derive this package's own test database and Redis index (`nibras_api_test`, DB 14 by default; see
+// @nibras/config/vitest/test-env), then point the API at them and mark the process as `test`.
 const rootEnv = resolve(__dirname, '../../../.env');
 if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 applyTestEnv('api', process.env);

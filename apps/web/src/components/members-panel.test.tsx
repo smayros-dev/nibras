@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Assignment, MemberSummary, MembershipRole, WorkspaceDetail } from '@tt/contracts';
+import type { Assignment, MemberSummary, MembershipRole, WorkspaceDetail } from '@nibras/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithIntl, tr } from '../test/render';
 import { MembersPanel } from './members-panel';

@@ -49,18 +49,18 @@ describe('AuthRefresher', () => {
     expect(refreshSession).toHaveBeenCalledTimes(1);
   });
 
-  it('sends the user to login with next on tt:session-expired, once', () => {
+  it('sends the user to login with next on nibras:session-expired, once', () => {
     const router = mockRouter({ pathname: '/app/settings/profile' });
     render(<AuthRefresher />);
     act(() => {
-      window.dispatchEvent(new CustomEvent('tt:session-expired'));
-      window.dispatchEvent(new CustomEvent('tt:session-expired'));
+      window.dispatchEvent(new CustomEvent('nibras:session-expired'));
+      window.dispatchEvent(new CustomEvent('nibras:session-expired'));
     });
     expect(router.replace).toHaveBeenCalledTimes(1);
     expect(router.replace).toHaveBeenCalledWith('/login?next=%2Fapp%2Fsettings%2Fprofile');
   });
 
-  it('dispatches tt:session-expired when a proactive refresh fails', async () => {
+  it('dispatches nibras:session-expired when a proactive refresh fails', async () => {
     const router = mockRouter({ pathname: '/app' });
     refreshSession.mockResolvedValueOnce(false);
     render(<AuthRefresher />);

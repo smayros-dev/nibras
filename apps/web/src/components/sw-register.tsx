@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, useToast } from '@tt/ui';
+import { Button, useToast } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useEffect } from 'react';
 import { SW_VERSION } from '../lib/sw-version';

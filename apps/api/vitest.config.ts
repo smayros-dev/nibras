@@ -1,6 +1,6 @@
 import swc from 'unplugin-swc';
 import { defineConfig, mergeConfig } from 'vitest/config';
-import { baseVitestConfig } from '@tt/config/vitest/base';
+import { baseVitestConfig } from '@nibras/config/vitest/base';
 
 // SWC (not esbuild) so Nest decorators emit the metadata DI relies on.
 export default mergeConfig(
@@ -10,7 +10,7 @@ export default mergeConfig(
     test: {
       include: ['src/**/*.spec.ts', 'test/**/*.e2e-spec.ts'],
       setupFiles: ['./test/setup.ts'],
-      // Spec files run one at a time: they all use the same `tt_api_test` DB and Redis index 14
+      // Spec files run one at a time: they all use the same `nibras_api_test` DB and Redis index 14
       // (derived from DATABASE_URL_TEST / REDIS_URL_TEST in test/setup.ts).
       fileParallelism: false,
       // The unreachable-DB health spec boots Nest while Prisma's connect to a closed port fails;

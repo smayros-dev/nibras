@@ -1,4 +1,4 @@
-import { Prisma } from '@tt/db';
+import { Prisma } from '@nibras/db';
 import { describe, expect, it, vi } from 'vitest';
 import { RequestContext, type AuthUser, type RequestStore } from '../common/request-context';
 import { auditWriteFailures } from '../observability/metrics';
