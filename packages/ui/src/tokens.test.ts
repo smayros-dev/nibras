@@ -32,8 +32,8 @@ const inline = vars(block('@theme inline'));
 
 /** Resolves one level of `var(--x)` against the theme block, then the brand scale. */
 function resolve(theme: Vars, name: string): string {
-  const raw = theme[`tt-${name}`];
-  if (!raw) throw new Error(`--tt-${name} missing`);
+  const raw = theme[`nb-${name}`];
+  if (!raw) throw new Error(`--nb-${name} missing`);
   const ref = /^var\(--([\w-]+)\)$/.exec(raw);
   if (!ref) return raw;
   const target = theme[ref[1]!] ?? brandScale[ref[1]!];
@@ -134,20 +134,20 @@ describe('token structure', () => {
       'info-subtle',
       'focus',
       'overlay',
-    ].map((n) => `tt-${n}`);
+    ].map((n) => `nb-${n}`);
     for (const name of required) expect(light, name).toHaveProperty([name]);
   });
 
   it('exposes every semantic token to Tailwind and nothing undefined', () => {
-    const themed = Object.keys(light).map((raw) => raw.replace(/^tt-/, 'color-'));
+    const themed = Object.keys(light).map((raw) => raw.replace(/^nb-/, 'color-'));
     expect(Object.keys(inline).sort()).toEqual(themed.sort());
     for (const [name, value] of Object.entries(inline)) {
-      expect(value).toBe(`var(--${name.replace(/^color-/, 'tt-')})`);
+      expect(value).toBe(`var(--${name.replace(/^color-/, 'nb-')})`);
     }
   });
 
-  it('keeps raw values under --tt-* so no Tailwind token references itself', () => {
-    for (const name of Object.keys(light)) expect(name).toMatch(/^tt-/);
+  it('keeps raw values under --nb-* so no Tailwind token references itself', () => {
+    for (const name of Object.keys(light)) expect(name).toMatch(/^nb-/);
     for (const [name, value] of Object.entries(inline)) expect(value).not.toBe(`var(--${name})`);
   });
 });
