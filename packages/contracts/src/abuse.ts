@@ -100,7 +100,19 @@ export const AdminAbuseReportsQuerySchema = AbuseReportsQuerySchema.extend({
 
 export type AdminAbuseReportsQuery = z.infer<typeof AdminAbuseReportsQuerySchema>;
 
-/** A report as its handlers see it. Dates are ISO strings. */
+/** Who filed a report: shown in the super-admin console only (AC-SAFE-02, owner Q1). */
+export const AbuseReporterSchema = z.object({
+  userId: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+});
+
+export type AbuseReporter = z.infer<typeof AbuseReporterSchema>;
+
+/**
+ * A report as an organisation handler sees it — never the reporter (AC-SAFE-02, owner Q1): the
+ * key does not exist (not `null`). Dates are ISO strings.
+ */
 export const AbuseReportSchema = z.object({
   id: z.string(),
   workspaceId: z.string().nullable(),
@@ -112,7 +124,6 @@ export const AbuseReportSchema = z.object({
   /** Frozen copy of the entity at report time (shape per entity type). */
   contextSnapshot: z.record(z.string(), z.unknown()),
   attachments: z.array(z.string()),
-  reporter: z.object({ userId: z.string(), firstName: z.string(), lastName: z.string() }),
   assignedToUserId: z.string().nullable(),
   resolution: z.string().nullable(),
   resolvedAt: z.string().nullable(),
@@ -128,6 +139,18 @@ export const AbuseReportsPageSchema = z.object({
 });
 
 export type AbuseReportsPage = z.infer<typeof AbuseReportsPageSchema>;
+
+/** A report as the super-admin console sees it (`/admin/abuse-reports`): with its reporter. */
+export const AdminAbuseReportSchema = AbuseReportSchema.extend({ reporter: AbuseReporterSchema });
+
+export type AdminAbuseReport = z.infer<typeof AdminAbuseReportSchema>;
+
+export const AdminAbuseReportsPageSchema = z.object({
+  items: z.array(AdminAbuseReportSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export type AdminAbuseReportsPage = z.infer<typeof AdminAbuseReportsPageSchema>;
 
 /**
  * `PATCH /workspaces/{wid}/abuse-reports/{id}` (`abuse.handle`) and `PATCH

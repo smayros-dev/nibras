@@ -109,9 +109,12 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
     const audit = await db.auditLog.findFirstOrThrow({
       where: { action: 'abuse_report.created', entityId: report.id },
     });
+    // The workspace's OWNER/ADMIN read this row: the reporter is neither the actor nor in `after`.
     expect(audit).toMatchObject({
-      actorUserId: student.id,
-      actorRole: 'STUDENT',
+      actorUserId: null,
+      actorRole: 'ANONYMOUS',
+      ip: null,
+      userAgent: null,
       workspaceId: workspace.id,
       entityType: 'AbuseReport',
     });
@@ -120,7 +123,6 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
       status: 'OPEN',
       entityType: 'USER',
       entityId: teacher.id,
-      reporterUserId: student.id,
     });
   });
 
@@ -290,10 +292,10 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
     expect(list.body.items).toHaveLength(1);
     expect(list.body.items[0]).toMatchObject({
       id,
-      reporter: { userId: student.id, firstName: student.firstName, lastName: student.lastName },
       contextSnapshot: { userId: teacher.id },
       status: 'OPEN',
     });
+    expect(list.body.items[0]).not.toHaveProperty('reporter');
     const patched = await adminAgent
       .patch(wsReports(workspace.id, `/${id}`))
       .send({ status: 'IN_REVIEW', assignedToUserId: admin.id })
@@ -327,6 +329,7 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
       id,
       category: 'MINOR_SAFETY',
       contextSnapshot: { userId: teacher.id },
+      reporter: { userId: student.id, firstName: student.firstName, lastName: student.lastName },
     });
     await saAgent.get(adminReports(`/${randomUUID()}`)).expect(404);
 
@@ -348,6 +351,114 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
       .patch(adminReports(`/${id}`))
       .send({ status: 'OPEN' })
       .expect(403);
+  });
+
+  it('the workspace audit log never names the reporter, even to the reported admin (AC-SAFE-02)', async () => {
+    const owner = await createUser({ totpSecret: S });
+    const admin = await createUser({ totpSecret: S });
+    const student = await createUser({ firstName: 'Yasmine', lastName: 'Trabelsi' });
+    const { workspace } = await createOrganization({ owner, admins: [admin], students: [student] });
+    await (
+      await agent(student)
+    )
+      .post(wsReports(workspace.id))
+      .send({
+        category: 'HARASSMENT',
+        description: DESCRIPTION,
+        entityType: 'USER',
+        entityId: admin.id,
+      })
+      .expect(201);
+    for (const who of [admin, owner]) {
+      const res = await (
+        await agent(who)
+      )
+        .get(`/api/v1/workspaces/${workspace.id}/audit-log?action=abuse_report.created`)
+        .expect(200);
+      expect(res.body.items).toHaveLength(1);
+      expect(JSON.stringify(res.body)).not.toContain(student.id);
+      expect(res.body.items[0].actorUserId).toBeNull();
+      expect(res.body.items[0].after).toEqual({
+        category: 'HARASSMENT',
+        status: 'OPEN',
+        entityType: 'USER',
+        entityId: admin.id,
+      });
+    }
+  });
+
+  it('organisation handlers never see who reported (owner Q1); super-admins do; the reporter sees their own list', async () => {
+    const sa = await createUser({ platformRole: 'SUPER_ADMIN', totpSecret: S });
+    const owner = await createUser({ totpSecret: S });
+    const admin = await createUser({ totpSecret: S });
+    const teacher = await createUser({ firstName: 'Karim', lastName: 'Haddad' });
+    const student = await createUser({ firstName: 'Yasmine', lastName: 'Trabelsi' });
+    const { workspace } = await createOrganization({
+      owner,
+      admins: [admin],
+      teachers: [teacher],
+      students: [student],
+    });
+    const created = await (
+      await agent(student)
+    )
+      .post(wsReports(workspace.id))
+      .send({
+        category: 'HARASSMENT',
+        description: DESCRIPTION,
+        entityType: 'USER',
+        entityId: teacher.id,
+      })
+      .expect(201);
+    const id = created.body.id as string;
+    const escape = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const leak = new RegExp(
+      [student.id, student.email, student.firstName, student.lastName].map(escape).join('|'),
+    );
+
+    for (const [who, status] of [
+      [owner, 'IN_REVIEW'],
+      [admin, 'RESOLVED'],
+    ] as const) {
+      const a = await agent(who);
+      const list = await a.get(wsReports(workspace.id)).expect(200);
+      const one = await a.get(wsReports(workspace.id, `/${id}`)).expect(200);
+      const patched = await a
+        .patch(wsReports(workspace.id, `/${id}`))
+        .send({ status, assignedToUserId: who.id })
+        .expect(200);
+      const auditLog = await a.get(`/api/v1/workspaces/${workspace.id}/audit-log`).expect(200);
+      expect(list.body.items).toHaveLength(1);
+      for (const body of [list.body.items[0], one.body, patched.body]) {
+        expect(body).not.toHaveProperty('reporter');
+        expect(JSON.stringify(body)).not.toMatch(leak);
+      }
+      expect(JSON.stringify(list.body)).not.toMatch(leak);
+      expect(JSON.stringify(auditLog.body)).not.toMatch(leak);
+    }
+
+    const saAgent = await agent(sa);
+    const reporter = {
+      userId: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+    };
+    expect((await saAgent.get(adminReports(`/${id}`)).expect(200)).body.reporter).toEqual(reporter);
+    expect((await saAgent.get(adminReports()).expect(200)).body.items[0].reporter).toEqual(
+      reporter,
+    );
+    const saPatched = await saAgent
+      .patch(adminReports(`/${id}`))
+      .send({ status: 'OPEN' })
+      .expect(200);
+    expect(saPatched.body.reporter).toEqual(reporter);
+    const saAudit = await db.auditLog.findFirstOrThrow({
+      where: { action: 'abuse_report.updated', entityId: id, actorUserId: sa.id },
+    });
+    expect(JSON.stringify(saAudit)).not.toMatch(leak);
+
+    const mine = await (await agent(student)).get('/api/v1/me/abuse-reports').expect(200);
+    expect(mine.body.items.map((r: { id: string }) => r.id)).toEqual([id]);
   });
 
   it('Review Focus 1: GET /me/abuse-reports returns only my reports; the reported teacher cannot read the report via any route', async () => {

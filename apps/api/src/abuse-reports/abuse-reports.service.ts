@@ -11,6 +11,8 @@ import {
   type AbuseReportCreated,
   type AbuseReportsPage,
   type AbuseReportsQuery,
+  type AdminAbuseReport as AdminAbuseReportView,
+  type AdminAbuseReportsPage,
   type AdminAbuseReportsQuery,
   type CreateAbuseReportInput,
   type MinorSafetyReminderJob,
@@ -43,8 +45,9 @@ const UNDER_REVIEW = [...ABUSE_UNDER_REVIEW_STATUSES];
 const CLOSED: readonly string[] = ABUSE_CLOSED_STATUSES;
 
 /** Who handles a report: an organisation's staff on its own queue, or the super-admin. */
-export type HandlerScope =
-  { kind: 'workspace'; workspaceId: string; userId: string } | { kind: 'admin'; userId: string };
+export type WorkspaceScope = { kind: 'workspace'; workspaceId: string; userId: string };
+export type AdminScope = { kind: 'admin'; userId: string };
+export type HandlerScope = WorkspaceScope | AdminScope;
 
 export type CreateAbuseReportCommand = CreateAbuseReportInput & { workspaceId: string | null };
 
@@ -75,8 +78,15 @@ function workspaceReportLink(locale: Locale, workspaceId: string, id: string): s
   return `${origin()}/${locale}/app/w/${workspaceId}/abuse-reports/${id}`;
 }
 
-function toView(r: ReportRow): AbuseReportView {
-  return {
+/**
+ * The report for its handlers. The reporter is added for the super-admin only (AC-SAFE-02, owner
+ * Q1): the organisation view has no `reporter` key at all.
+ */
+function toView(r: ReportRow, scope: AdminScope): AdminAbuseReportView;
+function toView(r: ReportRow, scope: WorkspaceScope): AbuseReportView;
+function toView(r: ReportRow, scope: HandlerScope): AbuseReportView | AdminAbuseReportView;
+function toView(r: ReportRow, scope: HandlerScope): AbuseReportView | AdminAbuseReportView {
+  const view: AbuseReportView = {
     id: r.id,
     workspaceId: r.workspaceId,
     category: r.category,
@@ -86,16 +96,20 @@ function toView(r: ReportRow): AbuseReportView {
     entityId: r.entityId,
     contextSnapshot: (r.contextSnapshot ?? {}) as Record<string, unknown>,
     attachments: r.attachments,
-    reporter: {
-      userId: r.reporter.id,
-      firstName: r.reporter.firstName,
-      lastName: r.reporter.lastName,
-    },
     assignedToUserId: r.assignedToUserId,
     resolution: r.resolution,
     resolvedAt: r.resolvedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
+  };
+  if (scope.kind !== 'admin') return view;
+  return {
+    ...view,
+    reporter: {
+      userId: r.reporter.id,
+      firstName: r.reporter.firstName,
+      lastName: r.reporter.lastName,
+    },
   };
 }
 
@@ -202,17 +216,19 @@ export class AbuseReportsService implements OnModuleInit {
         status: 'OPEN',
       },
     });
+    // The workspace's OWNER/ADMIN read this row: it never names the reporter, neither in `after`
+    // nor as its actor (AC-SAFE-02, owner Q1). The reporter is on the report itself.
     await this.audit.log({
       action: 'abuse_report.created',
       entityType: 'AbuseReport',
       entityId: report.id,
       ...(workspaceId !== null && { workspaceId }),
+      hideActor: true,
       after: {
         category: report.category,
         status: report.status,
         entityType: report.entityType,
         entityId: report.entityId,
-        reporterUserId: report.reporterUserId,
       },
     });
 
@@ -253,11 +269,16 @@ export class AbuseReportsService implements OnModuleInit {
     };
   }
 
-  /** A handler's queue: the organisation's reports, or every report for the super-admin. */
+  /**
+   * A handler's queue: the organisation's reports (no reporter), or every report with its
+   * reporter for the super-admin.
+   */
+  async list(scope: AdminScope, q: AdminAbuseReportsQuery): Promise<AdminAbuseReportsPage>;
+  async list(scope: WorkspaceScope, q: AbuseReportsQuery): Promise<AbuseReportsPage>;
   async list(
     scope: HandlerScope,
     q: AbuseReportsQuery & Partial<Pick<AdminAbuseReportsQuery, 'workspaceId'>>,
-  ): Promise<AbuseReportsPage> {
+  ): Promise<AbuseReportsPage | AdminAbuseReportsPage> {
     const where: Prisma.AbuseReportWhereInput = {
       ...(q.status !== undefined && { status: q.status }),
       ...(q.category !== undefined && { category: q.category }),
@@ -270,14 +291,16 @@ export class AbuseReportsService implements OnModuleInit {
     });
     const items = rows.slice(0, q.limit);
     return {
-      items: items.map(toView),
+      items: items.map((r) => toView(r, scope)),
       nextCursor: rows.length > q.limit ? items[items.length - 1]!.id : null,
     };
   }
 
-  /** One report of the handler's queue; outside it → `404`. */
-  async get(scope: HandlerScope, id: string): Promise<AbuseReportView> {
-    return toView(await this.find(scope, id));
+  /** One report of the handler's queue; outside it → `404`. The reporter: super-admin only. */
+  async get(scope: AdminScope, id: string): Promise<AdminAbuseReportView>;
+  async get(scope: WorkspaceScope, id: string): Promise<AbuseReportView>;
+  async get(scope: HandlerScope, id: string): Promise<AbuseReportView | AdminAbuseReportView> {
+    return toView(await this.find(scope, id), scope);
   }
 
   /**
@@ -288,10 +311,20 @@ export class AbuseReportsService implements OnModuleInit {
    * when something changed.
    */
   async update(
+    scope: AdminScope,
+    id: string,
+    input: UpdateAbuseReportInput,
+  ): Promise<AdminAbuseReportView>;
+  async update(
+    scope: WorkspaceScope,
+    id: string,
+    input: UpdateAbuseReportInput,
+  ): Promise<AbuseReportView>;
+  async update(
     scope: HandlerScope,
     id: string,
     input: UpdateAbuseReportInput,
-  ): Promise<AbuseReportView> {
+  ): Promise<AbuseReportView | AdminAbuseReportView> {
     const current = await this.find(scope, id);
     if (input.assignedToUserId) await this.assertAssignable(scope, current, input.assignedToUserId);
 
@@ -311,7 +344,7 @@ export class AbuseReportsService implements OnModuleInit {
       before.assignedToUserId === after.assignedToUserId &&
       before.resolution === after.resolution
     ) {
-      return toView(current);
+      return toView(current, scope);
     }
     const updated = await this.db.abuseReport.update({
       where: { id: current.id },
@@ -326,7 +359,7 @@ export class AbuseReportsService implements OnModuleInit {
       before,
       after,
     });
-    return toView(updated);
+    return toView(updated, scope);
   }
 
   /** AC-SAFE-03 hook (SP8 `409 MESSAGE_UNDER_REVIEW`): a report on the entity is OPEN/IN_REVIEW. */

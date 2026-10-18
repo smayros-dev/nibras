@@ -143,3 +143,20 @@ and the phone OTP endpoint has its own request window (1/60 s) and attempt cap (
 server-side; everyone else gets 404. Workspace suspend/unsuspend and abuse-report resolution are
 audited (`workspace.suspended`, `abuse_report.updated`) and refuse to operate on deleted
 workspaces.
+
+## Abuse reports: who sees the reporter
+
+AC-SAFE-02, owner ruling Q1 (SP1.6): the reporter's identity is shown to **super-admins only**,
+in the `/admin/abuse-reports` console (`AdminAbuseReportSchema`, with `reporter`). Organisation
+OWNER/ADMIN handlers never learn who filed a report:
+
+- `GET /workspaces/{wid}/abuse-reports`, `GET`/`PATCH …/{id}` return `AbuseReportSchema`, which
+  has no `reporter` key at all (not `null`);
+- the `abuse_report.created` audit row carries `{ category, status, entityType, entityId }` only
+  and is written with a hidden actor (`actorUserId`, `ip`, `userAgent` null, `actorRole`
+  `ANONYMOUS`), since `GET /workspaces/{wid}/audit-log` is readable by the same handlers;
+  `AuditService` drops the keys in `NEVER_AUDITED_KEYS` (`reporterUserId`, `reporter`, any
+  depth) from every `before`/`after`;
+- the `abuse.new_report` email names nobody.
+
+The reporter still sees their own reports through `GET /me/abuse-reports` (no identity field).

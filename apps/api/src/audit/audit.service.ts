@@ -61,6 +61,12 @@ export interface AuditEntry {
   after?: Record<string, unknown>;
   /** Actor when the context has none or another one applies (failed login, jobs). */
   actorOverride?: { userId?: string; role: string };
+  /**
+   * The actor must stay undisclosed to the workspace's readers (AC-SAFE-02, owner Q1: an abuse
+   * report's reporter): no actor id, no ip, no user agent, actor role `ANONYMOUS`. The request id
+   * is kept (it names nobody).
+   */
+  hideActor?: true;
 }
 
 /** Field names that are never stored in `before`/`after`: hashes, secrets, credentials. */
@@ -71,8 +77,16 @@ const SECRET_KEY = /hash|secret|password|token/i;
  */
 const REDACTED = new Set(REDACT_KEYS.filter((k) => k !== 'email').map((k) => k.toLowerCase()));
 
+/**
+ * AC-SAFE-02 / owner Q1: the reporter of an abuse report is never written to a row tenant admins
+ * can read (`GET /workspaces/{wid}/audit-log`). Lower-cased, compared case-insensitively, at any
+ * depth, whatever the caller passes.
+ */
+export const NEVER_AUDITED_KEYS: ReadonlySet<string> = new Set(['reporteruserid', 'reporter']);
+
 function isSecretKey(key: string): boolean {
-  return SECRET_KEY.test(key) || REDACTED.has(key.toLowerCase());
+  const lower = key.toLowerCase();
+  return SECRET_KEY.test(key) || REDACTED.has(lower) || NEVER_AUDITED_KEYS.has(lower);
 }
 
 /**
@@ -133,15 +147,19 @@ export class AuditService {
           entityType: entry.entityType,
           entityId: entry.entityId ?? null,
           workspaceId: workspaceId ?? null,
-          actorUserId: entry.actorOverride
-            ? (entry.actorOverride.userId ?? null)
-            : (store?.user?.id ?? null),
-          actorRole: entry.actorOverride?.role ?? actorRoleOf(store, workspaceId),
+          actorUserId: entry.hideActor
+            ? null
+            : entry.actorOverride
+              ? (entry.actorOverride.userId ?? null)
+              : (store?.user?.id ?? null),
+          actorRole: entry.hideActor
+            ? 'ANONYMOUS'
+            : (entry.actorOverride?.role ?? actorRoleOf(store, workspaceId)),
           before: toJson(entry.before),
           after: toJson(entry.after),
           // `inet` rejects '' (no address known).
-          ip: store?.ip || null,
-          userAgent: store?.userAgent || null,
+          ip: (!entry.hideActor && store?.ip) || null,
+          userAgent: (!entry.hideActor && store?.userAgent) || null,
           requestId: store?.requestId ?? `system-${randomUUID()}`,
         },
       });

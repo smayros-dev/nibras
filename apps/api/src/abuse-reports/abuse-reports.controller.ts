@@ -13,6 +13,8 @@ import type {
   AbuseReport,
   AbuseReportCreated,
   AbuseReportsPage,
+  AdminAbuseReport,
+  AdminAbuseReportsPage,
   MyAbuseReportsPage,
 } from '@nibras/contracts';
 import { CurrentUser } from '../auth/decorators/current-user';
@@ -54,7 +56,8 @@ export class WorkspaceAbuseReportsController {
 
   /**
    * Organisation OWNER/ADMIN (`abuse.handle`; never the owner of a personal workspace): the
-   * workspace's reports with reporter and frozen snapshot, newest first.
+   * workspace's reports with their frozen snapshot, newest first. Never the reporter (AC-SAFE-02,
+   * owner Q1): only the super-admin console shows it.
    */
   @Get()
   @RequirePermission('abuse.handle')
@@ -120,7 +123,8 @@ export class AccountAbuseReportsController {
 
 /**
  * The super-admin abuse queue (PRD §8.17): every report of the platform, MINOR_SAFETY ones
- * whatever an organisation did with them (AC-SAFE-05). Non super-admins → `403`.
+ * whatever an organisation did with them (AC-SAFE-05), with the reporter (the only place it is
+ * shown, owner Q1). Non super-admins → `403`.
  */
 @Controller('admin/abuse-reports')
 @SuperAdminOnly()
@@ -132,12 +136,12 @@ export class AdminAbuseReportsController {
   list(
     @CurrentUser() user: AuthUser,
     @Query() query: AdminAbuseReportsQueryDto,
-  ): Promise<AbuseReportsPage> {
+  ): Promise<AdminAbuseReportsPage> {
     return this.reports.list({ kind: 'admin', userId: user.id }, query);
   }
 
   @Get(':id')
-  get(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<AbuseReport> {
+  get(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<AdminAbuseReport> {
     return this.reports.get({ kind: 'admin', userId: user.id }, id);
   }
 
@@ -148,7 +152,7 @@ export class AdminAbuseReportsController {
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Body() body: UpdateAbuseReportDto,
-  ): Promise<AbuseReport> {
+  ): Promise<AdminAbuseReport> {
     return this.reports.update({ kind: 'admin', userId: user.id }, id, body);
   }
 }
