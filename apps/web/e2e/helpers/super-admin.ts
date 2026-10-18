@@ -39,7 +39,7 @@ export interface SeededSuperAdmin {
  */
 export async function seedSuperAdmin(): Promise<SeededSuperAdmin> {
   const cli = `${API_DIR}dist/cli/create-super-admin.js`;
-  if (!existsSync(cli)) throw new Error(`missing ${cli}: build @tt/api before running e2e`);
+  if (!existsSync(cli)) throw new Error(`missing ${cli}: build @nibras/api before running e2e`);
 
   const ctx = await playwrightRequest.newContext({ baseURL: BASE });
   try {

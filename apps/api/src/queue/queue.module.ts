@@ -1,6 +1,6 @@
 import { BullModule, getQueueToken } from '@nestjs/bullmq';
 import { Global, Logger, Module } from '@nestjs/common';
-import { DEFAULT_JOB_OPTIONS, QUEUES, type QueueName } from '@tt/contracts';
+import { DEFAULT_JOB_OPTIONS, QUEUES, type QueueName } from '@nibras/contracts';
 import type { ConnectionOptions, Queue } from 'bullmq';
 import { env } from '../config/env';
 import { QUEUES_BY_NAME, QueueService } from './queue.service';

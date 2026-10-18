@@ -1,6 +1,6 @@
 'use client';
 
-import { Skeleton, SkeletonTable, VisuallyHidden } from '@tt/ui';
+import { Skeleton, SkeletonTable, VisuallyHidden } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 
 /** `loading.tsx` placeholder: a page-header skeleton and a table skeleton, announced once. */

@@ -1,5 +1,5 @@
-import type { WorkspaceDetail } from '@tt/contracts';
-import { Badge, PageHeader } from '@tt/ui';
+import type { WorkspaceDetail } from '@nibras/contracts';
+import { Badge, PageHeader } from '@nibras/ui';
 import { hasLocale } from 'next-intl';
 import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';

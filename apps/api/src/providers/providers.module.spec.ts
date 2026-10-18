@@ -1,4 +1,4 @@
-import { LogSmsProvider, SmtpEmailProvider } from '@tt/providers';
+import { LogSmsProvider, SmtpEmailProvider } from '@nibras/providers';
 import { describe, expect, it, vi } from 'vitest';
 import { FakePwnedClient, HibpClient } from '../auth/crypto/hibp';
 import { SecretBox } from '../auth/crypto/secret-box';

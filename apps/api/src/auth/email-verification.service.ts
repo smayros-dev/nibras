@@ -1,7 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import type { Locale } from '@tt/contracts';
-import type { GuardedClient, Prisma, User } from '@tt/db';
-import type { EmailProvider } from '@tt/providers';
+import type { Locale } from '@nibras/contracts';
+import type { GuardedClient, Prisma, User } from '@nibras/db';
+import type { EmailProvider } from '@nibras/providers';
 import type Redis from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 import { ApiError } from '../common/api-error';

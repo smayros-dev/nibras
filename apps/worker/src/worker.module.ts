@@ -8,7 +8,7 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { createPrismaClient, type PrismaClient } from '@tt/db';
+import { createPrismaClient, type PrismaClient } from '@nibras/db';
 import type { Logger } from 'pino';
 
 import { loadEnv, WORKER_ENV, type WorkerEnv } from './env';

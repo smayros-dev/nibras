@@ -1,5 +1,5 @@
 /*
- * @tt/ui design system entry: Tailwind 4 + the design tokens (`tokens.css`).
+ * @nibras/ui design system entry: Tailwind 4 + the design tokens (`tokens.css`).
  * Direction comes from `<html dir>`; use logical properties only (`padding-inline`,
  * `margin-inline-start`, `ps-*`/`me-*`...), never left/right.
  */

@@ -1,5 +1,5 @@
 /**
- * Per-package test isolation. Turbo runs the `@tt/db`, `@tt/api` and `@tt/worker` test tasks in
+ * Per-package test isolation. Turbo runs the `@nibras/db`, `@nibras/api` and `@nibras/worker` test tasks in
  * parallel, so each package gets its own Postgres database and Redis DB index, derived from the
  * shared base variables (`DATABASE_URL_TEST`, `DATABASE_URL_TEST_SYSTEM`, `REDIS_URL_TEST`):
  * the database name becomes `<TEST_DB_PREFIX>_<pkg>_test` (prefix `tt` by default), the Redis path

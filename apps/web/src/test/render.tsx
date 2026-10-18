@@ -1,8 +1,8 @@
-import type { Locale } from '@tt/contracts';
-import { dirOf } from '@tt/contracts';
-import { messages } from '@tt/i18n';
+import type { Locale } from '@nibras/contracts';
+import { dirOf } from '@nibras/contracts';
+import { messages } from '@nibras/i18n';
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
-import { DirectionProvider, ToastProvider } from '@tt/ui';
+import { DirectionProvider, ToastProvider } from '@nibras/ui';
 import type { ReactElement, ReactNode } from 'react';
 import { IntlProvider } from '../components/intl-provider';
 

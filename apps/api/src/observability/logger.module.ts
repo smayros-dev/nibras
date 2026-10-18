@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { redactPaths } from '@tt/contracts';
+import { redactPaths } from '@nibras/contracts';
 import { LoggerModule, type Params } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
 import type { Options } from 'pino-http';

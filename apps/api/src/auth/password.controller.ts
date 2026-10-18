@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import type { EmailChangeConfirmResponse } from '@tt/contracts';
+import type { EmailChangeConfirmResponse } from '@nibras/contracts';
 import { Public } from './decorators/public';
 import { EmailChangeConfirmDto, ForgotPasswordDto, ResetPasswordDto } from './dto';
 import { EmailChangeService } from './email-change.service';

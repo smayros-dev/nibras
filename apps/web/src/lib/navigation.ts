@@ -1,5 +1,5 @@
-import type { MeUser, MyWorkspace } from '@tt/contracts';
-import type { NavItem, NavSection } from '@tt/ui';
+import type { MeUser, MyWorkspace } from '@nibras/contracts';
+import type { NavItem, NavSection } from '@nibras/ui';
 import {
   Activity,
   Building2,

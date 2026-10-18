@@ -1,4 +1,4 @@
-import { LOCALES } from '@tt/contracts';
+import { LOCALES } from '@nibras/contracts';
 import { describe, expect, it } from 'vitest';
 import { extractFirstLink, renderEmail } from './templates';
 import { EMAIL_TEMPLATE_KEYS, type EmailParamsByKey } from './types';

@@ -47,6 +47,15 @@ importers:
       '@nestjs/throttler':
         specifier: ^6.7.1
         version: 6.7.1(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(reflect-metadata@0.2.2)
+      '@nibras/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@nibras/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@nibras/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
       '@opentelemetry/auto-instrumentations-node':
         specifier: ^0.81.0
         version: 0.81.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.12.0(@opentelemetry/api@1.9.1))
@@ -56,15 +65,6 @@ importers:
       '@opentelemetry/sdk-node':
         specifier: ^0.223.0
         version: 0.223.0(@opentelemetry/api@1.9.1)
-      '@tt/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@tt/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@tt/providers':
-        specifier: workspace:*
-        version: link:../../packages/providers
       argon2:
         specifier: ^0.44.0
         version: 0.44.0
@@ -123,12 +123,12 @@ importers:
       '@nestjs/testing':
         specifier: ^11.2.7
         version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(@nestjs/platform-express@11.2.7)
+      '@nibras/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@swc/core':
         specifier: ^1.16.13
         version: 1.16.13(@swc/helpers@0.5.23)
-      '@tt/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@types/cookie-parser':
         specifier: ^1.4.10
         version: 1.4.10(@types/express@5.0.6)
@@ -162,13 +162,13 @@ importers:
 
   apps/web:
     dependencies:
-      '@tt/contracts':
+      '@nibras/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@tt/i18n':
+      '@nibras/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
-      '@tt/ui':
+      '@nibras/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       lucide-react:
@@ -193,6 +193,9 @@ importers:
       '@axe-core/playwright':
         specifier: 4.14.0
         version: 4.14.0(playwright-core@1.64.0)
+      '@nibras/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@playwright/test':
         specifier: ^1.64.0
         version: 1.64.0
@@ -211,9 +214,6 @@ importers:
       '@testing-library/user-event':
         specifier: 14.6.1
         version: 14.6.1(@testing-library/dom@10.4.2)
-      '@tt/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.2
@@ -259,13 +259,13 @@ importers:
       '@nestjs/core':
         specifier: ^11.2.7
         version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.2.7)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@tt/contracts':
+      '@nibras/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@tt/db':
+      '@nibras/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@tt/providers':
+      '@nibras/providers':
         specifier: workspace:*
         version: link:../../packages/providers
       bullmq:
@@ -293,12 +293,12 @@ importers:
       '@nestjs/testing':
         specifier: ^11.2.7
         version: 11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.7)(@nestjs/platform-express@11.2.7)
+      '@nibras/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@swc/core':
         specifier: ^1.16.13
         version: 1.16.13(@swc/helpers@0.5.23)
-      '@tt/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -354,7 +354,7 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
-      '@tt/config':
+      '@nibras/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':
@@ -382,10 +382,10 @@ importers:
         specifier: ~6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
     devDependencies:
-      '@tt/config':
+      '@nibras/config':
         specifier: workspace:*
         version: link:../config
-      '@tt/contracts':
+      '@nibras/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@types/node':
@@ -415,11 +415,11 @@ importers:
 
   packages/i18n:
     dependencies:
-      '@tt/contracts':
+      '@nibras/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
-      '@tt/config':
+      '@nibras/config':
         specifier: workspace:*
         version: link:../config
       eslint:
@@ -437,10 +437,10 @@ importers:
 
   packages/providers:
     dependencies:
-      '@tt/contracts':
+      '@nibras/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@tt/i18n':
+      '@nibras/i18n':
         specifier: workspace:*
         version: link:../i18n
       intl-messageformat:
@@ -453,7 +453,7 @@ importers:
         specifier: ^7.0.13
         version: 7.0.13
     devDependencies:
-      '@tt/config':
+      '@nibras/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':
@@ -477,7 +477,7 @@ importers:
 
   packages/ui:
     dependencies:
-      '@tt/config':
+      '@nibras/config':
         specifier: workspace:*
         version: link:../config
       class-variance-authority:

@@ -4,8 +4,14 @@ import {
   WorkspaceSettingsSchema,
   type WorkspaceSettings,
   type WorkspaceSettingsPatch,
-} from '@tt/contracts';
-import { Prisma, withTenantTx, type GuardedClient, type TenantTx, type Workspace } from '@tt/db';
+} from '@nibras/contracts';
+import {
+  Prisma,
+  withTenantTx,
+  type GuardedClient,
+  type TenantTx,
+  type Workspace,
+} from '@nibras/db';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
 import { DB } from '../db/db.module';

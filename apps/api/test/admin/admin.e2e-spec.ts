@@ -1,7 +1,7 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { QUEUES } from '@tt/contracts';
-import { CROSS_TENANT_AUDIT_ACTION, type PrismaClient, type User } from '@tt/db';
-import type { InMemoryEmailProvider } from '@tt/providers';
+import { QUEUES } from '@nibras/contracts';
+import { CROSS_TENANT_AUDIT_ACTION, type PrismaClient, type User } from '@nibras/db';
+import type { InMemoryEmailProvider } from '@nibras/providers';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { USER_SUSPENDED } from '../../src/admin/events';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';

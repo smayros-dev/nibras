@@ -1,5 +1,5 @@
-import type { AbuseReportStatus } from '@tt/contracts';
-import type { BadgeVariant } from '@tt/ui';
+import type { AbuseReportStatus } from '@nibras/contracts';
+import type { BadgeVariant } from '@nibras/ui';
 
 /** Badge colour of an abuse report's status (queue and detail). */
 export function abuseStatusBadge(status: AbuseReportStatus): BadgeVariant {

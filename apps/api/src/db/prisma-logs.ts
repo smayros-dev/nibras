@@ -1,4 +1,4 @@
-import type { PrismaLogHandler } from '@tt/db';
+import type { PrismaLogHandler } from '@nibras/db';
 import type { PinoLogger } from 'nestjs-pino';
 
 /**

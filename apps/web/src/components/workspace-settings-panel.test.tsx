@@ -4,7 +4,7 @@ import {
   type MemberSummary,
   type MembershipRole,
   type WorkspaceDetail,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithIntl, tr } from '../test/render';
 import { WorkspaceSettingsPanel } from './workspace-settings-panel';

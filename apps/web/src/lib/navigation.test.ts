@@ -1,5 +1,5 @@
-import type { MyWorkspace } from '@tt/contracts';
-import { currentNavId, matchesNavPath, navMatches, type NavSection } from '@tt/ui';
+import type { MyWorkspace } from '@nibras/contracts';
+import { currentNavId, matchesNavPath, navMatches, type NavSection } from '@nibras/ui';
 import { describe, expect, it } from 'vitest';
 import { buildNavModel, workspaceIdFromPath, type NavModelInput } from './navigation';
 

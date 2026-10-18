@@ -1,4 +1,4 @@
-import { LOCALES } from '@tt/contracts';
+import { LOCALES } from '@nibras/contracts';
 import { describe, expect, it } from 'vitest';
 import { InMemorySmsProvider } from './in-memory';
 import { LogSmsProvider, maskPhone, type SmsLogger } from './log';

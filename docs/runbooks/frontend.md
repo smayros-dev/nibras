@@ -38,9 +38,9 @@ built and how to change it safely.
    `--color-primary`), `backgroundColor` (= light `--color-bg`), `darkThemeColor` (= dark
    `--color-bg`).
 2. `packages/ui/src/tokens.css`: the brand block (`--color-brand-50…950`, accent, font); run
-   `pnpm --filter @tt/ui test` (contrast) afterwards.
+   `pnpm --filter @nibras/ui test` (contrast) afterwards.
 3. `apps/web/public/icons/icon.svg`: the mark on a `<rect fill="#rrggbb">` background.
-4. `pnpm --filter @tt/web icons` (`scripts/icons.mjs`, sharp) re-renders `icon-192.png`,
+4. `pnpm --filter @nibras/web icons` (`scripts/icons.mjs`, sharp) re-renders `icon-192.png`,
    `icon-512.png`, `maskable-512.png` and `apple-touch-icon.png`; commit the PNGs.
 5. `common.appName` in the three catalogues; bump `SW_VERSION` so installed workers refetch the
    offline pages.
@@ -53,7 +53,7 @@ built and how to change it safely.
 2. A file that sets an event handler or holds state starts with `'use client'`
    (`client-boundary.test.ts` fails otherwise: a server page cannot pass functions to it).
 3. Tests render in both directions (`renderWithDir`) and call `expectNoPhysicalClasses`.
-4. `@tt/ui` is source-exported: the web app picks changes up without a build.
+4. `@nibras/ui` is source-exported: the web app picks changes up without a build.
 
 ## Adding a nav item
 
@@ -69,9 +69,9 @@ sessions, SP8 messages, SP9 notifications).
 - Every key goes into `fr`, `ar` and `en` in the same commit (French first; AR/EN translations
   await native review, PRD §22). Western digits in Arabic (D-P16): never hard-code Arabic-Indic
   numerals; `formatDate`/`Intl` handle it. Plurals use `{min}`/`{max}` arguments, not `#`.
-- The web reads `@tt/i18n`'s **dist**: after editing a catalogue run
-  `pnpm --filter @tt/i18n build` (turbo does it before `dev`, `build` and `test`).
-- `pnpm --filter @tt/i18n test` runs two guards:
+- The web reads `@nibras/i18n`'s **dist**: after editing a catalogue run
+  `pnpm --filter @nibras/i18n build` (turbo does it before `dev`, `build` and `test`).
+- `pnpm --filter @nibras/i18n test` runs two guards:
   - `locales.test.ts`: the three catalogues have exactly the same keys, none empty;
   - `unused-keys.test.ts`: every key is referenced by `apps/web/src` or `packages/ui/src` (tests
     excluded) — as a full string literal, or as a namespace passed to
@@ -79,7 +79,7 @@ sessions, SP8 messages, SP9 notifications).
     `emails.*` and `sms.*` (rendered by the API) are not scanned. A key built at run time
     (``t(`members.role_${role}`)``) needs its prefix in `DYNAMIC_KEYS` with a comment naming the
     call; a prefix that matches no key fails too. Delete the keys it flags rather than
-    allow-listing them. Turbo lists those source trees as inputs of `@tt/i18n#test`.
+    allow-listing them. Turbo lists those source trees as inputs of `@nibras/i18n#test`.
 
 ## First-load JS budget (PRD §14.1)
 
@@ -89,7 +89,7 @@ computes it from the build manifests: the root main files plus every chunk the r
 load up front, each once, gzip -9 (the `nomodule` polyfill is not counted).
 
 ```sh
-pnpm --filter @tt/web build && pnpm --filter @tt/web budget
+pnpm --filter @nibras/web build && pnpm --filter @nibras/web budget
 ```
 
 It prints every route and exits 1 when one is over; CI runs it after `pnpm build` (`check` job).
@@ -105,9 +105,9 @@ Measured at the close of SP1.5 (2026-10-17):
 About 131 kB is React and Next themselves and ≈ 56 kB the Radix layer (dialogs, menus, toasts) of
 the shell. Headroom is ≈ 16–30 kB per route, so:
 
-- **Never import a value from `@tt/contracts` in web code.** That entry bundles every zod schema
+- **Never import a value from `@nibras/contracts` in web code.** That entry bundles every zod schema
   and zod itself: one constant imported from it put every route at ≈ 300 kB. Values come from the
-  zod-free `@tt/contracts/web`; type-only imports from `@tt/contracts` are erased and fine.
+  zod-free `@nibras/contracts/web`; type-only imports from `@nibras/contracts` are erased and fine.
   ESLint enforces it in `src/` (`@typescript-eslint/no-restricted-imports`,
   `packages/config/eslint/next.mjs`; tests exempt); a server component that needs a schema-module
   value disables the rule on that import with a comment. `packages/contracts/src/web.test.ts`
@@ -201,11 +201,11 @@ Icons, the worker's cache policy, `SW_VERSION` and local testing are in
 
   ```sh
   pnpm build
-  E2E_PROD=1 pnpm --filter @tt/web e2e            # every project
-  E2E_PROD=1 pnpm --filter @tt/web e2e consent    # one spec file
+  E2E_PROD=1 pnpm --filter @nibras/web e2e            # every project
+  E2E_PROD=1 pnpm --filter @nibras/web e2e consent    # one spec file
   ```
 
-  On PowerShell: `$env:E2E_PROD='1'; pnpm --filter @tt/web e2e`. Playwright starts the
+  On PowerShell: `$env:E2E_PROD='1'; pnpm --filter @nibras/web e2e`. Playwright starts the
   standalone web server (`start:standalone`) and the api/worker from `dist`. The strict CSP, HSTS
   and the service-worker test only run in this mode. Details:
   [local-dev.md](local-dev.md#end-to-end-tests-playwright).
@@ -223,4 +223,4 @@ Icons, the worker's cache policy, `SW_VERSION` and local testing are in
 - `environmentMatchGlobs` in `apps/web/vitest.config.ts` is deprecated (Vitest 3.2); move to
   `test.projects` with Vitest 4.
 - First-load headroom is ≈ 16–30 kB: a sub-project adding a global client dependency re-runs
-  `pnpm --filter @tt/web budget` before merging (CI fails it anyway).
+  `pnpm --filter @nibras/web budget` before merging (CI fails it anyway).

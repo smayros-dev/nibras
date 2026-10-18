@@ -1,7 +1,7 @@
 import { Test, type TestingModule } from '@nestjs/testing';
-import { QUEUES } from '@tt/contracts';
-import { resetDatabase, systemPrisma, type User } from '@tt/db';
-import { InMemoryEmailProvider } from '@tt/providers';
+import { QUEUES } from '@nibras/contracts';
+import { resetDatabase, systemPrisma, type User } from '@nibras/db';
+import { InMemoryEmailProvider } from '@nibras/providers';
 import type { Job } from 'bullmq';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 

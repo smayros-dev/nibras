@@ -1,8 +1,8 @@
 import { hkdfSync } from 'node:crypto';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import type { SessionSummary } from '@tt/contracts';
-import { uuidv7, type GuardedClient, type User, type UserSession } from '@tt/db';
-import type { EmailProvider } from '@tt/providers';
+import type { SessionSummary } from '@nibras/contracts';
+import { uuidv7, type GuardedClient, type User, type UserSession } from '@nibras/db';
+import type { EmailProvider } from '@nibras/providers';
 import type Redis from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';

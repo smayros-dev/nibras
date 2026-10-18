@@ -1,6 +1,6 @@
 'use client';
 
-import { Select } from '@tt/ui';
+import { Select } from '@nibras/ui';
 import type { SelectHTMLAttributes } from 'react';
 import { useTimezones } from '../lib/timezones';
 

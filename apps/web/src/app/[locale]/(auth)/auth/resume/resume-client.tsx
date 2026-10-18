@@ -1,6 +1,6 @@
 'use client';
 
-import { Spinner } from '@tt/ui';
+import { Spinner } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef } from 'react';
 import { useRouter } from '../../../../../i18n/navigation';

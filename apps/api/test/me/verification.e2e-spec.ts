@@ -1,6 +1,6 @@
 import { Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import * as contracts from '@tt/contracts';
-import { CONSENT_VERSIONS } from '@tt/contracts';
+import * as contracts from '@nibras/contracts';
+import { CONSENT_VERSIONS } from '@nibras/contracts';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RequireVerifiedTeacher } from '../../src/tenancy/decorators';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';

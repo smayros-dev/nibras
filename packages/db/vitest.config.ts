@@ -1,5 +1,5 @@
 import { defineConfig, mergeConfig } from 'vitest/config';
-import { baseVitestConfig } from '@tt/config/vitest/base';
+import { baseVitestConfig } from '@nibras/config/vitest/base';
 
 export default mergeConfig(
   baseVitestConfig,

@@ -1,5 +1,5 @@
-import { CONSENT_VERSIONS, testConsentTermsVersion } from '@tt/contracts/web';
-import type { CurrentConsentType } from '@tt/contracts';
+import { CONSENT_VERSIONS, testConsentTermsVersion } from '@nibras/contracts/web';
+import type { CurrentConsentType } from '@nibras/contracts';
 import { hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { cookies, headers } from 'next/headers';

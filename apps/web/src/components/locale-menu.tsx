@@ -1,8 +1,8 @@
 'use client';
 
-import { LOCALES } from '@tt/contracts/web';
-import type { Locale } from '@tt/contracts';
-import { Button, DropdownMenu } from '@tt/ui';
+import { LOCALES } from '@nibras/contracts/web';
+import type { Locale } from '@nibras/contracts';
+import { Button, DropdownMenu } from '@nibras/ui';
 import { Languages } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { usePathname, useRouter } from '../i18n/navigation';

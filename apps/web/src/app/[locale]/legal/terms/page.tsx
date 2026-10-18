@@ -1,4 +1,4 @@
-import { CONSENT_VERSIONS, testConsentTermsVersion } from '@tt/contracts/web';
+import { CONSENT_VERSIONS, testConsentTermsVersion } from '@nibras/contracts/web';
 import type { Metadata } from 'next';
 import { LegalPage, legalMetadata } from '../legal-page';
 

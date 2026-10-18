@@ -6,7 +6,7 @@ import {
   type ExecutionContext,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { GuardedClient } from '@tt/db';
+import type { GuardedClient } from '@nibras/db';
 import type { Request } from 'express';
 import { ApiError } from '../../common/api-error';
 import { RequestContext, type AuthUser } from '../../common/request-context';

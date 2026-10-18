@@ -5,7 +5,7 @@ import type {
   MyWorkspace,
   TeacherVerification,
   WorkspaceDetail,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import { AllowUnverified } from '../auth/decorators/allow-unverified';
 import { CurrentUser } from '../auth/decorators/current-user';
 import { ChangePasswordDto, EmailChangeRequestDto } from '../auth/dto';

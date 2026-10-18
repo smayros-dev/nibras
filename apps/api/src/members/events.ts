@@ -1,4 +1,4 @@
-import type { MembershipRole } from '@tt/db';
+import type { MembershipRole } from '@nibras/db';
 
 /** Event name of {@link MembershipRemovedEvent} (`EventEmitter2`). */
 export const MEMBERSHIP_REMOVED = 'membership.removed';

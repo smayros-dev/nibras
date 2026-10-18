@@ -1,4 +1,4 @@
-import type { User } from '@tt/db';
+import type { User } from '@nibras/db';
 import type { Response } from 'supertest';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from '../../src/auth/cookies';
 import { SessionService } from '../../src/auth/session.service';

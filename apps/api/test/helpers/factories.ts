@@ -1,5 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { CONSENT_VERSIONS, defaultWorkspaceSettings, type CurrentConsentType } from '@tt/contracts';
+import {
+  CONSENT_VERSIONS,
+  defaultWorkspaceSettings,
+  type CurrentConsentType,
+} from '@nibras/contracts';
 import {
   systemPrisma,
   uuidv7,
@@ -12,7 +16,7 @@ import {
   type User,
   type UserStatus,
   type Workspace,
-} from '@tt/db';
+} from '@nibras/db';
 import { hashPassword } from '../../src/auth/crypto/password';
 import { SecretBox } from '../../src/auth/crypto/secret-box';
 import { env } from '../../src/config/env';

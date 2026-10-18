@@ -17,7 +17,7 @@ import {
   type MyAbuseReportsPage,
   type MyAbuseReportsQuery,
   type UpdateAbuseReportInput,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import {
   tenantDb,
   type AbuseReport,
@@ -25,8 +25,8 @@ import {
   type Locale,
   type Prisma,
   type User,
-} from '@tt/db';
-import type { EmailParams, EmailProvider } from '@tt/providers';
+} from '@nibras/db';
+import type { EmailParams, EmailProvider } from '@nibras/providers';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';

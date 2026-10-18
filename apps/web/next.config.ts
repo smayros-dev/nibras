@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   // Dev only: the floating dev-tools indicator sits at the physical bottom-left, over the mobile
   // bottom nav's "More" button in RTL (e2e mobile-ar). Error overlays still show.
   devIndicators: false,
-  transpilePackages: ['@tt/ui', '@tt/i18n', '@tt/contracts'],
+  transpilePackages: ['@nibras/ui', '@nibras/i18n', '@nibras/contracts'],
   // The browser talks to the API same-origin (session cookies work without CORS).
   async rewrites() {
     return [{ source: '/api/:path*', destination: `${apiUrl}/api/:path*` }];

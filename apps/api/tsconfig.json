@@ -1,5 +1,5 @@
 {
-  "extends": "@tt/config/tsconfig/nest",
+  "extends": "@nibras/config/tsconfig/nest",
   "compilerOptions": {
     "outDir": "./dist",
     "types": ["node"]

@@ -1,7 +1,7 @@
 'use client';
 
-import type { LoginResponse } from '@tt/contracts';
-import { Alert, Button, Checkbox, Field, Input, useSubmit } from '@tt/ui';
+import type { LoginResponse } from '@nibras/contracts';
+import { Alert, Button, Checkbox, Field, Input, useSubmit } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { AuthCard } from '../../../../components/auth-card';

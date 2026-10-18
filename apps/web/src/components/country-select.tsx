@@ -1,6 +1,6 @@
 'use client';
 
-import { Select, TextInput } from '@tt/ui';
+import { Select, TextInput } from '@nibras/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { useState } from 'react';
 

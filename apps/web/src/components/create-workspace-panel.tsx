@@ -1,7 +1,7 @@
 'use client';
 
-import type { MyWorkspace } from '@tt/contracts';
-import { Alert, Button, Card, Field, Input, Tabs, useSubmit, useToast } from '@tt/ui';
+import type { MyWorkspace } from '@nibras/contracts';
+import { Alert, Button, Card, Field, Input, Tabs, useSubmit, useToast } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { CountrySelect } from './country-select';

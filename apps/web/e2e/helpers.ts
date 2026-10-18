@@ -1,4 +1,4 @@
-import { messages } from '@tt/i18n';
+import { messages } from '@nibras/i18n';
 import {
   expect,
   test as base,

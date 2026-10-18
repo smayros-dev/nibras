@@ -1,4 +1,4 @@
-// Zod-free (exported by `@tt/contracts/web` for browser bundles); `LocaleSchema` is in locale.ts.
+// Zod-free (exported by `@nibras/contracts/web` for browser bundles); `LocaleSchema` is in locale.ts.
 /** Supported UI locales: French (default), Arabic (RTL), English. */
 export const LOCALES = ['fr', 'ar', 'en'] as const;
 

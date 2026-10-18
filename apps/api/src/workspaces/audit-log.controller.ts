@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import type { AuditLogPage } from '@tt/contracts';
+import type { AuditLogPage } from '@nibras/contracts';
 import { RequirePermission } from '../tenancy/decorators';
 import { AuditLogService } from './audit-log.service';
 import { AuditLogQueryDto } from './dto';

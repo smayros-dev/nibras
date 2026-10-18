@@ -1,8 +1,8 @@
 'use client';
 
-import { WORKSPACE_STATUSES, WORKSPACE_TYPES } from '@tt/contracts/web';
-import type { AdminWorkspace, AdminWorkspacesPage, WorkspaceType } from '@tt/contracts';
-import { formatDate } from '@tt/i18n';
+import { WORKSPACE_STATUSES, WORKSPACE_TYPES } from '@nibras/contracts/web';
+import type { AdminWorkspace, AdminWorkspacesPage, WorkspaceType } from '@nibras/contracts';
+import { formatDate } from '@nibras/i18n';
 import {
   Alert,
   AlertDialog,
@@ -20,7 +20,7 @@ import {
   useSubmit,
   useToast,
   type BadgeVariant,
-} from '@tt/ui';
+} from '@nibras/ui';
 import { Ban, Building2, HardDrive, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';

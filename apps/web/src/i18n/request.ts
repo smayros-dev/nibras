@@ -1,4 +1,4 @@
-import { getMessages } from '@tt/i18n';
+import { getMessages } from '@nibras/i18n';
 import { hasLocale } from 'next-intl';
 import { getRequestConfig } from 'next-intl/server';
 import { getMessageFallback, onIntlError } from './error-handling';

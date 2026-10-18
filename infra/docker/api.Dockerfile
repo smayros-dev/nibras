@@ -13,11 +13,11 @@ ENV TURBO_TELEMETRY_DISABLED=1 \
     NEXT_TELEMETRY_DISABLED=1 \
     PNPM_HOME=/pnpm
 
-# 1. Keep only @tt/api and the workspace packages it depends on.
+# 1. Keep only @nibras/api and the workspace packages it depends on.
 FROM base AS pruner
 WORKDIR /repo
 COPY . .
-RUN turbo prune @tt/api --docker
+RUN turbo prune @nibras/api --docker
 
 # 2. Install (manifests first, for layer caching), then build.
 FROM base AS builder
@@ -27,7 +27,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 COPY --from=pruner /repo/out/full/ .
-RUN pnpm turbo run build --filter=@tt/api
+RUN pnpm turbo run build --filter=@nibras/api
 
 # 3. Runtime: built workspace (no pnpm/turbo), read-only for the non-root user.
 FROM ${NODE_IMAGE} AS runner

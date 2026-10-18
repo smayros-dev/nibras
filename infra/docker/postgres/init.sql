@@ -6,7 +6,7 @@ CREATE ROLE app_system LOGIN PASSWORD 'app' BYPASSRLS CREATEDB;
 CREATE ROLE app_user LOGIN PASSWORD 'app' NOBYPASSRLS;
 
 CREATE DATABASE tt OWNER app_system;
--- One test database per package: turbo runs their test tasks in parallel (see @tt/config/vitest/test-env).
+-- One test database per package: turbo runs their test tasks in parallel (see @nibras/config/vitest/test-env).
 CREATE DATABASE tt_db_test OWNER app_system;
 CREATE DATABASE tt_api_test OWNER app_system;
 CREATE DATABASE tt_worker_test OWNER app_system;

@@ -1,4 +1,4 @@
-import { PageHeader } from '@tt/ui';
+import { PageHeader } from '@nibras/ui';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';

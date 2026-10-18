@@ -9,8 +9,8 @@ import {
   type QueueName,
   type UpdateWorkspaceQuotaInput,
   type WorkspaceStorage,
-} from '@tt/contracts';
-import { crossTenantDb, withTenantTx, type GuardedClient, type Prisma } from '@tt/db';
+} from '@nibras/contracts';
+import { crossTenantDb, withTenantTx, type GuardedClient, type Prisma } from '@nibras/db';
 import type { Queue } from 'bullmq';
 import type Redis from 'ioredis';
 import { AuditService } from '../audit/audit.service';

@@ -4,7 +4,7 @@ import {
   PhoneOtpRequestSchema,
   PhoneOtpVerifySchema,
   UpdateMeSchema,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import { createZodDto } from 'nestjs-zod';
 
 export class UpdateMeDto extends createZodDto(UpdateMeSchema) {}

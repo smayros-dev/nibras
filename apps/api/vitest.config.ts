@@ -1,6 +1,6 @@
 import swc from 'unplugin-swc';
 import { defineConfig, mergeConfig } from 'vitest/config';
-import { baseVitestConfig } from '@tt/config/vitest/base';
+import { baseVitestConfig } from '@nibras/config/vitest/base';
 
 // SWC (not esbuild) so Nest decorators emit the metadata DI relies on.
 export default mergeConfig(

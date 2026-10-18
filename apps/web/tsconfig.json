@@ -1,5 +1,5 @@
 {
-  "extends": "@tt/config/tsconfig/next",
+  "extends": "@nibras/config/tsconfig/next",
   "include": [
     "next-env.d.ts",
     "src/**/*.ts",

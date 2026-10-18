@@ -1,5 +1,5 @@
 import { HttpException } from '@nestjs/common';
-import type { ErrorCode } from '@tt/contracts';
+import type { ErrorCode } from '@nibras/contracts';
 
 /**
  * The only way to raise a domain error: the global filter renders it as

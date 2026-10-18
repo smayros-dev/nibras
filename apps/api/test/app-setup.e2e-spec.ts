@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { testDbName, testRedisDb } from '@tt/config/vitest/test-env';
+import { testDbName, testRedisDb } from '@nibras/config/vitest/test-env';
 import { createTestApp, type TestAgent } from './helpers/app';
 
 describe('http setup (shared with main.ts)', () => {

@@ -1,7 +1,7 @@
 'use client';
 
-import { SUSPENSION_REASON_MAX } from '@tt/contracts/web';
-import { Alert, Button, Dialog, Field, Textarea, useSubmit } from '@tt/ui';
+import { SUSPENSION_REASON_MAX } from '@nibras/contracts/web';
+import { Alert, Button, Dialog, Field, Textarea, useSubmit } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useState, type ReactNode } from 'react';
 import { apiErrorMessage, issuesToFieldErrors } from '../lib/api-error';

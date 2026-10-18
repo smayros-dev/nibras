@@ -1,7 +1,7 @@
 'use client';
 
-import type { MeUser } from '@tt/contracts';
-import { Alert, Button, useSubmit } from '@tt/ui';
+import type { MeUser } from '@nibras/contracts';
+import { Alert, Button, useSubmit } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from '../i18n/navigation';

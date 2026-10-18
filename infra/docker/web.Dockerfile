@@ -16,7 +16,7 @@ ENV TURBO_TELEMETRY_DISABLED=1 \
 FROM base AS pruner
 WORKDIR /repo
 COPY . .
-RUN turbo prune @tt/web --docker
+RUN turbo prune @nibras/web --docker
 
 FROM base AS builder
 ARG API_URL=http://api:3001
@@ -27,7 +27,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 COPY --from=pruner /repo/out/full/ .
-RUN pnpm turbo run build --filter=@tt/web
+RUN pnpm turbo run build --filter=@nibras/web
 
 # Runtime: only the standalone server (traced node_modules) and static assets.
 FROM ${NODE_IMAGE} AS runner

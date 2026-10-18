@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, Skeleton, SkeletonText, VisuallyHidden } from '@tt/ui';
+import { Card, Skeleton, SkeletonText, VisuallyHidden } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 
 /**

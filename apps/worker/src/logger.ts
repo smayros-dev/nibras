@@ -1,5 +1,5 @@
 import type { LoggerService } from '@nestjs/common';
-import { redactPaths } from '@tt/contracts';
+import { redactPaths } from '@nibras/contracts';
 import { pino, type DestinationStream, type Level, type LevelWithSilent, type Logger } from 'pino';
 
 export const WORKER_LOGGER = Symbol('WORKER_LOGGER');

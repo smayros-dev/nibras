@@ -1,6 +1,6 @@
 'use client';
 
-import { ThemeToggle, type ThemeValue } from '@tt/ui';
+import { ThemeToggle, type ThemeValue } from '@nibras/ui';
 import { ThemeProvider as NextThemesProvider, useTheme } from 'next-themes';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState, type ReactNode } from 'react';

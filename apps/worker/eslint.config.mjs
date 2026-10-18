@@ -1,3 +1,3 @@
-import nest from '@tt/config/eslint/nest';
+import nest from '@nibras/config/eslint/nest';
 
 export default nest;

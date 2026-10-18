@@ -1,4 +1,4 @@
-import { messages } from '@tt/i18n';
+import { messages } from '@nibras/i18n';
 import type { Page } from '@playwright/test';
 import { appUrl, expect, plainText, t, test, toast, apiLogin, uniqueEmail } from './helpers';
 import { request as playwrightRequest } from '@playwright/test';

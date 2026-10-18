@@ -5,9 +5,9 @@ import {
   type BeforeApplicationShutdown,
   type OnModuleDestroy,
 } from '@nestjs/common';
-import type { Locale } from '@tt/contracts';
-import type { GuardedClient, User } from '@tt/db';
-import type { EmailProvider } from '@tt/providers';
+import type { Locale } from '@nibras/contracts';
+import type { GuardedClient, User } from '@nibras/db';
+import type { EmailProvider } from '@nibras/providers';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';

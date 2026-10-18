@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { QueueName } from '@tt/contracts';
+import type { QueueName } from '@nibras/contracts';
 import type { JobsOptions, Queue } from 'bullmq';
 
 /** Injection token for the `QueueName → Queue` map built by `QueueModule`. */

@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { Prisma, type GuardedClient } from '@tt/db';
-import type { EmailProvider, SmsProvider } from '@tt/providers';
+import { Prisma, type GuardedClient } from '@nibras/db';
+import type { EmailProvider, SmsProvider } from '@nibras/providers';
 import argon2 from 'argon2';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';

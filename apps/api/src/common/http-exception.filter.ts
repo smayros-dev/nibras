@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
-import type { ApiErrorBody, ErrorCode, ValidationIssue } from '@tt/contracts';
+import type { ApiErrorBody, ErrorCode, ValidationIssue } from '@nibras/contracts';
 import type { Request, Response } from 'express';
 import { ApiError } from './api-error';
 import { RequestContext } from './request-context';

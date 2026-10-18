@@ -17,7 +17,7 @@ import type {
   SessionSummary,
   TwoFactorRecoveryCodes,
   TwoFactorSetupResponse,
-} from '@tt/contracts';
+} from '@nibras/contracts';
 import type { Request, Response } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';

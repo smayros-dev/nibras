@@ -1,4 +1,4 @@
-import { BRAND } from '@tt/ui';
+import { BRAND } from '@nibras/ui';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';

@@ -1,8 +1,11 @@
 import base, {
   SUPER_ADMIN_CROSS_TENANT_RESTRICTIONS,
   TENANCY_SQL_RESTRICTIONS,
-} from '@tt/config/eslint/base';
-import { LOGICAL_CSS_EXEMPT_FILES, LOGICAL_CSS_RESTRICTIONS } from '@tt/config/eslint/logical-css';
+} from '@nibras/config/eslint/base';
+import {
+  LOGICAL_CSS_EXEMPT_FILES,
+  LOGICAL_CSS_RESTRICTIONS,
+} from '@nibras/config/eslint/logical-css';
 import { defineConfig } from 'eslint/config';
 
 // Base rules + the logical-CSS ban (no Next plugin: this is a component library). Rule options

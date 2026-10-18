@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { SessionSummary } from '@tt/contracts';
+import type { SessionSummary } from '@nibras/contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockRouter, renderWithIntl, tr } from '../test/render';
 import { DevicesList } from './devices-list';

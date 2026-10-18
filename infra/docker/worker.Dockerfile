@@ -14,7 +14,7 @@ ENV TURBO_TELEMETRY_DISABLED=1 \
 FROM base AS pruner
 WORKDIR /repo
 COPY . .
-RUN turbo prune @tt/worker --docker
+RUN turbo prune @nibras/worker --docker
 
 FROM base AS builder
 WORKDIR /repo
@@ -23,7 +23,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 COPY --from=pruner /repo/out/full/ .
-RUN pnpm turbo run build --filter=@tt/worker
+RUN pnpm turbo run build --filter=@nibras/worker
 
 FROM ${NODE_IMAGE} AS runner
 RUN apk add --no-cache libc6-compat openssl

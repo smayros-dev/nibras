@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Badge, Button, Card, Dialog, Field, Input, useSubmit, useToast } from '@tt/ui';
+import { Alert, Badge, Button, Card, Dialog, Field, Input, useSubmit, useToast } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { DevicesList } from '../../../../../../components/devices-list';

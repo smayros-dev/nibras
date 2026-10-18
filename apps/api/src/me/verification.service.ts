@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { TeacherVerification, TeacherVerificationStep } from '@tt/contracts';
+import type { TeacherVerification, TeacherVerificationStep } from '@nibras/contracts';
 import type { AuthUser } from '../common/request-context';
 import { ConsentService } from './consent.service';
 

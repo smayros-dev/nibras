@@ -1,6 +1,6 @@
-import type { Locale } from '@tt/contracts';
+import type { Locale } from '@nibras/contracts';
 
-/** Every SMS of SP1; texts live in `@tt/i18n` under `sms.<key>` (`renderSms`). */
+/** Every SMS of SP1; texts live in `@nibras/i18n` under `sms.<key>` (`renderSms`). */
 export const SMS_TEMPLATE_KEYS = ['phone.otp'] as const;
 
 export type SmsTemplateKey = (typeof SMS_TEMPLATE_KEYS)[number];

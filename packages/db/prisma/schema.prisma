@@ -337,7 +337,7 @@ model Consent {
   grantedByUserId String?     @map("granted_by_user_id") @db.Uuid
   grantedByEmail  String?     @map("granted_by_email") @db.Citext
   type            ConsentType
-  /// e.g. "privacy-2026-10" (CONSENT_VERSIONS in @tt/contracts).
+  /// e.g. "privacy-2026-10" (CONSENT_VERSIONS in @nibras/contracts).
   version         String
   granted         Boolean
   grantedAt       DateTime    @map("granted_at") @db.Timestamptz

@@ -1,5 +1,5 @@
-import * as consentVersions from '@tt/contracts';
-import { CONSENT_VERSIONS } from '@tt/contracts';
+import * as consentVersions from '@nibras/contracts';
+import { CONSENT_VERSIONS } from '@nibras/contracts';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
 import { as, loginAs } from '../helpers/auth';

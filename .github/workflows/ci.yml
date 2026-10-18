@@ -86,15 +86,15 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - name: Migrate tt
-        run: pnpm --filter @tt/db migrate:deploy
+        run: pnpm --filter @nibras/db migrate:deploy
       - name: Migrate the test DBs (tt_db_test, tt_api_test, tt_worker_test)
         run: pnpm db:migrate:test
       - run: pnpm test
       - run: pnpm build
       - name: First-load JS budget (PRD §14.1, < 250 kB gzip per route)
-        run: pnpm --filter @tt/web budget
+        run: pnpm --filter @nibras/web budget
       - name: OpenAPI contracts are up to date
-        run: pnpm --filter @tt/api openapi:export && pnpm --filter @tt/contracts generate && git diff --exit-code packages/contracts
+        run: pnpm --filter @nibras/api openapi:export && pnpm --filter @nibras/contracts generate && git diff --exit-code packages/contracts
 
   windows-check:
     # Developers run Windows 11: scripts must not be Linux-only. No Docker services on this
@@ -112,7 +112,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test --filter=@tt/config --filter=@tt/contracts --filter=@tt/i18n --filter=@tt/ui
+      - run: pnpm test --filter=@nibras/config --filter=@nibras/contracts --filter=@nibras/i18n --filter=@nibras/ui
 
   migrate-check:
     # Fails when schema.prisma and prisma/migrations drift apart (a model change without a migration).
@@ -136,7 +136,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Initialise Postgres (roles and databases)
         run: psql "$PG_ADMIN_URL" -v ON_ERROR_STOP=1 -f infra/docker/postgres/init.sql
-      - run: pnpm --filter @tt/db migrate:check
+      - run: pnpm --filter @nibras/db migrate:check
 
   e2e:
     runs-on: ubuntu-latest
@@ -175,11 +175,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Initialise Postgres (roles and databases)
         run: psql "$PG_ADMIN_URL" -v ON_ERROR_STOP=1 -f infra/docker/postgres/init.sql
-      - run: pnpm --filter @tt/db migrate:deploy
+      - run: pnpm --filter @nibras/db migrate:deploy
       # The api/worker dist and the web standalone output (`.next/standalone`) the e2e runs.
       - run: pnpm build
-      - run: pnpm --filter @tt/web exec playwright install --with-deps chromium
-      - run: pnpm --filter @tt/web e2e
+      - run: pnpm --filter @nibras/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @nibras/web e2e
       - name: App logs
         if: failure()
         run: tail -n 200 api.log worker.log

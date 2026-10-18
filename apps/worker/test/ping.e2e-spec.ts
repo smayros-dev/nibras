@@ -1,4 +1,4 @@
-import { DEFAULT_JOB_OPTIONS, QUEUES } from '@tt/contracts';
+import { DEFAULT_JOB_OPTIONS, QUEUES } from '@nibras/contracts';
 import { Queue, QueueEvents } from 'bullmq';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 

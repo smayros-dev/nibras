@@ -1,4 +1,4 @@
-// Zod-free (exported by `@tt/contracts/web` for browser bundles); the schemas are in members.ts.
+// Zod-free (exported by `@nibras/contracts/web` for browser bundles); the schemas are in members.ts.
 /** PRD §11.1 `MembershipStatus`. */
 export const MEMBERSHIP_STATUSES = [
   'ACTIVE',

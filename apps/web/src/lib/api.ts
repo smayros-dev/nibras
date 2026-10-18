@@ -1,5 +1,5 @@
-import { createApiClient } from '@tt/contracts/web';
-import type { ApiErrorBody } from '@tt/contracts';
+import { createApiClient } from '@nibras/contracts/web';
+import type { ApiErrorBody } from '@nibras/contracts';
 import { createRefreshingFetch } from './auth-refresh';
 import { API_TIMEOUT_MS, withTimeout } from './fetch-timeout';
 import { forwardHeaders } from './forwarded-headers';

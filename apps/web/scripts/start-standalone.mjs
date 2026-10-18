@@ -13,7 +13,7 @@ const server = join(appDir, 'server.js');
 
 if (!existsSync(server)) {
   console.error(
-    `start-standalone: ${server} is missing — run \`pnpm --filter @tt/web build\` first.`,
+    `start-standalone: ${server} is missing — run \`pnpm --filter @nibras/web build\` first.`,
   );
   process.exit(1);
 }

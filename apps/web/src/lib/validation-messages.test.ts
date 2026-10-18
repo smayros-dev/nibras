@@ -1,4 +1,4 @@
-import { getMessages } from '@tt/i18n';
+import { getMessages } from '@nibras/i18n';
 import { createTranslator } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 

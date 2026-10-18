@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Writable } from 'node:stream';
-import { redactPaths } from '@tt/contracts';
+import { redactPaths } from '@nibras/contracts';
 import { pino } from 'pino';
 import type { Options } from 'pino-http';
 import { describe, expect, it } from 'vitest';

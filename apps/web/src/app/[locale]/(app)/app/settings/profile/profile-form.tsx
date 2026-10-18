@@ -1,8 +1,8 @@
 'use client';
 
-import { LOCALES } from '@tt/contracts/web';
-import type { MeUser } from '@tt/contracts';
-import { Alert, Button, Card, Field, Input, Select, useSubmit, useToast } from '@tt/ui';
+import { LOCALES } from '@nibras/contracts/web';
+import type { MeUser } from '@nibras/contracts';
+import { Alert, Button, Card, Field, Input, Select, useSubmit, useToast } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { TimezoneSelect } from '../../../../../../components/timezone-select';

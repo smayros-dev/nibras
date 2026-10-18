@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import type { PrismaClient } from '@tt/db';
+import type { PrismaClient } from '@nibras/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { RequestContext } from '../../src/common/request-context';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';

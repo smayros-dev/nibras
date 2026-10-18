@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { PrismaClient, User } from '@tt/db';
+import type { PrismaClient, User } from '@nibras/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AbuseReportsService } from '../../src/abuse-reports/abuse-reports.service';
 import { SnapshotRegistry } from '../../src/abuse-reports/snapshot.registry';

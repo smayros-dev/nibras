@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Controller, Get, Param } from '@nestjs/common';
-import { db as guardedDb } from '@tt/db';
+import { db as guardedDb } from '@nibras/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AuditService } from '../src/audit/audit.service';
 import { FakePwnedClient } from '../src/auth/crypto/hibp';

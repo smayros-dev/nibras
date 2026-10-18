@@ -6,11 +6,11 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from '@nestjs/common';
-import { db, onPrismaLog, type GuardedClient, type PrismaLogHandler } from '@tt/db';
+import { db, onPrismaLog, type GuardedClient, type PrismaLogHandler } from '@nibras/db';
 import { PinoLogger } from 'nestjs-pino';
 import { forwardPrismaLogs } from './prisma-logs';
 
-/** Injection token for `db` (`@tt/db`'s guarded `app_user` client: RLS, non-tenant tables). */
+/** Injection token for `db` (`@nibras/db`'s guarded `app_user` client: RLS, non-tenant tables). */
 export const DB = Symbol('DB');
 
 /**

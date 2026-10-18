@@ -1,8 +1,8 @@
 'use client';
 
-import { LOCALES } from '@tt/contracts/web';
-import type { MeUser } from '@tt/contracts';
-import { Alert, Button, Checkbox, Field, Input, Select, useSubmit } from '@tt/ui';
+import { LOCALES } from '@nibras/contracts/web';
+import type { MeUser } from '@nibras/contracts';
+import { Alert, Button, Checkbox, Field, Input, Select, useSubmit } from '@nibras/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AuthCard } from '../../../../components/auth-card';

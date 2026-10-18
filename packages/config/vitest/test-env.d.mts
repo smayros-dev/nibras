@@ -1,4 +1,4 @@
-/** Types for `test-env.mjs` (plain ESM so `@tt/db`'s `migrate-test.mjs` can import it). */
+/** Types for `test-env.mjs` (plain ESM so `@nibras/db`'s `migrate-test.mjs` can import it). */
 export type TestPackage = 'db' | 'api' | 'worker';
 
 /** The variables read: `TEST_DB_PREFIX`, `TEST_REDIS_DB_BASE` and the `*_TEST` base URLs. */

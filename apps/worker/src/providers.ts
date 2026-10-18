@@ -1,4 +1,4 @@
-import { SmtpEmailProvider, type EmailProvider } from '@tt/providers';
+import { SmtpEmailProvider, type EmailProvider } from '@nibras/providers';
 
 import type { WorkerEnv } from './env';
 

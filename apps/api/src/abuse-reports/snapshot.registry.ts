@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { AbuseEntityType } from '@tt/contracts';
+import type { AbuseEntityType } from '@nibras/contracts';
 import { ApiError } from '../common/api-error';
 
 /**

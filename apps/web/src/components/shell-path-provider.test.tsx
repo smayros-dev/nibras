@@ -1,6 +1,6 @@
-import type { MyWorkspace } from '@tt/contracts';
+import type { MyWorkspace } from '@nibras/contracts';
 import { screen, within } from '@testing-library/react';
-import { AppShell } from '@tt/ui';
+import { AppShell } from '@nibras/ui';
 import type { AnchorHTMLAttributes } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { buildNavModel } from '../lib/navigation';

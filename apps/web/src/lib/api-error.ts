@@ -1,4 +1,4 @@
-import { ERROR_CODES } from '@tt/contracts/web';
+import { ERROR_CODES } from '@nibras/contracts/web';
 
 /** The API error envelope as `openapi-fetch` returns it (already parsed JSON). */
 interface ErrorBody {
@@ -7,7 +7,7 @@ interface ErrorBody {
   details?: unknown;
 }
 
-/** A `details.issues[]` entry as the API sends it (see `ValidationIssue` in `@tt/contracts`). */
+/** A `details.issues[]` entry as the API sends it (see `ValidationIssue` in `@nibras/contracts`). */
 interface WireIssue {
   path?: unknown[];
   code?: unknown;

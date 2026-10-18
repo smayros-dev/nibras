@@ -1,5 +1,5 @@
 {
-  "name": "tt",
+  "name": "nibras",
   "private": true,
   "packageManager": "pnpm@10.34.6",
   "engines": {
@@ -14,10 +14,10 @@
     "e2e": "turbo run e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:migrate": "pnpm --filter @tt/db migrate:dev",
-    "db:migrate:test": "pnpm --filter @tt/db migrate:test",
-    "db:generate": "pnpm --filter @tt/db generate",
-    "db:seed": "turbo run build --filter=@tt/db && pnpm --filter @tt/db seed"
+    "db:migrate": "pnpm --filter @nibras/db migrate:dev",
+    "db:migrate:test": "pnpm --filter @nibras/db migrate:test",
+    "db:generate": "pnpm --filter @nibras/db generate",
+    "db:seed": "turbo run build --filter=@nibras/db && pnpm --filter @nibras/db seed"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",

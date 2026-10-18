@@ -9,7 +9,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import type { WorkspaceDetail, WorkspaceSettings, WorkspaceStorage } from '@tt/contracts';
+import type { WorkspaceDetail, WorkspaceSettings, WorkspaceStorage } from '@nibras/contracts';
 import { CurrentUser } from '../auth/decorators/current-user';
 import type { AuthUser } from '../common/request-context';
 import { RequirePermission } from '../tenancy/decorators';

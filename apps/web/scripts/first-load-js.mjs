@@ -4,7 +4,7 @@
 // segments (root layout, route-group layouts, loading, error, not-found, the page) load up front,
 // each counted once, gzipped at level 9. The legacy polyfill chunk (`nomodule`) is not counted.
 //
-//   pnpm --filter @tt/web build && pnpm --filter @tt/web budget
+//   pnpm --filter @nibras/web build && pnpm --filter @nibras/web budget
 //
 // Checks every app page and exits 1 when one is over the budget.
 import { existsSync, readFileSync } from 'node:fs';
@@ -45,7 +45,7 @@ function main() {
   const nextDir = join(dirname(fileURLToPath(import.meta.url)), '..', '.next');
   const routesFile = join(nextDir, 'app-path-routes-manifest.json');
   if (!existsSync(routesFile)) {
-    console.error('first-load-js: .next is missing — run `pnpm --filter @tt/web build` first.');
+    console.error('first-load-js: .next is missing — run `pnpm --filter @nibras/web build` first.');
     process.exit(1);
   }
   /** @type {Record<string, string>} page → route */

@@ -1,10 +1,10 @@
-import { systemPrisma } from '@tt/db';
+import { systemPrisma } from '@nibras/db';
 import {
   InMemoryEmailProvider,
   extractFirstLink,
   type EmailMessage,
   type EmailTemplateKey,
-} from '@tt/providers';
+} from '@nibras/providers';
 import type Redis from 'ioredis';
 import type { PinoLogger } from 'nestjs-pino';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';

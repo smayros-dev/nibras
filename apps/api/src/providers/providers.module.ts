@@ -5,7 +5,7 @@ import {
   type EmailProvider,
   type SmsLogger,
   type SmsProvider,
-} from '@tt/providers';
+} from '@nibras/providers';
 import { PinoLogger } from 'nestjs-pino';
 import { FakePwnedClient, HibpClient, type PwnedPasswordClient } from '../auth/crypto/hibp';
 import { SecretBox } from '../auth/crypto/secret-box';

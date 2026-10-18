@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge, Tabs, useCurrentPath } from '@tt/ui';
+import { Badge, Tabs, useCurrentPath } from '@nibras/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import NextLink from 'next/link';
 import type { KeyboardEvent, SyntheticEvent } from 'react';

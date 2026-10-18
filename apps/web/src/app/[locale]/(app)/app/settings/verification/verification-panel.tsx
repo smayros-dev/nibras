@@ -1,7 +1,7 @@
 'use client';
 
-import { CONSENT_VERSIONS } from '@tt/contracts/web';
-import type { TeacherVerification } from '@tt/contracts';
+import { CONSENT_VERSIONS } from '@nibras/contracts/web';
+import type { TeacherVerification } from '@nibras/contracts';
 import {
   Alert,
   Badge,
@@ -13,7 +13,7 @@ import {
   Skeleton,
   useSubmit,
   useToast,
-} from '@tt/ui';
+} from '@nibras/ui';
 import { Check } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';

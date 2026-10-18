@@ -1,5 +1,5 @@
-import type { AdminHealth } from '@tt/contracts';
-import { Alert, Badge, Card, Table } from '@tt/ui';
+import type { AdminHealth } from '@nibras/contracts';
+import { Alert, Badge, Card, Table } from '@nibras/ui';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';

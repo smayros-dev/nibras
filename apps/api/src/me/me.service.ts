@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { MeUser, MyWorkspace, UpdateMeInput } from '@tt/contracts';
-import { crossTenantDb, type GuardedClient, type User } from '@tt/db';
+import type { MeUser, MyWorkspace, UpdateMeInput } from '@nibras/contracts';
+import { crossTenantDb, type GuardedClient, type User } from '@nibras/db';
 import { AuditService } from '../audit/audit.service';
 import { toMeUser } from '../auth/me-user';
 import { requiresTwoFactor } from '../auth/two-factor.policy';

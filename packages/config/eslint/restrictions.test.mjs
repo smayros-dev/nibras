@@ -62,14 +62,15 @@ describe('tenancy lint restrictions', () => {
 
   it("allows crossTenantDb({ reason: 'super_admin' }) only under src/admin and tests", async () => {
     const code =
-      "import { crossTenantDb } from '@tt/db';\n" +
+      "import { crossTenantDb } from '@nibras/db';\n" +
       "export const q = () => crossTenantDb({ reason: 'super_admin', actor: { userId: 'u', requestId: 'r' } });\n" +
       "export const ok = () => crossTenantDb().membership.findMany({ where: { userId: 'u' } });\n";
     expect(await ruleIds(nest, code, 'src/me/me.service.ts')).toEqual(['no-restricted-syntax']);
     expect(await ruleIds(nest, code, 'src/admin/admin.service.ts')).toEqual([]);
     expect(await ruleIds(nest, code, 'test/admin.e2e-spec.ts')).toEqual([]);
     expect(await ruleIds(nest, code, 'src/admin/admin.service.spec.ts')).toEqual([]);
-    const aliased = "import { crossTenantDb as x } from '@tt/db';\nexport const q = () => x();\n";
+    const aliased =
+      "import { crossTenantDb as x } from '@nibras/db';\nexport const q = () => x();\n";
     expect(await ruleIds(nest, aliased, 'src/me/me.service.ts')).toEqual(['no-restricted-syntax']);
     const member = 'export const q = (t) => t.crossTenantDb({ reason: "super_admin" });\n';
     expect(await ruleIds(base, member, 'src/a.ts')).toEqual(['no-restricted-syntax']);
@@ -166,19 +167,19 @@ describe('logical CSS rule scope', () => {
 });
 
 describe('browser-bundle contracts import', () => {
-  it('bans value imports from the zod-bundling @tt/contracts entry in app sources', async () => {
-    const value = "import { LOCALES } from '@tt/contracts';\nexport const l = LOCALES;\n";
+  it('bans value imports from the zod-bundling @nibras/contracts entry in app sources', async () => {
+    const value = "import { LOCALES } from '@nibras/contracts';\nexport const l = LOCALES;\n";
     expect(await ruleIds(nextWithoutTypes, value, 'src/a.tsx')).toEqual([
       '@typescript-eslint/no-restricted-imports',
     ]);
-    const typeOnly = "import type { MeUser } from '@tt/contracts';\nexport type U = MeUser;\n";
+    const typeOnly = "import type { MeUser } from '@nibras/contracts';\nexport type U = MeUser;\n";
     expect(await ruleIds(nextWithoutTypes, typeOnly, 'src/a.tsx')).toEqual([]);
-    const web = "import { LOCALES } from '@tt/contracts/web';\nexport const l = LOCALES;\n";
+    const web = "import { LOCALES } from '@nibras/contracts/web';\nexport const l = LOCALES;\n";
     expect(await ruleIds(nextWithoutTypes, web, 'src/a.tsx')).toEqual([]);
   });
 
   it('leaves tests and e2e free to import the schemas', async () => {
-    const value = "import { LOCALES } from '@tt/contracts';\nexport const l = LOCALES;\n";
+    const value = "import { LOCALES } from '@nibras/contracts';\nexport const l = LOCALES;\n";
     expect(await ruleIds(nextWithoutTypes, value, 'src/a.test.ts')).toEqual([]);
     expect(await ruleIds(nextWithoutTypes, value, 'e2e/a.spec.ts')).toEqual([]);
   });

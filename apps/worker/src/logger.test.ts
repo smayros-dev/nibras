@@ -1,5 +1,5 @@
 import { Writable } from 'node:stream';
-import { REDACT_KEYS, REDACT_SCOPED_PATHS, redactPaths } from '@tt/contracts';
+import { REDACT_KEYS, REDACT_SCOPED_PATHS, redactPaths } from '@nibras/contracts';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 

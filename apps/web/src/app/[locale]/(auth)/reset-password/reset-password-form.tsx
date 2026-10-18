@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Button, Field, Input, useSubmit, useToast } from '@tt/ui';
+import { Alert, Button, Field, Input, useSubmit, useToast } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { AuthCard } from '../../../../components/auth-card';

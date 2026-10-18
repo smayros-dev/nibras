@@ -1,6 +1,6 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { uuidv7 } from '@tt/db';
-import { extractFirstLink } from '@tt/providers';
+import { uuidv7 } from '@nibras/db';
+import { extractFirstLink } from '@nibras/providers';
 import type Redis from 'ioredis';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hashToken } from '../../src/auth/crypto/tokens';

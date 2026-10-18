@@ -1,6 +1,11 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { MemberSummary, MembersPage, MembersQuery, UpdateMemberInput } from '@tt/contracts';
+import type {
+  MemberSummary,
+  MembersPage,
+  MembersQuery,
+  UpdateMemberInput,
+} from '@nibras/contracts';
 import {
   tenantDb,
   withTenantTx,
@@ -8,7 +13,7 @@ import {
   type MembershipRole,
   type Prisma,
   type User,
-} from '@tt/db';
+} from '@nibras/db';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';

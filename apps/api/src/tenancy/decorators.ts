@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import type { Permission } from '@tt/contracts';
+import type { Permission } from '@nibras/contracts';
 
 /**
  * Route metadata read by the global tenancy guards (registered in `AppModule` after the account

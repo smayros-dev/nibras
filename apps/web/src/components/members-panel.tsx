@@ -1,6 +1,6 @@
 'use client';
 
-import { grantFor, MEMBERSHIP_ROLES, MEMBERSHIP_STATUSES } from '@tt/contracts/web';
+import { grantFor, MEMBERSHIP_ROLES, MEMBERSHIP_STATUSES } from '@nibras/contracts/web';
 import type {
   Assignment,
   AssignmentsPage,
@@ -9,8 +9,8 @@ import type {
   MembershipRole,
   MembershipStatus,
   WorkspaceDetail,
-} from '@tt/contracts';
-import { formatDate } from '@tt/i18n';
+} from '@nibras/contracts';
+import { formatDate } from '@nibras/i18n';
 import {
   Alert,
   AlertDialog,
@@ -27,7 +27,7 @@ import {
   useSubmit,
   useToast,
   type BadgeVariant,
-} from '@tt/ui';
+} from '@nibras/ui';
 import { Flag, MoreHorizontal, UserMinus, Users } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';

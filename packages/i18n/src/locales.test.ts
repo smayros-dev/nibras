@@ -1,4 +1,4 @@
-import { ERROR_CODES, LOCALES } from '@tt/contracts';
+import { ERROR_CODES, LOCALES } from '@nibras/contracts';
 import { describe, expect, it } from 'vitest';
 import { flattenKeys, getMessages, messages, type AbstractIntlMessages } from './locales';
 

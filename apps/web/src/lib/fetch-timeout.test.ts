@@ -1,4 +1,4 @@
-import { createApiClient } from '@tt/contracts/web';
+import { createApiClient } from '@nibras/contracts/web';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { browserFetch } from './api';
 import { API_TIMEOUT_MS, anySignal, withTimeout } from './fetch-timeout';

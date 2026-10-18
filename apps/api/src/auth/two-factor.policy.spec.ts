@@ -1,4 +1,4 @@
-import { resetDatabase, systemPrisma } from '@tt/db';
+import { resetDatabase, systemPrisma } from '@nibras/db';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createOrganization,

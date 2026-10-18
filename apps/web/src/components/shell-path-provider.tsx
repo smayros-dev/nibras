@@ -1,6 +1,6 @@
 'use client';
 
-import { CurrentPathProvider } from '@tt/ui';
+import { CurrentPathProvider } from '@nibras/ui';
 import { useLocale } from 'next-intl';
 import NextLink from 'next/link';
 import type { ReactNode } from 'react';

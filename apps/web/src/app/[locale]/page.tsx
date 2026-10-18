@@ -1,4 +1,4 @@
-import { Button, Card } from '@tt/ui';
+import { Button, Card } from '@nibras/ui';
 import { CalendarClock, Check, ChartNoAxesColumnIncreasing, CirclePlay } from 'lucide-react';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
