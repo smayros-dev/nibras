@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import { describe, expect, it } from 'vitest';
 import { SmtpEmailProvider, smtpTransportOptions } from './smtp';
 
@@ -93,5 +94,19 @@ describe('smtpTransportOptions', () => {
 
   it('rejects a non-SMTP URL', () => {
     expect(() => smtpTransportOptions('http://mail.example.com')).toThrow(/smtp/);
+  });
+
+  it('builds a transport on nodemailer 10 with the parsed options', () => {
+    const p = new SmtpEmailProvider({
+      smtpUrl: 'smtps://u%40x:p%40ss@mail.example.com:465',
+      from: 'Nibras <no-reply@example.com>',
+    });
+    const t = (p as unknown as { transport: { options: SMTPTransport.Options } }).transport;
+    expect(t.options).toMatchObject({
+      host: 'mail.example.com',
+      port: 465,
+      secure: true,
+      auth: { user: 'u@x', pass: 'p@ss' },
+    });
   });
 });

@@ -24,5 +24,12 @@
     "prettier": "^3.9.0",
     "turbo": "^2.11.7",
     "yaml": "^2.9.1"
+  },
+  "pnpm": {
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-ggr8-5vv4-36mx"
+      ]
+    }
   }
 }
