@@ -6,12 +6,37 @@ super-admin console, audit actions and rate limits. Local dev setup lives in
 
 ## Creating the first super-admin
 
-There is no self-serve super-admin signup. Bootstrap one with the CLI (idempotent: it creates the
-user if missing, otherwise promotes an existing account to `SUPER_ADMIN`, keeping its password):
+There is no self-serve super-admin signup. Bootstrap one with the CLI. By default it **creates** a
+new account (ACTIVE, email verified, the password policy applies, `SUPER_ADMIN`). Pass the
+password on stdin so it stays out of the shell history and `ps`:
 
 ```bash
-pnpm --filter @nibras/api cli create-super-admin --email ops@example.com --password '<a long password>'
+printf '%s' "$PW" | pnpm --filter @nibras/api cli create-super-admin --email ops@example.com --password-stdin
 ```
+
+`--password '<a long password>'` still works (local dev, CI), but it is visible to other users of
+the host. The two forms are mutually exclusive; with `--password-stdin` one trailing newline is
+dropped.
+
+**Promoting an existing account** is refused unless all four conditions hold, checked in this
+order (exit code 1 with the reason otherwise; nothing is written):
+
+1. `--promote-existing` is passed (without it the CLI stops with a hint, even for an account that
+   is already a super-admin);
+2. the account is `ACTIVE`;
+3. its email is already verified — the CLI never marks an email verified;
+4. it has a password and the `--password` / `--password-stdin` given verifies against it.
+
+The password and names of a promoted account are kept; missing required consents are granted and
+every run (creation or promotion) is audited as `user.super_admin_granted` (`after.created`
+`true`/`false`). A re-run with `--promote-existing` on an existing super-admin is idempotent.
+
+> **Warning — prove _your own_ password.** These checks stop an attacker who pre-registered the
+> operator's email from being promoted, but they cannot tell whether the account's current
+> password is really yours: an account whose email was verified by its owner and then taken over
+> verifies the attacker's password just as well. Only promote an account you created and whose
+> password you set yourself. If the account was not created by you (or you are unsure), delete it
+> first and let the CLI create a fresh one.
 
 The CLI grants the static `CONSENT_VERSIONS` TERMS version. If the deployment runs with a bumped
 `TEST_CONSENT_TERMS_VERSION` (the e2e suite does), the account must re-accept that version before
@@ -19,7 +44,9 @@ the API lets it through the consent gate.
 
 The e2e suite does this automatically: Playwright's `globalSetup` (`apps/web/e2e/warmup.ts`) seeds
 a throwaway super-admin and exposes `E2E_SUPER_ADMIN_{EMAIL,PASSWORD,TOTP_SECRET}` to the tests.
-No CI step is needed — `pnpm build` provides the CLI dist the globalSetup runs.
+It promotes its own freshly registered, verified account with `--promote-existing` and the
+password it registered with. No CI step is needed — `pnpm build` provides the CLI dist the
+globalSetup runs.
 
 ## Rotating `JWT_SECRET`
 
