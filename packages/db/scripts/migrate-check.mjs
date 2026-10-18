@@ -1,5 +1,5 @@
 // `prisma migrate diff --exit-code` against a dedicated shadow DB (DATABASE_URL_SHADOW).
-// Prisma wipes the shadow DB on every run, so it must never be tt or tt_test.
+// Prisma wipes the shadow DB on every run, so it must never be nibras or nibras_test.
 // A Node wrapper because `$VAR` in a package.json script does not expand under cmd.exe (pnpm's Windows shell).
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';

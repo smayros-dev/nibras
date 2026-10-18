@@ -2,8 +2,8 @@
 # (real secrets, never committed; see docs/runbooks/staging.md). Run from that directory:
 #   docker compose --env-file .env.staging -f compose.staging.yml pull
 #   docker compose --env-file .env.staging -f compose.staging.yml up -d
-# TT_IMAGE_OWNER (GHCR owner, lowercase) and TT_IMAGE_TAG (commit SHA, default `latest`) pick the images.
-name: tt-staging
+# NIBRAS_IMAGE_OWNER (GHCR owner, lowercase) and NIBRAS_IMAGE_TAG (commit SHA, default `latest`) pick the images.
+name: nibras-staging
 
 # Every app shares .env.staging, so each service pins its own listen port in `environment` (which
 # wins over env_file): a PORT=3001 copied from .env.example must not move web off 3000.
@@ -54,7 +54,7 @@ services:
   # One-shot: `prisma migrate deploy` as app_system. The api starts only once it exits 0.
   migrate:
     <<: *app
-    image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-api:${TT_IMAGE_TAG:-latest}
+    image: ghcr.io/${NIBRAS_IMAGE_OWNER:?set NIBRAS_IMAGE_OWNER}/nibras-api:${NIBRAS_IMAGE_TAG:-latest}
     command: ['migrate']
     restart: 'no'
     depends_on:
@@ -63,7 +63,7 @@ services:
 
   api:
     <<: *app
-    image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-api:${TT_IMAGE_TAG:-latest}
+    image: ghcr.io/${NIBRAS_IMAGE_OWNER:?set NIBRAS_IMAGE_OWNER}/nibras-api:${NIBRAS_IMAGE_TAG:-latest}
     environment:
       PORT: '3001'
       APP_ENV: staging
@@ -81,7 +81,7 @@ services:
 
   worker:
     <<: *app
-    image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-worker:${TT_IMAGE_TAG:-latest}
+    image: ghcr.io/${NIBRAS_IMAGE_OWNER:?set NIBRAS_IMAGE_OWNER}/nibras-worker:${NIBRAS_IMAGE_TAG:-latest}
     environment:
       WORKER_PORT: '3002'
       APP_ENV: staging
@@ -93,7 +93,7 @@ services:
 
   web:
     <<: *app
-    image: ghcr.io/${TT_IMAGE_OWNER:?set TT_IMAGE_OWNER}/tt-web:${TT_IMAGE_TAG:-latest}
+    image: ghcr.io/${NIBRAS_IMAGE_OWNER:?set NIBRAS_IMAGE_OWNER}/nibras-web:${NIBRAS_IMAGE_TAG:-latest}
     environment:
       PORT: '3000'
       # Pinned like api/worker: the shared .env.staging (copied from .env.example) says
@@ -106,7 +106,12 @@ services:
     depends_on:
       - api
 
+# Pinned to the names they had under the old project name (`tt-staging`), so an existing staging host
+# keeps its data after the rename (a fresh host simply creates them under these names).
 volumes:
   postgres-data:
+    name: tt-staging_postgres-data
   redis-data:
+    name: tt-staging_redis-data
   minio-data:
+    name: tt-staging_minio-data

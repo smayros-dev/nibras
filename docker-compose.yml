@@ -1,5 +1,5 @@
 # Local dev stack. One shared project name so every git worktree reuses the same containers.
-name: tt
+name: nibras
 
 services:
   postgres:
@@ -46,6 +46,10 @@ services:
     volumes:
       - minio-data:/data
 
+# Pinned to the names they had under the old compose project name (`tt`), so renaming the project to
+# `nibras` keeps the existing local data instead of starting from empty volumes.
 volumes:
   postgres-data:
+    name: tt_postgres-data
   minio-data:
+    name: tt_minio-data
