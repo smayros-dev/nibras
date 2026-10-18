@@ -1,3 +1,4 @@
+import { assertDeployableEnv } from '@nibras/contracts';
 import { z } from 'zod';
 
 /** Empty strings in `.env` (e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=`) mean "unset". */
@@ -66,7 +67,12 @@ const EnvObject = z.object({
   RATE_LIMIT_ANON: z.coerce.number().int().min(1).default(60),
 });
 
-export const EnvSchema = EnvObject.superRefine((e, ctx) => {
+// Defaults first, so the rules see the effective values: a staging env that omits COOKIE_SECURE
+// gets `true` from NODE_ENV=production (every image) and passes.
+export const EnvSchema = EnvObject.transform((e) => ({
+  ...e,
+  COOKIE_SECURE: e.COOKIE_SECURE ?? e.NODE_ENV === 'production',
+})).superRefine((e, ctx) => {
   // The log provider never delivers a code: production would lock every teacher out of phone
   // verification without anyone noticing. Staging (APP_ENV=staging) may use it.
   if (e.APP_ENV === 'production' && e.SMS_PROVIDER === 'console') {
@@ -76,7 +82,12 @@ export const EnvSchema = EnvObject.superRefine((e, ctx) => {
       message: 'SMS_PROVIDER=console (log only) is not allowed when APP_ENV=production',
     });
   }
-}).transform((e) => ({ ...e, COOKIE_SECURE: e.COOKIE_SECURE ?? e.NODE_ENV === 'production' }));
+  // Staging/production: no repository placeholder secret, no init.sql DB password, secure
+  // cookies, https origin (SP1.6 F6). HIBP_ENABLED stays free (owner Q2).
+  assertDeployableEnv(e, (path, message) =>
+    ctx.addIssue({ code: 'custom', path: [path], message }),
+  );
+});
 
 export type Env = z.infer<typeof EnvSchema>;
 

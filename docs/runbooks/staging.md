@@ -85,7 +85,25 @@ S3_BUCKET=nibras-staging
 
 The API validates these at startup and refuses to boot when one is missing or malformed:
 `TOTP_ENCRYPTION_KEY` must be canonical base64 of exactly 32 bytes and `REDIS_URL` must use
-`redis:` or `rediss:`. `compose.staging.yml` sets `APP_ENV=staging` for the api, the worker and the web
+`redis:` or `rediss:`.
+
+**Startup refusals outside development.** With `APP_ENV=staging` or `production` the API and the
+worker also refuse to start (exit 1, the error names every offending variable) when:
+
+- `JWT_SECRET` or `TOTP_ENCRYPTION_KEY` is a value committed to the repository (`.env.example`,
+  CI, test fixtures), starts with `dev-only`, `ci-only` or `test-only`, or contains `change-me`
+  (API only; the worker has neither);
+- `JWT_SECRET` uses fewer than 3 character classes (lowercase, uppercase, digit, other) — use
+  `openssl rand -base64 48`, not `-hex`;
+- `DATABASE_URL` (API) or `DATABASE_URL_SYSTEM` (API and worker) uses the password `app` of the
+  local `init.sql`;
+- `COOKIE_SECURE` is not `true` (API; when omitted it defaults to `true` because the images run
+  `NODE_ENV=production`);
+- `WEB_ORIGIN` is not an `https:` URL (API and worker).
+
+`HIBP_ENABLED` is not checked: it stays a free choice in every tier (`true` recommended above).
+Local development (`APP_ENV=development` or unset), the test suites and CI (`APP_ENV: development`
+in `ci.yml`, also forced by the Playwright web servers) keep accepting the placeholder values. `compose.staging.yml` sets `APP_ENV=staging` for the api, the worker and the web
 (images run with `NODE_ENV=production` and default to `APP_ENV=production`; `APP_ENV` is the
 deployment tier, pinned per service so the `development` copied from `.env.example` never applies:
 it would enable the e2e TERMS override), so staging may use
