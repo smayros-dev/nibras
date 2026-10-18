@@ -123,20 +123,20 @@ describe('teacher registration and email verification', () => {
 
   it('signs the new teacher in: auth cookies for a fresh session, no new-device email', async () => {
     const res = await register().expect(201);
-    expect(setCookieLine(res, 'tt_access')).toMatch(/HttpOnly/);
-    expect(setCookieLine(res, 'tt_refresh')).toMatch(/Path=\/api\/v1\/auth/);
+    expect(setCookieLine(res, 'nibras_access')).toMatch(/HttpOnly/);
+    expect(setCookieLine(res, 'nibras_refresh')).toMatch(/Path=\/api\/v1\/auth/);
     // Not "remembered": a browser-session refresh cookie.
-    expect(setCookieLine(res, 'tt_refresh')).not.toMatch(/Max-Age/);
+    expect(setCookieLine(res, 'nibras_refresh')).not.toMatch(/Max-Age/);
     const user = await ctx.db.user.findUniqueOrThrow({ where: { email: body.email } });
     const sessions = await ctx.db.userSession.findMany({ where: { userId: user.id } });
     expect(sessions).toHaveLength(1);
-    expect(cookieValue(res, 'tt_refresh').startsWith(`${sessions[0]!.id}.`)).toBe(true);
+    expect(cookieValue(res, 'nibras_refresh').startsWith(`${sessions[0]!.id}.`)).toBe(true);
     expect(ctx.email.findByTemplate('security.new_device', body.email)).toEqual([]);
 
     // The session works right away on the routes an unverified user may reach.
     const me = await ctx.http
       .get('/api/v1/me')
-      .set('Cookie', `tt_access=${cookieValue(res, 'tt_access')}`)
+      .set('Cookie', `nibras_access=${cookieValue(res, 'nibras_access')}`)
       .expect(200);
     expect(me.body).toMatchObject({ id: user.id, emailVerifiedAt: null });
   });
@@ -144,7 +144,7 @@ describe('teacher registration and email verification', () => {
   it('POST /auth/resend-verification with the registration session: new link, then 429 within a minute', async () => {
     const res = await register().expect(201);
     const first = tokenFromLastEmail();
-    const cookie = `tt_access=${cookieValue(res, 'tt_access')}`;
+    const cookie = `nibras_access=${cookieValue(res, 'nibras_access')}`;
     await ctx.http
       .post('/api/v1/auth/resend-verification')
       .set('Cookie', cookie)

@@ -3,7 +3,7 @@ import { errors, jwtVerify, SignJWT, type JWTPayload } from 'jose';
 
 /** The only algorithm signed and accepted (pinned: `alg: none` and HS384/512 never verify). */
 const ALG = 'HS256';
-const ISSUER = 'tt-api';
+const ISSUER = 'nibras-api';
 /** PRD §8.1.2: the access JWT lives 15 minutes. */
 export const ACCESS_TTL_S = 15 * 60;
 /** A 2FA login challenge lives 5 minutes. */
@@ -44,7 +44,7 @@ export class InvalidTokenError extends Error {
 
 /**
  * Signs and verifies the API's JWTs (jose, HS256 with `JWT_SECRET`). The two kinds are kept apart
- * twice: a `typ` claim and a per-kind audience (`tt:access`, `tt:2fa`), both checked by
+ * twice: a `typ` claim and a per-kind audience (`nibras:access`, `nibras:2fa`), both checked by
  * {@link verify}, so a 2FA challenge can never pass for an access token or the reverse.
  */
 export class JwtService {
@@ -117,5 +117,5 @@ export class JwtService {
 }
 
 function audienceOf(typ: TokenTyp): string {
-  return `tt:${typ}`;
+  return `nibras:${typ}`;
 }

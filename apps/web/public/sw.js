@@ -3,10 +3,10 @@
  * no inline code. Registered by `SwRegister` as `/sw.js?v=<SW_VERSION>` in production builds.
  *
  * Cache policy — only two things are ever stored:
- *   - `tt-shell-<v>`: the three offline pages (fetched anonymously, `credentials: 'omit'`), the
+ *   - `nibras-shell-<v>`: the three offline pages (fetched anonymously, `credentials: 'omit'`), the
  *     `/_next/static/` assets they reference, the manifest and one icon, at install. Never trimmed,
  *     and served cache-first (the manifest and the icon too, so they also resolve offline);
- *   - `tt-static-<v>`: other `/_next/static/` assets (content-hashed, public, immutable),
+ *   - `nibras-static-<v>`: other `/_next/static/` assets (content-hashed, public, immutable),
  *     cache-first, trimmed oldest-first to `MAX_STATIC_ENTRIES`.
  * Never cached: `/api/*` (not even intercepted), HTML navigations (they may carry user data:
  * network only, the offline page on failure), non-GET and cross-origin requests, and any
@@ -17,9 +17,10 @@
 'use strict';
 
 const VERSION = new URL(self.location.href).searchParams.get('v') || '0';
-const SHELL_CACHE = 'tt-shell-' + VERSION;
-const STATIC_CACHE = 'tt-static-' + VERSION;
-const OWN_CACHE = /^tt-(shell|static)-/;
+const SHELL_CACHE = 'nibras-shell-' + VERSION;
+const STATIC_CACHE = 'nibras-static-' + VERSION;
+// Also matches the pre-rename `tt-shell-*` / `tt-static-*` caches, so activate deletes them too.
+const OWN_CACHE = /^(nibras|tt)-(shell|static)-/;
 const LOCALES = ['fr', 'ar', 'en'];
 const DEFAULT_LOCALE = 'fr';
 const MAX_STATIC_ENTRIES = 300;

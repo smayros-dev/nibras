@@ -209,7 +209,7 @@ export class AuthController {
   }
 
   /**
-   * Rotates the `tt_refresh` cookie: `200 { ok }` with new cookies. Every 401 clears the cookies:
+   * Rotates the `nibras_refresh` cookie: `200 { ok }` with new cookies. Every 401 clears the cookies:
    * missing, malformed or unknown token (`UNAUTHENTICATED`), dead session (`SESSION_REVOKED`),
    * reuse of a spent token (all of the user's sessions revoked, `SESSION_REVOKED`).
    */
@@ -243,7 +243,7 @@ export class AuthController {
   /**
    * Public, so it works with an expired access token or for a suspended account: revokes the
    * session of a valid access token if any, else the session whose CURRENT refresh token is in
-   * `tt_refresh` (the cookie path covers this route). Always clears both cookies and answers
+   * `nibras_refresh` (the cookie path covers this route). Always clears both cookies and answers
    * `204`, even when nothing matched.
    */
   @Public()

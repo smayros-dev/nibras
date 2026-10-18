@@ -12,9 +12,9 @@ import { useErrorFocus } from '../../../../lib/use-error-focus';
 import { sanitizeNext } from '../../../../lib/sanitize-next';
 import { CHALLENGE_STORAGE_KEY, serializeChallenge } from '../../../../lib/two-factor-challenge';
 
-/** `tt_locale` cookie: the proxy prefers it over `Accept-Language` on the next request. */
+/** `nibras_locale` cookie: the proxy prefers it over `Accept-Language` on the next request. */
 function setLocaleCookie(locale: string) {
-  document.cookie = `tt_locale=${locale}; path=/; max-age=31536000`;
+  document.cookie = `nibras_locale=${locale}; path=/; max-age=31536000`;
 }
 
 export function LoginForm({ next }: { next: string | null }) {

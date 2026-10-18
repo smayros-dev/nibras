@@ -6,7 +6,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       setupFiles: ['./vitest.setup.ts'],
-      // Spec files share `tt_db_test` (TRUNCATE-based resets): run them one at a time.
+      // Spec files share `nibras_db_test` (TRUNCATE-based resets): run them one at a time.
       fileParallelism: false,
     },
   }),

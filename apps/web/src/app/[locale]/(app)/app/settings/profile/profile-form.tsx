@@ -18,7 +18,7 @@ const LANGUAGE_NAMES: Record<(typeof LOCALES)[number], string> = {
 
 /**
  * Profile editing (name, interface language, time zone, birth date). Saving a new language sets
- * the `tt_locale` cookie (so later requests keep it) and re-navigates to the same page under the
+ * the `nibras_locale` cookie (so later requests keep it) and re-navigates to the same page under the
  * new locale through next-intl's locale-aware router; any other save toasts.
  */
 export function ProfileForm({ user }: { user: MeUser }) {
@@ -59,7 +59,7 @@ export function ProfileForm({ user }: { user: MeUser }) {
       return;
     }
     if (locale !== user.locale) {
-      document.cookie = `tt_locale=${locale}; path=/; max-age=31536000`;
+      document.cookie = `nibras_locale=${locale}; path=/; max-age=31536000`;
       router.push('/app/settings/profile', { locale });
       return;
     }

@@ -121,7 +121,7 @@ type RotateOutcome =
 export class SessionService {
   private readonly graceBox = new SecretBox(
     Buffer.from(
-      hkdfSync('sha256', env.JWT_SECRET, Buffer.alloc(0), 'tt/refresh-rotation-grace', 32),
+      hkdfSync('sha256', env.JWT_SECRET, Buffer.alloc(0), 'nibras/refresh-rotation-grace', 32),
     ).toString('base64'),
   );
 

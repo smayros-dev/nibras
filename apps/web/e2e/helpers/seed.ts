@@ -158,7 +158,7 @@ export function addOrgMember(
   try {
     execFileSync(
       'docker',
-      ['exec', 'tt-postgres-1', 'psql', '-U', 'postgres', '-d', 'tt', '-c', sql],
+      ['exec', 'nibras-postgres-1', 'psql', '-U', 'postgres', '-d', 'nibras', '-c', sql],
       {
         stdio: 'pipe',
       },

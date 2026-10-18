@@ -13,9 +13,9 @@ describe('http setup (shared with main.ts)', () => {
     await app.close();
   });
 
-  it('runs against its own test database and Redis index (tt_api_test, DB 14 by default)', () => {
-    // Without the worktree knobs (TEST_DB_PREFIX / TEST_REDIS_DB_BASE) these are tt_api_test and 14.
-    expect(testDbName('api', {})).toBe('tt_api_test');
+  it('runs against its own test database and Redis index (nibras_api_test, DB 14 by default)', () => {
+    // Without the worktree knobs (TEST_DB_PREFIX / TEST_REDIS_DB_BASE) these are nibras_api_test and 14.
+    expect(testDbName('api', {})).toBe('nibras_api_test');
     expect(testRedisDb('api', {})).toBe(14);
     if (process.env.REDIS_URL_TEST) {
       expect(process.env.REDIS_URL).toBe(process.env.REDIS_URL_TEST);

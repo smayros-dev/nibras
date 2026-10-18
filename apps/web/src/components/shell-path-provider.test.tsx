@@ -31,7 +31,7 @@ function frame() {
       <AppShell
         dir="ltr"
         locale="fr"
-        brand={{ name: 'TT', href: '/fr/app' }}
+        brand={{ name: 'Nibras', href: '/fr/app' }}
         sections={sections}
         labels={{
           skipToContent: 'skip',

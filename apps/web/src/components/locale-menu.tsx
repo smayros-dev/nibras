@@ -14,7 +14,7 @@ export const NATIVE_NAMES: Record<Locale, string> = {
   en: 'English',
 };
 
-/** `tt_locale` cookie: the proxy prefers it over `Accept-Language` on later requests. */
+/** `nibras_locale` cookie: the proxy prefers it over `Accept-Language` on later requests. */
 const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 function isLocale(value: string): value is Locale {
@@ -30,7 +30,7 @@ export function LocaleMenu() {
 
   const onChange = (next: string) => {
     if (!isLocale(next) || next === current) return;
-    document.cookie = `tt_locale=${next}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; SameSite=Lax`;
+    document.cookie = `nibras_locale=${next}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; SameSite=Lax`;
     // Same page, same query (filters, pagination) and hash in the other locale.
     const { search, hash } = window.location;
     router.replace(`${pathname}${search}${hash}`, { locale: next });

@@ -5,9 +5,9 @@
  * (`session.service.ts`, AC-AUTH-04). So refreshes must never overlap with a stale cookie:
  *
  * - within a tab, concurrent callers share one in-flight refresh (`inflight`);
- * - across tabs, the refresh runs under the Web Lock `tt-auth-refresh`, and a tab that waited
+ * - across tabs, the refresh runs under the Web Lock `nibras-auth-refresh`, and a tab that waited
  *   for the lock while another tab refreshed reuses that result instead of rotating again (the
- *   shared `localStorage` timestamp `tt.auth.refreshedAt`);
+ *   shared `localStorage` timestamp `nibras.auth.refreshedAt`);
  * - a call is retried at most once, `/auth/refresh` itself (and login, logout, 2FA) never.
  *
  * Only the browser refreshes: the refresh cookie's path keeps it away from page requests, so
@@ -15,15 +15,15 @@
  * through `/auth/resume`).
  */
 
-export const SESSION_EXPIRED_EVENT = 'tt:session-expired';
+export const SESSION_EXPIRED_EVENT = 'nibras:session-expired';
 /** Loop guard set by `/auth/resume`: a second unauthenticated hit goes to login instead. */
-export const RESUME_COOKIE = 'tt_resume';
+export const RESUME_COOKIE = 'nibras_resume';
 /** Proactive refresh period, under the 15-minute access token lifetime. */
 export const REFRESH_INTERVAL_MS = 13 * 60 * 1000;
 
 const REFRESH_URL = '/api/v1/auth/refresh';
-const LOCK_NAME = 'tt-auth-refresh';
-const REFRESHED_AT_KEY = 'tt.auth.refreshedAt';
+const LOCK_NAME = 'nibras-auth-refresh';
+const REFRESHED_AT_KEY = 'nibras.auth.refreshedAt';
 /** Calls whose 401 is an answer, not an expired session: never refreshed nor retried. */
 const NO_RETRY_PATH = /^\/api\/v1\/auth\/(login|refresh|logout|2fa\/)/;
 /** 401 codes that mean "access token missing/expired"; others (wrong password…) are final. */

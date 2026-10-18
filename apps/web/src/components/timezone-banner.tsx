@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from '../i18n/navigation';
 import { api, asApiResult } from '../lib/api';
 
-const DISMISS_KEY = 'tt.tzBanner.dismissedAt';
+const DISMISS_KEY = 'nibras.tzBanner.dismissedAt';
 const DISMISS_MS = 30 * 24 * 60 * 60 * 1000;
 
 function readDismissedAt(): number {

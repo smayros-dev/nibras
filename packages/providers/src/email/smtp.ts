@@ -6,7 +6,7 @@ import type { EmailMessage, EmailProvider, EmailTemplateKey } from './types';
 export interface SmtpEmailProviderOptions {
   /** e.g. `smtp://localhost:1025` (Mailpit) or `smtps://user:pass@host:465`. */
   smtpUrl: string;
-  /** RFC 5322 sender, e.g. `TT <no-reply@example.com>`. */
+  /** RFC 5322 sender, e.g. `Nibras <no-reply@example.com>`. */
   from: string;
 }
 

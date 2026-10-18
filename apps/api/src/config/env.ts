@@ -52,7 +52,7 @@ const EnvObject = z.object({
     .string()
     .refine(isTotpKey, 'TOTP_ENCRYPTION_KEY must be canonical base64 of exactly 32 bytes'),
   SMTP_URL: z.url(),
-  /** RFC 5322 sender, e.g. `TT <no-reply@example.com>`. */
+  /** RFC 5322 sender, e.g. `Nibras <no-reply@example.com>`. */
   EMAIL_FROM: z.string().min(3),
   /** `console` = `LogSmsProvider` (logs, sends nothing): development and CI only. */
   SMS_PROVIDER: z.enum(['console']).default('console'),

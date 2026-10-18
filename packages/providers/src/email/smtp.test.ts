@@ -28,7 +28,7 @@ describe.skipIf(!SMTP_URL)('SmtpEmailProvider (Mailpit)', () => {
     const to = `probe-${randomUUID()}@example.com`;
     const provider = new SmtpEmailProvider({
       smtpUrl: SMTP_URL!,
-      from: 'TT (test) <no-reply@tt.localhost>',
+      from: 'Nibras (test) <no-reply@nibras.localhost>',
     });
 
     const { providerMessageId } = await provider.send({
@@ -36,7 +36,7 @@ describe.skipIf(!SMTP_URL)('SmtpEmailProvider (Mailpit)', () => {
       templateKey: 'auth.verify_email',
       locale: 'ar',
       params: { firstName: 'أحمد', link: 'https://x/ar/verify-email?token=abc' },
-      ics: 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//tt//test//EN\r\nEND:VCALENDAR\r\n',
+      ics: 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//nibras//test//EN\r\nEND:VCALENDAR\r\n',
     });
     expect(providerMessageId).toMatch(/.+@.+/);
 

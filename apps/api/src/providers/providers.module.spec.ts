@@ -34,7 +34,7 @@ describe('provider factories', () => {
 
   it('sends email over SMTP from SMTP_URL / EMAIL_FROM', () => {
     expect(
-      createEmailProvider({ SMTP_URL: 'smtp://localhost:1025', EMAIL_FROM: 'TT <a@b.c>' }),
+      createEmailProvider({ SMTP_URL: 'smtp://localhost:1025', EMAIL_FROM: 'Nibras <a@b.c>' }),
     ).toBeInstanceOf(SmtpEmailProvider);
   });
 });

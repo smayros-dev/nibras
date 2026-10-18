@@ -16,7 +16,7 @@ const OUTPUT = resolve(__dirname, '../../../../packages/contracts/openapi/openap
  */
 export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
-    .setTitle('TT API')
+    .setTitle('Nibras API')
     .setVersion('1')
     .addServer(`/${API_PREFIX}`)
     .build();

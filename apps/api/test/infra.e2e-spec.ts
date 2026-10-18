@@ -61,7 +61,7 @@ describe('test infrastructure', () => {
     expect(workspace.type).toBe('ORGANIZATION');
     expect(email.sent).toEqual([]);
     expect(queue.jobs).toEqual([]);
-    // Per-package / per-worktree DB, never tt.
+    // Per-package / per-worktree DB, never nibras.
     expect(new URL(process.env.DATABASE_URL!).pathname).toMatch(/_api_test$/);
   });
 

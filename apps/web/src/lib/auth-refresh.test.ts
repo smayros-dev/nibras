@@ -87,7 +87,7 @@ describe('createRefreshingFetch', () => {
     expect(base).toHaveBeenCalledTimes(1);
   });
 
-  it('dispatches tt:session-expired when the refresh fails and returns the 401', async () => {
+  it('dispatches nibras:session-expired when the refresh fails and returns the 401', async () => {
     const target = new EventTarget();
     const listener = vi.fn();
     target.addEventListener(SESSION_EXPIRED_EVENT, listener);
@@ -105,7 +105,7 @@ describe('createRefreshingFetch', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  it('dispatches tt:session-expired on a SESSION_REVOKED 401 without refreshing or retrying', async () => {
+  it('dispatches nibras:session-expired on a SESSION_REVOKED 401 without refreshing or retrying', async () => {
     const target = new EventTarget();
     const listener = vi.fn();
     target.addEventListener(SESSION_EXPIRED_EVENT, listener);
@@ -173,11 +173,11 @@ describe('refreshSession', () => {
     let release!: () => void;
     // "Tab A" holds the lock, rotates, then records the time it finished.
     const tabA = navigator.locks.request(
-      'tt-auth-refresh',
+      'nibras-auth-refresh',
       () =>
         new Promise<void>((resolve) => {
           release = () => {
-            store.set('tt.auth.refreshedAt', String(Date.now() + 1));
+            store.set('nibras.auth.refreshedAt', String(Date.now() + 1));
             resolve();
           };
         }),
@@ -203,6 +203,6 @@ describe('refreshSession', () => {
     const base = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
     await refreshSession(base as typeof fetch);
     expect(base).toHaveBeenCalledTimes(1);
-    expect(Number(store.get('tt.auth.refreshedAt'))).toBeGreaterThan(0);
+    expect(Number(store.get('nibras.auth.refreshedAt'))).toBeGreaterThan(0);
   });
 });

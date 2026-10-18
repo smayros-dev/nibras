@@ -16,9 +16,9 @@ import { useTimezones } from '../../../../lib/timezones';
 
 const MIN_PASSWORD_LENGTH = 12;
 
-/** `tt_locale` cookie: the proxy prefers it over `Accept-Language` on the next request. */
+/** `nibras_locale` cookie: the proxy prefers it over `Accept-Language` on the next request. */
 function setLocaleCookie(locale: string) {
-  document.cookie = `tt_locale=${locale}; path=/; max-age=31536000`;
+  document.cookie = `nibras_locale=${locale}; path=/; max-age=31536000`;
 }
 
 /** Legal page link inside the terms checkbox label; a new tab keeps the half-filled form. */

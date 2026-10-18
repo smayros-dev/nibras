@@ -11,7 +11,7 @@ export const WORKER_LOGGER = Symbol('WORKER_LOGGER');
 export function createLogger(level: LevelWithSilent, destination?: DestinationStream): Logger {
   const options = {
     level,
-    base: { service: 'tt-worker' },
+    base: { service: 'nibras-worker' },
     redact: { paths: redactPaths(), censor: '[REDACTED]' },
   };
   return destination ? pino(options, destination) : pino(options);
