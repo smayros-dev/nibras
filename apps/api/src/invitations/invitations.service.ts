@@ -441,46 +441,60 @@ export class InvitationsService {
     });
   }
 
-  /**
-   * The teacher a STUDENT invitation assigns at acceptance (organisations only). A TEACHER
-   * inviter is the implicit (and only allowed) teacher; OWNER/ADMIN may name an ACTIVE `TEACHER`
-   * or an ACTIVE `ADMIN`/`OWNER` with `canTeach`, or nobody.
-   */
-  private async teacherFor(
+  /** The teacher a STUDENT invitation assigns at acceptance (see {@link studentTeacherFor}). */
+  private teacherFor(
     ctx: MemberCtx,
     workspaceType: 'PERSONAL' | 'ORGANIZATION',
     staffInvite: boolean,
     input: CreateInvitationInput,
   ): Promise<string | null> {
-    const requested = input.teacherUserId;
-    if (workspaceType !== 'ORGANIZATION' || staffInvite) {
-      if (requested !== undefined) {
-        throw validationFailed(
-          'teacherUserId',
-          'A teacher is only assigned to a student invitation of an organisation',
-        );
-      }
-      return null;
-    }
-    if (ctx.scope === 'own') {
-      if (requested !== undefined && requested !== ctx.userId) throw permissionDenied();
-      return ctx.userId;
-    }
-    if (requested === undefined) return null;
-    const teacher = await tenantDb(ctx.workspaceId).membership.findFirst({
-      where: { userId: requested, status: 'ACTIVE' },
-      select: { role: true, canTeach: true },
-    });
-    const teaches =
-      teacher !== null &&
-      (teacher.role === 'TEACHER' ||
-        ((teacher.role === 'ADMIN' || teacher.role === 'OWNER') && teacher.canTeach));
-    if (!teaches) {
+    return studentTeacherFor(
+      ctx,
+      workspaceType === 'ORGANIZATION' && !staffInvite,
+      input.teacherUserId,
+    );
+  }
+}
+
+/**
+ * The teacher a STUDENT invitation or invite link assigns at acceptance (organisations only:
+ * `assignable` false + a requested teacher → `422 VALIDATION_FAILED` on `teacherUserId`). Scope
+ * `own` (organisation TEACHER): the caller is the implicit and only allowed teacher (another id →
+ * `403`); scope `all`: an ACTIVE `TEACHER` or an ACTIVE `ADMIN`/`OWNER` with `canTeach` of the
+ * route's workspace (else `422`), or nobody.
+ */
+export async function studentTeacherFor(
+  ctx: MemberCtx,
+  assignable: boolean,
+  requested: string | undefined,
+): Promise<string | null> {
+  if (!assignable) {
+    if (requested !== undefined) {
       throw validationFailed(
         'teacherUserId',
-        'The teacher must be an active teacher (or admin who teaches) of the workspace',
+        'A teacher is only assigned to a student invitation of an organisation',
       );
     }
-    return requested;
+    return null;
   }
+  if (ctx.scope === 'own') {
+    if (requested !== undefined && requested !== ctx.userId) throw permissionDenied();
+    return ctx.userId;
+  }
+  if (requested === undefined) return null;
+  const teacher = await tenantDb(ctx.workspaceId).membership.findFirst({
+    where: { userId: requested, status: 'ACTIVE' },
+    select: { role: true, canTeach: true },
+  });
+  const teaches =
+    teacher !== null &&
+    (teacher.role === 'TEACHER' ||
+      ((teacher.role === 'ADMIN' || teacher.role === 'OWNER') && teacher.canTeach));
+  if (!teaches) {
+    throw validationFailed(
+      'teacherUserId',
+      'The teacher must be an active teacher (or admin who teaches) of the workspace',
+    );
+  }
+  return requested;
 }

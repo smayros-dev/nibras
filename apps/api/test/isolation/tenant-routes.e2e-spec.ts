@@ -77,6 +77,13 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         'PATCH /api/v1/workspaces/:wid/invitations/:id',
         'POST /api/v1/workspaces/:wid/invitations/:id/resend',
         'DELETE /api/v1/workspaces/:wid/invitations/:id',
+        // SP2 T6: invite links (group codes) and the approval queue.
+        'GET /api/v1/workspaces/:wid/invite-links',
+        'POST /api/v1/workspaces/:wid/invite-links',
+        'PATCH /api/v1/workspaces/:wid/invite-links/:id',
+        'DELETE /api/v1/workspaces/:wid/invite-links/:id',
+        'POST /api/v1/workspaces/:wid/members/:uid/approve',
+        'POST /api/v1/workspaces/:wid/members/:uid/reject',
       ]),
     );
   });

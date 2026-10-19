@@ -826,4 +826,37 @@ describe('public invitation acceptance (AC-INV-02, 03, 09, 13; AC-WS-08)', () =>
     expect(next.consentResentCount).toBe(1);
     expect(+next.consentExpiresAt! - Date.now()).toBeGreaterThan(GUARDIAN_CONSENT_TTL_MS - MIN);
   });
+  it('a SUSPENDED or DELETING workspace refuses the acceptance with 423 WORKSPACE_SUSPENDED: no account, no membership, the invitation stays PENDING', async () => {
+    for (const status of ['SUSPENDED', 'DELETING'] as const) {
+      await ctx.reset();
+      const teacher = await verifiedUser();
+      const workspace = await createPersonalWorkspace(teacher, { status });
+      const ahmed = await createUser({ email: 'ahmed@example.com', birthDate: adultBirthDate() });
+      const joined = await createInvitation({ workspace, invitedBy: teacher, email: ahmed.email });
+      const res = await (await agent(ahmed)).post(accept(joined.token)).send({ mode: 'JOIN' });
+      expect(res.status, status).toBe(423);
+      expect(res.body.code, status).toBe('WORKSPACE_SUSPENDED');
+      expect(res.body.details, status).toEqual({ status });
+
+      const fresh = await createInvitation({
+        workspace,
+        invitedBy: teacher,
+        email: 'nour@example.com',
+      });
+      const reg = await http
+        .post(accept(fresh.token))
+        .send(register({ birthDate: adultBirthDate() }));
+      expect(reg.status, status).toBe(423);
+      expect(await db.user.count({ where: { email: 'nour@example.com' } }), status).toBe(0);
+      expect(
+        await db.membership.count({ where: { workspaceId: workspace.id, role: 'STUDENT' } }),
+      ).toBe(0);
+      expect(
+        (await db.invitation.findMany({ where: { workspaceId: workspace.id } })).map(
+          (i) => i.status,
+        ),
+      ).toEqual(['PENDING', 'PENDING']);
+      expect(ctx.email.findByTemplate('invitation.accepted')).toHaveLength(0);
+    }
+  });
 });

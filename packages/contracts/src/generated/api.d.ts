@@ -468,6 +468,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/join/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["JoinController_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/join/{code}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["JoinController_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -820,6 +852,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{wid}/invite-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InviteLinksController_list"];
+        put?: never;
+        post: operations["InviteLinksController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/invite-links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["InviteLinksController_disable"];
+        options?: never;
+        head?: never;
+        patch: operations["InviteLinksController_update"];
+        trace?: never;
+    };
     "/workspaces/{wid}/members": {
         parameters: {
             query?: never;
@@ -850,6 +914,38 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["MembersController_update"];
+        trace?: never;
+    };
+    "/workspaces/{wid}/members/{uid}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ApprovalController_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/members/{uid}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ApprovalController_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/workspaces/{wid}/settings": {
@@ -927,6 +1023,31 @@ export interface components {
             /** @enum {string} */
             mode: "JOIN";
         };
+        AcceptJoinDto: {
+            /** @enum {boolean} */
+            acceptPrivacy: true;
+            /** @enum {boolean} */
+            acceptTerms: true;
+            birthDate?: string;
+            /** Format: email */
+            email: string;
+            firstName: string;
+            /** Format: email */
+            guardianEmail?: string;
+            lastName: string;
+            /** @enum {string} */
+            locale: "fr" | "ar" | "en";
+            /** @enum {string} */
+            mode: "REGISTER";
+            password: string;
+            timezone: string;
+        } | {
+            birthDate?: string;
+            /** Format: email */
+            guardianEmail?: string;
+            /** @enum {string} */
+            mode: "JOIN";
+        };
         ChangePasswordDto: {
             currentPassword: string;
             newPassword: string;
@@ -963,6 +1084,17 @@ export interface components {
              * @enum {string}
              */
             role: "STUDENT" | "TEACHER" | "ADMIN";
+            /** Format: uuid */
+            teacherUserId?: string;
+        };
+        CreateInviteLinkDto: {
+            /** @default [] */
+            courseIds: string[];
+            /** Format: date-time */
+            expiresAt?: string;
+            label?: string;
+            maxUses?: number;
+            requiresApproval?: boolean;
             /** Format: uuid */
             teacherUserId?: string;
         };
@@ -1062,6 +1194,15 @@ export interface components {
             guardianEmail?: string | null;
             lastName?: string;
             message?: string | null;
+        };
+        UpdateInviteLinkDto: {
+            /** Format: date-time */
+            expiresAt?: string | null;
+            label?: string;
+            maxUses?: number;
+            requiresApproval?: boolean;
+            /** @enum {string} */
+            status?: "ACTIVE" | "DISABLED";
         };
         UpdateMeDto: {
             birthDate?: string;
@@ -1835,6 +1976,48 @@ export interface operations {
             };
         };
     };
+    JoinController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    JoinController_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptJoinDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     MeController_me: {
         parameters: {
             query?: never;
@@ -2485,6 +2668,92 @@ export interface operations {
             };
         };
     };
+    InviteLinksController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InviteLinksController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInviteLinkDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InviteLinksController_disable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InviteLinksController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInviteLinkDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     MembersController_list: {
         parameters: {
             query?: {
@@ -2569,6 +2838,46 @@ export interface operations {
                 "application/json": components["schemas"]["UpdateMemberDto"];
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApprovalController_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApprovalController_reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {

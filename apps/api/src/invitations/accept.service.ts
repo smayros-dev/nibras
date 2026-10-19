@@ -15,6 +15,7 @@ import {
   withTenantTx,
   type GuardedClient,
   type Invitation,
+  type MembershipRole,
   type MembershipStatus,
   type TenantTx,
   type User,
@@ -25,7 +26,12 @@ import { AuditService } from '../audit/audit.service';
 import { hashPassword } from '../auth/crypto/password';
 import { PasswordPolicy } from '../auth/crypto/password-policy';
 import { toMeUser } from '../auth/me-user';
-import { createAccountInTx, emailTaken, type RegistrationMeta } from '../auth/register.service';
+import {
+  createAccountInTx,
+  emailTaken,
+  type NewAccount,
+  type RegistrationMeta,
+} from '../auth/register.service';
 import { SessionService, type SessionTokens } from '../auth/session.service';
 import { requiresTwoFactor } from '../auth/two-factor.policy';
 import { ApiError } from '../common/api-error';
@@ -48,7 +54,7 @@ const TOKEN_SHAPE = new RegExp(`^[A-Za-z0-9_-]{${OPAQUE_TOKEN_RAW_LENGTH}}$`);
 
 type ResolvedWorkspace = Pick<
   Workspace,
-  'id' | 'name' | 'type' | 'defaultLocale' | 'defaultTimezone'
+  'id' | 'name' | 'type' | 'status' | 'defaultLocale' | 'defaultTimezone'
 >;
 type Inviter = Pick<User, 'id' | 'firstName' | 'lastName' | 'email' | 'locale'>;
 type ResolvedInvitation = Invitation & { workspace: ResolvedWorkspace; invitedBy: Inviter };
@@ -57,6 +63,7 @@ const WORKSPACE_FIELDS = {
   id: true,
   name: true,
   type: true,
+  status: true,
   defaultLocale: true,
   defaultTimezone: true,
 } as const;
@@ -110,11 +117,178 @@ const unprocessable = (code: 'BIRTH_DATE_REQUIRED' | 'GUARDIAN_EMAIL_REQUIRED', 
   new ApiError(HttpStatus.UNPROCESSABLE_ENTITY, code, msg);
 
 /** What the student rules (§8.1.1, D-P3) decided before the transaction. */
-interface StudentDecision {
+export interface StudentDecision {
   minor: boolean;
   guardianEmail: string | null;
   /** Written on the account when it has no birth date yet. */
   birthDateToStore: string | undefined;
+}
+
+/** The facts the student rules weigh: the account, a preset (invitation) and the request body. */
+export interface StudentIdentityInput {
+  role: MembershipRole;
+  /** The student's address (the invited one, the registering one or the signed-in one). */
+  studentEmail: string;
+  /** The existing account's birth date (`JOIN`), if any. */
+  accountBirthDate: Date | null | undefined;
+  /** The invitation's birth date (email invitations only). */
+  presetBirthDate?: Date | null;
+  presetGuardianEmail?: string | null;
+  body: { birthDate?: string; guardianEmail?: string };
+  now: Date;
+}
+
+/**
+ * STUDENT rules shared by the invitation acceptance and the join by code (§8.1.1, D-P3): a birth
+ * date is required (body, account or preset — else `422 BIRTH_DATE_REQUIRED`). The account's
+ * stored date wins over the preset (which applies only when the account has none); a body date is
+ * taken into account too, and any applicable minor date makes the student a minor (a body can
+ * never turn a known minor into an adult). A minor needs a guardian email (body, else preset —
+ * else `422 GUARDIAN_EMAIL_REQUIRED`) different from his own address (`422
+ * GUARDIAN_EMAIL_INVALID`). The youngest applicable date is the one recorded on an account that
+ * has none (conservative under a conflict). Other roles only record a body date on an account
+ * without one.
+ */
+export function prepareStudentIdentity(input: StudentIdentityInput): StudentDecision {
+  const { body } = input;
+  const accountDate = input.accountBirthDate ? ymd(input.accountBirthDate) : undefined;
+  if (input.role !== 'STUDENT') {
+    return {
+      minor: false,
+      guardianEmail: null,
+      birthDateToStore: accountDate ? undefined : body.birthDate,
+    };
+  }
+  const base = accountDate ?? (input.presetBirthDate ? ymd(input.presetBirthDate) : undefined);
+  const dates = [body.birthDate, base].filter((d): d is string => d !== undefined);
+  if (dates.length === 0) {
+    throw unprocessable('BIRTH_DATE_REQUIRED', 'A birth date is required');
+  }
+  const minor = dates.some((d) => isMinor(d, input.now));
+  const birthDateToStore = accountDate ? undefined : dates.reduce((a, b) => (a > b ? a : b));
+  if (!minor) return { minor, guardianEmail: null, birthDateToStore };
+  const guardianEmail = body.guardianEmail ?? input.presetGuardianEmail;
+  if (!guardianEmail) {
+    throw unprocessable('GUARDIAN_EMAIL_REQUIRED', "A minor needs a guardian's email");
+  }
+  if (guardianEmail.toLowerCase() === input.studentEmail.toLowerCase()) {
+    throw new ApiError(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'GUARDIAN_EMAIL_INVALID',
+      "The guardian's email must differ from the student's",
+    );
+  }
+  return { minor, guardianEmail: guardianEmail.toLowerCase(), birthDateToStore };
+}
+
+/** How a public acceptance path obtains the student's account inside its transaction. */
+export type CreateOrJoin =
+  | { mode: 'REGISTER'; account: NewAccount }
+  | { mode: 'JOIN'; userId: string; birthDateToStore?: string };
+
+/**
+ * `REGISTER` → `createAccountInTx` (user + TERMS/PRIVACY consents); `JOIN` → the signed-in
+ * account, with `birthDateToStore` written only while it has no birth date. Runs in the caller's
+ * `withTenantTx`; a duplicate address surfaces as the `P2002` on `email`.
+ */
+export async function createOrJoinInTx(
+  tx: TenantTx,
+  input: CreateOrJoin,
+  meta: RegistrationMeta,
+): Promise<User> {
+  if (input.mode === 'REGISTER') return createAccountInTx(tx, input.account, meta);
+  if (input.birthDateToStore) {
+    await tx.user.updateMany({
+      where: { id: input.userId, birthDate: null },
+      data: { birthDate: new Date(`${input.birthDateToStore}T00:00:00.000Z`) },
+    });
+  }
+  return tx.user.findUniqueOrThrow({ where: { id: input.userId } });
+}
+
+/**
+ * `423 WORKSPACE_SUSPENDED` (`details.status`) unless the workspace is `ACTIVE`: a SUSPENDED or
+ * DELETING workspace takes no new member through a public link (the code its tenant routes
+ * answer to mutations, AC-WS-06; the suspension reason stays internal on these public routes).
+ */
+export function assertWorkspaceAcceptsMembers(workspace: Pick<Workspace, 'status'>): void {
+  if (workspace.status !== 'ACTIVE') {
+    throw new ApiError(423, 'WORKSPACE_SUSPENDED', 'Workspace is suspended', {
+      status: workspace.status,
+    });
+  }
+}
+
+/** The same check inside the acceptance transaction (a suspension committed in between). */
+export async function lockWorkspaceOpen(tx: TenantTx, workspaceId: string): Promise<void> {
+  const workspace = await tx.workspace.findUniqueOrThrow({
+    where: { id: workspaceId },
+    select: { status: true },
+  });
+  assertWorkspaceAcceptsMembers(workspace);
+}
+
+/** An `ACTIVE` guardian link with an unrevoked `GUARDIAN_PARENTAL` consent for this workspace. */
+export async function hasActiveGuardianConsent(
+  tx: TenantTx,
+  wid: string,
+  userId: string,
+): Promise<boolean> {
+  const link = await tx.guardianLink.findFirst({
+    where: { studentUserId: userId, status: 'ACTIVE' },
+    select: { id: true },
+  });
+  if (!link) return false;
+  const consents = await tx.consent.count({
+    where: {
+      userId,
+      workspaceId: wid,
+      type: 'GUARDIAN_PARENTAL',
+      granted: true,
+      revokedAt: null,
+    },
+  });
+  return consents > 0;
+}
+
+/**
+ * Organisation STUDENT: assigned to `candidate` provided that person is still an ACTIVE teaching
+ * member (`TEACHER`, or `ADMIN`/`OWNER` with `canTeach`); otherwise no assignment. (A PERSONAL
+ * workspace's assignment to its owner is `addMember`'s.) Returns the assigned teacher, if any.
+ */
+export async function assignTeacherInTx(
+  tx: TenantTx,
+  input: {
+    workspaceId: string;
+    workspaceType: Workspace['type'];
+    role: MembershipRole;
+    candidate: string;
+    assignedByUserId: string;
+    studentUserId: string;
+  },
+): Promise<string | null> {
+  if (input.workspaceType !== 'ORGANIZATION' || input.role !== 'STUDENT') return null;
+  const member = await tx.membership.findFirst({
+    where: { userId: input.candidate, status: 'ACTIVE' },
+    select: { role: true, canTeach: true },
+  });
+  const teaches =
+    member !== null &&
+    (member.role === 'TEACHER' ||
+      ((member.role === 'ADMIN' || member.role === 'OWNER') && member.canTeach));
+  if (!teaches) return null;
+  await tx.teacherStudentAssignment.createMany({
+    data: [
+      {
+        workspaceId: input.workspaceId,
+        teacherUserId: input.candidate,
+        studentUserId: input.studentUserId,
+        assignedByUserId: input.assignedByUserId,
+      },
+    ],
+    skipDuplicates: true,
+  });
+  return input.candidate;
 }
 
 /**
@@ -219,6 +393,7 @@ export class AcceptService {
     meta: RegistrationMeta,
   ): Promise<AcceptOutcome> {
     const invitation = await this.resolve(token, meta.ip);
+    assertWorkspaceAcceptsMembers(invitation.workspace);
     if (viewerOf(invitation, viewer) === 'MISMATCH') {
       throw new ApiError(
         HttpStatus.FORBIDDEN,
@@ -245,7 +420,15 @@ export class AcceptService {
       });
     }
     const now = new Date();
-    const student = this.studentRules(invitation, body, account, now);
+    const student = prepareStudentIdentity({
+      role: invitation.role,
+      studentEmail: invitation.email,
+      accountBirthDate: account?.birthDate,
+      presetBirthDate: invitation.birthDate,
+      presetGuardianEmail: invitation.guardianEmail,
+      body,
+      now,
+    });
 
     let passwordHash: string | undefined;
     if (body.mode === 'REGISTER') {
@@ -265,34 +448,29 @@ export class AcceptService {
     try {
       committed = await withTenantTx(invitation.workspaceId, async (tx) => {
         await this.lockOpen(tx, invitation);
-        let user: User;
-        if (body.mode === 'REGISTER') {
-          user = await createAccountInTx(
-            tx,
-            {
-              email: invitation.email,
-              passwordHash: passwordHash!,
-              firstName: body.firstName,
-              lastName: body.lastName,
-              locale: body.locale,
-              timezone: body.timezone,
-              birthDate: student.birthDateToStore ?? body.birthDate,
-              emailVerifiedAt: now,
-            },
-            meta,
-          );
-        } else {
-          if (student.birthDateToStore) {
-            await tx.user.updateMany({
-              where: { id: account!.id, birthDate: null },
-              data: { birthDate: new Date(`${student.birthDateToStore}T00:00:00.000Z`) },
-            });
-          }
-          user = await tx.user.findUniqueOrThrow({ where: { id: account!.id } });
-        }
+        await lockWorkspaceOpen(tx, invitation.workspaceId);
+        const user = await createOrJoinInTx(
+          tx,
+          body.mode === 'REGISTER'
+            ? {
+                mode: 'REGISTER',
+                account: {
+                  email: invitation.email,
+                  passwordHash: passwordHash!,
+                  firstName: body.firstName,
+                  lastName: body.lastName,
+                  locale: body.locale,
+                  timezone: body.timezone,
+                  birthDate: student.birthDateToStore ?? body.birthDate,
+                  emailVerifiedAt: now,
+                },
+              }
+            : { mode: 'JOIN', userId: account!.id, birthDateToStore: student.birthDateToStore },
+          meta,
+        );
 
         const status: MembershipStatus =
-          student.minor && !(await this.hasActiveConsent(tx, invitation.workspaceId, user.id))
+          student.minor && !(await hasActiveGuardianConsent(tx, invitation.workspaceId, user.id))
             ? 'PENDING_GUARDIAN_CONSENT'
             : 'ACTIVE';
         const added = await this.membership.addMember(
@@ -305,7 +483,14 @@ export class AcceptService {
           },
           tx,
         );
-        const teacherUserId = await this.assignTeacher(tx, invitation, user.id);
+        const teacherUserId = await assignTeacherInTx(tx, {
+          workspaceId: invitation.workspaceId,
+          workspaceType: invitation.workspace.type,
+          role: invitation.role,
+          candidate: invitation.teacherUserId ?? invitation.invitedByUserId,
+          assignedByUserId: invitation.invitedByUserId,
+          studentUserId: user.id,
+        });
         const armed =
           status === 'PENDING_GUARDIAN_CONSENT'
             ? await this.guardian.start(tx, {
@@ -373,50 +558,6 @@ export class AcceptService {
   }
 
   /**
-   * STUDENT rules: a birth date is required (body, account or invitation). The account's stored
-   * date wins over the invitation's (the invitation's applies only when the account has none);
-   * a body date is taken into account too, and any applicable minor date makes the student a
-   * minor (a body can never turn a known minor into an adult). A minor needs a guardian email
-   * (body, else invitation) different from his own address.
-   */
-  private studentRules(
-    invitation: Pick<Invitation, 'role' | 'email' | 'birthDate' | 'guardianEmail'>,
-    body: AcceptInvitationInput,
-    account: Pick<User, 'birthDate'> | null,
-    now: Date,
-  ): StudentDecision {
-    const accountDate = account?.birthDate ? ymd(account.birthDate) : undefined;
-    if (invitation.role !== 'STUDENT') {
-      return {
-        minor: false,
-        guardianEmail: null,
-        birthDateToStore: accountDate ? undefined : body.birthDate,
-      };
-    }
-    const base = accountDate ?? (invitation.birthDate ? ymd(invitation.birthDate) : undefined);
-    const dates = [body.birthDate, base].filter((d): d is string => d !== undefined);
-    if (dates.length === 0) {
-      throw unprocessable('BIRTH_DATE_REQUIRED', 'A birth date is required');
-    }
-    const minor = dates.some((d) => isMinor(d, now));
-    // The youngest applicable date is the one recorded (conservative under a conflict).
-    const birthDateToStore = accountDate ? undefined : dates.reduce((a, b) => (a > b ? a : b));
-    if (!minor) return { minor, guardianEmail: null, birthDateToStore };
-    const guardianEmail = body.guardianEmail ?? invitation.guardianEmail;
-    if (!guardianEmail) {
-      throw unprocessable('GUARDIAN_EMAIL_REQUIRED', "A minor needs a guardian's email");
-    }
-    if (guardianEmail.toLowerCase() === invitation.email.toLowerCase()) {
-      throw new ApiError(
-        HttpStatus.UNPROCESSABLE_ENTITY,
-        'GUARDIAN_EMAIL_INVALID',
-        "The guardian's email must differ from the student's",
-      );
-    }
-    return { minor, guardianEmail: guardianEmail.toLowerCase(), birthDateToStore };
-  }
-
-  /**
    * `SELECT … FOR UPDATE` on the invitation, still carrying this token's hash: a concurrent
    * acceptance waits here and then sees `ACCEPTED`; a resend in between replaced the hash
    * (`410 TOKEN_INVALID`).
@@ -430,61 +571,6 @@ export class AcceptService {
     const row = rows[0];
     if (!row) throw tokenInvalid();
     assertOpen({ status: row.status, expiresAt: row.expires_at }, new Date());
-  }
-
-  /** An `ACTIVE` guardian link with an unrevoked `GUARDIAN_PARENTAL` consent for this workspace. */
-  private async hasActiveConsent(tx: TenantTx, wid: string, userId: string): Promise<boolean> {
-    const link = await tx.guardianLink.findFirst({
-      where: { studentUserId: userId, status: 'ACTIVE' },
-      select: { id: true },
-    });
-    if (!link) return false;
-    const consents = await tx.consent.count({
-      where: {
-        userId,
-        workspaceId: wid,
-        type: 'GUARDIAN_PARENTAL',
-        granted: true,
-        revokedAt: null,
-      },
-    });
-    return consents > 0;
-  }
-
-  /**
-   * Organisation STUDENT: assigned to the invitation's teacher, else to the inviter, provided that
-   * person is still an ACTIVE teaching member (`TEACHER`, or `ADMIN`/`OWNER` with `canTeach`);
-   * otherwise no assignment. (A PERSONAL workspace's assignment to its owner is `addMember`'s.)
-   * Returns the assigned teacher, if any.
-   */
-  private async assignTeacher(
-    tx: TenantTx,
-    invitation: ResolvedInvitation,
-    studentUserId: string,
-  ): Promise<string | null> {
-    if (invitation.workspace.type !== 'ORGANIZATION' || invitation.role !== 'STUDENT') return null;
-    const candidate = invitation.teacherUserId ?? invitation.invitedByUserId;
-    const member = await tx.membership.findFirst({
-      where: { userId: candidate, status: 'ACTIVE' },
-      select: { role: true, canTeach: true },
-    });
-    const teaches =
-      member !== null &&
-      (member.role === 'TEACHER' ||
-        ((member.role === 'ADMIN' || member.role === 'OWNER') && member.canTeach));
-    if (!teaches) return null;
-    await tx.teacherStudentAssignment.createMany({
-      data: [
-        {
-          workspaceId: invitation.workspaceId,
-          teacherUserId: candidate,
-          studentUserId,
-          assignedByUserId: invitation.invitedByUserId,
-        },
-      ],
-      skipDuplicates: true,
-    });
-    return candidate;
   }
 
   /** The teacher the guardian email names: the assigned teacher, else the inviter. */

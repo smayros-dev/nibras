@@ -14,6 +14,7 @@ import { ZodValidationPipe } from './common/zod-validation.pipe';
 import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
 import { InvitationsModule } from './invitations/invitations.module';
+import { InviteLinksModule } from './invite-links/invite-links.module';
 import { ConsentModule } from './me/consent.module';
 import { MeModule } from './me/me.module';
 import { MembersModule } from './members/members.module';
@@ -48,6 +49,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     WorkspacesModule,
     MembersModule,
     InvitationsModule,
+    InviteLinksModule,
     AbuseReportsModule,
     AdminModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
