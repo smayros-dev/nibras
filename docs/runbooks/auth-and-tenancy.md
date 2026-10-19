@@ -124,6 +124,21 @@ that intentionally answer for non-members). An exemption hides a route from the 
 guarantee, so each entry needs a comment justifying it and code review — never add one to make a
 failing test pass.
 
+## One OWNER per workspace
+
+Every workspace has exactly one `OWNER` membership, it is `ACTIVE`, and `workspace.owner_user_id`
+is its user (SP1.6 F7). The database enforces "at most one" with the partial unique index
+`membership_owner_per_workspace_key` (`membership(workspace_id) WHERE role = 'OWNER'`, any status;
+migration `one_owner_per_workspace`, which refuses to run if existing data already has two
+OWNERs — fix those rows by hand first). The API keeps the rest: `transferOwnership` locks the
+workspace row and both membership rows (`lockWorkspace`, `lockMemberships`), re-reads them under
+the locks, demotes the caller **then** promotes the target in one transaction; member role
+changes and removals are conditional updates on the role and status they read, so a membership
+promoted to OWNER concurrently answers `404` instead of being changed or removed. The tests use
+`expectOneOwner` (`apps/api/test/helpers/invariants.ts`); the races live in
+`apps/api/test/workspaces/ownership-races.e2e-spec.ts`. The demo seed demotes a transferred OWNER
+of the demo organisation before restoring Amine as OWNER.
+
 ## Rate limits
 
 Global API limits are configured by env (`apps/api/src/config/env.ts`, applied by

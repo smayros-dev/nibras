@@ -25,6 +25,21 @@ export async function lockWorkspace(tx: TenantTx, wid: string): Promise<void> {
 }
 
 /**
+ * `SELECT … FOR UPDATE` on the memberships of `userIds` in `wid` (missing ones are skipped), in
+ * `id` order so that two transactions locking overlapping sets cannot deadlock. A concurrent
+ * conditional `updateMany` on one of these rows waits for `tx`, then re-checks its `where`
+ * against the committed row (spec SP1.6 F7).
+ */
+export async function lockMemberships(tx: TenantTx, wid: string, userIds: string[]): Promise<void> {
+  if (userIds.length === 0) return;
+  await tx.$queryRaw(
+    Prisma.sql`SELECT id FROM "membership"
+      WHERE workspace_id = ${wid}::uuid AND user_id = ANY(${userIds}::uuid[])
+      ORDER BY id FOR UPDATE`,
+  );
+}
+
+/**
  * The stored settings, validated. Rows always hold a full v1 object; should one not parse (a
  * key added by hand, a future migration gap), the defaults on the workspace time zone are
  * overlaid with the stored keys and, failing that too, the defaults alone are served.

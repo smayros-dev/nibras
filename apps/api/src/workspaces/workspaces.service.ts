@@ -26,7 +26,7 @@ import { DB } from '../db/db.module';
 import { EMAIL_PROVIDER } from '../providers/providers.module';
 import { permissionDenied } from '../tenancy/permissions';
 import { slugify, uniqueSlug } from './slug';
-import { lockWorkspace, readSettings } from './workspace-settings.service';
+import { lockMemberships, lockWorkspace, readSettings } from './workspace-settings.service';
 
 const GIB = 1024n ** 3n;
 /** D-P15: a personal workspace holds 20 GiB. */
@@ -314,9 +314,11 @@ export class WorkspacesService {
 
   /**
    * `POST /workspaces/{wid}/transfer-ownership` (AC-WS-04). PERSONAL → `409
-   * NOT_AN_ORGANIZATION`; the target must hold an ACTIVE ADMIN membership → else `422`. In one
-   * transaction (workspace row locked): the caller's OWNER membership becomes ADMIN (keeping
-   * `canTeach`), the target's becomes OWNER, `Workspace.ownerUserId` follows. Then the
+   * NOT_AN_ORGANIZATION`. In one transaction, with the workspace row and both membership rows
+   * locked (`lockWorkspace`, `lockMemberships`) and re-read under the locks: the caller must still
+   * be the ACTIVE OWNER and `Workspace.ownerUserId` (else `403`), the target an ACTIVE ADMIN (else
+   * `422`); the caller's OWNER membership becomes ADMIN (keeping `canTeach`), then the target's
+   * becomes OWNER, `Workspace.ownerUserId` follows (spec SP1.6 F7). Then the
    * `workspace.ownership_transferred` audit row and the email to both.
    */
   async transferOwnership(wid: string, fromUserId: string, toUserId: string): Promise<void> {
@@ -333,22 +335,37 @@ export class WorkspacesService {
     }
     await withTenantTx(wid, async (tx) => {
       await lockWorkspace(tx, wid);
-      const target = await tx.membership.findFirst({
-        where: { userId: toUserId },
-        select: { id: true, role: true, status: true },
+      await lockMemberships(tx, wid, [fromUserId, toUserId]);
+      // Re-read under the locks: a concurrent transfer, removal or role change has either
+      // committed (and is seen here) or waits for this transaction.
+      const owner = await tx.workspace.findUniqueOrThrow({
+        where: { id: wid },
+        select: { ownerUserId: true },
       });
+      const members = await tx.membership.findMany({
+        where: { userId: { in: [fromUserId, toUserId] } },
+        select: { id: true, userId: true, role: true, status: true },
+      });
+      const caller = members.find((m) => m.userId === fromUserId);
+      const target = members.find((m) => m.userId === toUserId);
+      // The caller lost ownership to a concurrent transfer.
+      if (
+        !caller ||
+        caller.role !== 'OWNER' ||
+        caller.status !== 'ACTIVE' ||
+        owner.ownerUserId !== fromUserId
+      ) {
+        throw permissionDenied();
+      }
       if (!target || target.role !== 'ADMIN' || target.status !== 'ACTIVE') {
         throw validationFailed(
           'toUserId',
           'The new owner must be an active admin of the workspace',
         );
       }
-      const demoted = await tx.membership.updateMany({
-        where: { userId: fromUserId, role: 'OWNER', status: 'ACTIVE' },
-        data: { role: 'ADMIN' },
-      });
-      // The caller lost ownership to a concurrent transfer.
-      if (demoted.count !== 1) throw permissionDenied();
+      // Demote first: `membership_owner_per_workspace_key` allows one OWNER at any instant. A
+      // unique violation here cannot happen under the locks; it surfaces as a 500 on purpose.
+      await tx.membership.update({ where: { id: caller.id }, data: { role: 'ADMIN' } });
       await tx.membership.update({ where: { id: target.id }, data: { role: 'OWNER' } });
       await tx.workspace.update({ where: { id: wid }, data: { ownerUserId: toUserId } });
     });
