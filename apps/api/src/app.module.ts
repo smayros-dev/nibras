@@ -14,6 +14,7 @@ import { ZodValidationPipe } from './common/zod-validation.pipe';
 import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
 import { GuardianModule } from './guardian/guardian.module';
+import { ImportsModule } from './imports/imports.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { InviteLinksModule } from './invite-links/invite-links.module';
 import { ConsentModule } from './me/consent.module';
@@ -50,6 +51,8 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     MeModule,
     WorkspacesModule,
     MembersModule,
+    // Before InvitationsModule: `invitations/import/…` must be matched ahead of `invitations/:id`.
+    ImportsModule,
     InvitationsModule,
     InviteLinksModule,
     GuardianModule,

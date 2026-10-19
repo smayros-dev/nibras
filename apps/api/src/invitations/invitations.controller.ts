@@ -23,7 +23,8 @@ import { InvitationsService, invitationCtx } from './invitations.service';
  * routes that send an email are `@RequireVerifiedTeacher()` (D-O6). The raw token never appears
  * in a response.
  *
- * SP2 T10 adds the `import/*` routes: they must be declared above `':id'` in this controller.
+ * The CSV import routes (`import`, `import/:importId`, …) live in `ImportsController`, whose
+ * module is registered before this one so Express matches them first.
  */
 @Controller('workspaces/:wid/invitations')
 @RequirePermission('student.invite')

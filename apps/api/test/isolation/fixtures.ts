@@ -3,6 +3,7 @@ import {
   type AbuseReport,
   type GuardianLink,
   type Invitation,
+  type InvitationImport,
   type InviteLink,
   type TeacherStudentAssignment,
   type User,
@@ -13,6 +14,7 @@ import type { RouteInfo } from '../../src/openapi/export';
 import {
   assign,
   createAbuseReport,
+  createImport,
   createInvitation,
   createInviteLink,
   createOrganization,
@@ -59,6 +61,8 @@ export interface Tenant {
   /** SP2: a minor STUDENT in `PENDING_GUARDIAN_CONSENT`, his guardian link sent (`PENDING`). */
   consentStudent: User;
   consentLink: GuardianLink;
+  /** SP2 T10: a QUEUED CSV import of this workspace, started by the OWNER. */
+  import: InvitationImport;
 }
 
 export interface TenantPair {
@@ -97,6 +101,11 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     status: 'PENDING_APPROVAL',
     user: { firstName: `Pending${tag}` },
   });
+  const csvImport = await createImport({
+    workspace,
+    createdBy: owner,
+    rows: [{ line: 2, email: `import-${tag.toLowerCase()}@example.com` }],
+  });
   const consent = await createStudent({
     workspace,
     status: 'PENDING_GUARDIAN_CONSENT',
@@ -118,6 +127,7 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     pendingStudent,
     consentStudent: consent.user,
     consentLink: consent.guardianLink!,
+    import: csvImport,
   };
 }
 
@@ -160,6 +170,7 @@ export function foreignIds(p: TenantPair): string[] {
     b.pendingStudent.id,
     b.consentStudent.id,
     b.consentLink.id,
+    b.import.id,
   ];
 }
 
@@ -186,6 +197,8 @@ const PARAMS: Record<string, (t: Tenant) => string> = {
   // SP2 T8: the same minor for the profile and the guardian email change (B's one could have
   // its guardian email replaced inside B, the most sensitive write of the students routes).
   'students/:uid': (t) => t.consentStudent.id,
+  // SP2 T10: a CSV import (status and report).
+  'invitations/import/:importId': (t) => t.import.id,
 };
 
 /** B's id for each path param: an ACTIVE OWNER of A calling with it gets `404 NOT_FOUND`. */
@@ -373,6 +386,8 @@ export const BODYLESS_WRITE_ROUTES: Set<string> = new Set<string>([
   'POST /api/v1/workspaces/:wid/members/:uid/reject',
   // No body; the consent-waiting minor is the path's `:uid` (his guardian gets a new link).
   'POST /api/v1/workspaces/:wid/students/:uid/guardian/resend-consent',
+  // SP2 T10: the CSV body carries emails only, no ids.
+  'POST /api/v1/workspaces/:wid/invitations/import',
 ]);
 
 /** A key that never appears, at any depth, in an organisation-facing abuse-report response. */

@@ -41,6 +41,11 @@ import {
 const PREFIX = '/api/v1';
 const TENANT = `${PREFIX}/workspaces/:wid`;
 const WRITE = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+/**
+ * The two loops that rebuild fixtures and log in once per route grow with every tenant route
+ * (~0.3 s each on the dev machine): they get their own budget instead of the 15 s default.
+ */
+const LOOP_TIMEOUT_MS = 90_000;
 
 describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => {
   let ctx: TestContext;
@@ -112,6 +117,10 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         'GET /api/v1/workspaces/:wid/students',
         'GET /api/v1/workspaces/:wid/students/:uid/profile',
         'PATCH /api/v1/workspaces/:wid/students/:uid',
+        // SP2 T10: CSV import.
+        'POST /api/v1/workspaces/:wid/invitations/import',
+        'GET /api/v1/workspaces/:wid/invitations/import/:importId',
+        'GET /api/v1/workspaces/:wid/invitations/import/:importId/report',
       ]),
     );
   });
@@ -130,38 +139,46 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     ).toEqual([]);
   });
 
-  it('every tenant route → 404 for an active TEACHER of another organisation (+ audit)', async () => {
-    for (const route of routes) {
-      await ctx.reset();
-      const { workspace: target } = await createOrganization({ owner: await createUser() });
-      const teacher = await createUser();
-      await createOrganization({ owner: await createUser(), teachers: [teacher] });
-      const label = `${route.method} ${route.path}`;
+  it(
+    'every tenant route → 404 for an active TEACHER of another organisation (+ audit)',
+    async () => {
+      for (const route of routes) {
+        await ctx.reset();
+        const { workspace: target } = await createOrganization({ owner: await createUser() });
+        const teacher = await createUser();
+        await createOrganization({ owner: await createUser(), teachers: [teacher] });
+        const label = `${route.method} ${route.path}`;
 
-      const res = await call(teacher, route, target.id);
-      expect(res.status, label).toBe(404);
-      expect(res.body.code, label).toBe('NOT_FOUND');
-      expect(
-        await ctx.db.auditLog.count({
-          where: { action: 'auth.forbidden_workspace', entityId: target.id },
-        }),
-        label,
-      ).toBe(1);
-    }
-  });
+        const res = await call(teacher, route, target.id);
+        expect(res.status, label).toBe(404);
+        expect(res.body.code, label).toBe('NOT_FOUND');
+        expect(
+          await ctx.db.auditLog.count({
+            where: { action: 'auth.forbidden_workspace', entityId: target.id },
+          }),
+          label,
+        ).toBe(1);
+      }
+    },
+    LOOP_TIMEOUT_MS,
+  );
 
-  it('every tenant route → 404 for a user with no membership', async () => {
-    for (const route of routes) {
-      await ctx.reset();
-      const { workspace: target } = await createOrganization({ owner: await createUser() });
-      const outsider = await createUser();
-      const label = `${route.method} ${route.path}`;
+  it(
+    'every tenant route → 404 for a user with no membership',
+    async () => {
+      for (const route of routes) {
+        await ctx.reset();
+        const { workspace: target } = await createOrganization({ owner: await createUser() });
+        const outsider = await createUser();
+        const label = `${route.method} ${route.path}`;
 
-      const res = await call(outsider, route, target.id);
-      expect(res.status, label).toBe(404);
-      expect(res.body.code, label).toBe('NOT_FOUND');
-    }
-  });
+        const res = await call(outsider, route, target.id);
+        expect(res.status, label).toBe(404);
+        expect(res.body.code, label).toBe('NOT_FOUND');
+      }
+    },
+    LOOP_TIMEOUT_MS,
+  );
 
   // ---- SP1.6 F8: an ACTIVE member of A reaching B, inactive members, read-only states ----
 
@@ -235,6 +252,10 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     expect(bGuardian.consentTokenHash).toBe(p.b.consentLink.consentTokenHash);
     expect(bGuardian.guardianEmail).toBe(p.b.consentLink.guardianEmail);
     expect(bGuardian.sessionsViewTokenHash).toBe(p.b.consentLink.sessionsViewTokenHash);
+    const bImport = await ctx.db.invitationImport.findUniqueOrThrow({
+      where: { id: p.b.import.id },
+    });
+    expect(bImport.status).toBe('QUEUED');
 
     const known = new Set(routes.map(key));
     expect(Object.keys(FOREIGN_QUERIES).length).toBeGreaterThanOrEqual(3);
@@ -262,6 +283,7 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       memberships: await ctx.db.membership.count(),
       invitations: await ctx.db.invitation.count(),
       inviteLinks: await ctx.db.inviteLink.count(),
+      imports: await ctx.db.invitationImport.count(),
     });
     const before = await counts();
 
