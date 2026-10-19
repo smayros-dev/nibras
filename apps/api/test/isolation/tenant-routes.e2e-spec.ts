@@ -70,6 +70,13 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         'GET /api/v1/workspaces/:wid/assignments',
         'GET /api/v1/workspaces/:wid/audit-log',
         'POST /api/v1/workspaces/:wid/abuse-reports',
+        // SP2 T4: email invitations.
+        'GET /api/v1/workspaces/:wid/invitations',
+        'POST /api/v1/workspaces/:wid/invitations',
+        'GET /api/v1/workspaces/:wid/invitations/:id',
+        'PATCH /api/v1/workspaces/:wid/invitations/:id',
+        'POST /api/v1/workspaces/:wid/invitations/:id/resend',
+        'DELETE /api/v1/workspaces/:wid/invitations/:id',
       ]),
     );
   });

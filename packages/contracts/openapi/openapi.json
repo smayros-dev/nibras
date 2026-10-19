@@ -88,6 +88,68 @@
         ],
         "type": "object"
       },
+      "CreateInvitationDto": {
+        "additionalProperties": false,
+        "properties": {
+          "birthDate": {
+            "type": "string"
+          },
+          "courseIds": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "type": "array"
+          },
+          "email": {
+            "format": "email",
+            "maxLength": 254,
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "guardianEmail": {
+            "format": "email",
+            "maxLength": 254,
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "role": {
+            "default": "STUDENT",
+            "enum": [
+              "STUDENT",
+              "TEACHER",
+              "ADMIN"
+            ],
+            "type": "string"
+          },
+          "teacherUserId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      },
       "CreateOrganizationDto": {
         "additionalProperties": false,
         "properties": {
@@ -434,6 +496,34 @@
               "RESOLVED",
               "DISMISSED"
             ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateInvitationDto": {
+        "additionalProperties": false,
+        "properties": {
+          "firstName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "guardianEmail": {
+            "format": "email",
+            "maxLength": 254,
+            "nullable": true,
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 500,
+            "nullable": true,
             "type": "string"
           }
         },
@@ -2296,6 +2386,248 @@
         },
         "tags": [
           "AuditLog"
+        ]
+      }
+    },
+    "/workspaces/{wid}/invitations": {
+      "get": {
+        "operationId": "InvitationsController_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "PENDING",
+                "ACCEPTED",
+                "EXPIRED",
+                "REVOKED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "required": false,
+            "schema": {
+              "enum": [
+                "STUDENT",
+                "TEACHER",
+                "ADMIN"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      },
+      "post": {
+        "operationId": "InvitationsController_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      }
+    },
+    "/workspaces/{wid}/invitations/{id}": {
+      "delete": {
+        "operationId": "InvitationsController_revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      },
+      "get": {
+        "operationId": "InvitationsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      },
+      "patch": {
+        "operationId": "InvitationsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInvitationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      }
+    },
+    "/workspaces/{wid}/invitations/{id}/resend": {
+      "post": {
+        "operationId": "InvitationsController_resend",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
         ]
       }
     },

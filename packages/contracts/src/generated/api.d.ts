@@ -740,6 +740,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{wid}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InvitationsController_list"];
+        put?: never;
+        post: operations["InvitationsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/invitations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InvitationsController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["InvitationsController_revoke"];
+        options?: never;
+        head?: never;
+        patch: operations["InvitationsController_update"];
+        trace?: never;
+    };
+    "/workspaces/{wid}/invitations/{id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InvitationsController_resend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{wid}/members": {
         parameters: {
             query?: never;
@@ -844,6 +892,25 @@ export interface components {
             /** Format: uuid */
             teacherUserId: string;
         };
+        CreateInvitationDto: {
+            birthDate?: string;
+            /** @default [] */
+            courseIds: string[];
+            /** Format: email */
+            email: string;
+            firstName?: string;
+            /** Format: email */
+            guardianEmail?: string;
+            lastName?: string;
+            message?: string;
+            /**
+             * @default STUDENT
+             * @enum {string}
+             */
+            role: "STUDENT" | "TEACHER" | "ADMIN";
+            /** Format: uuid */
+            teacherUserId?: string;
+        };
         CreateOrganizationDto: {
             country?: string;
             name: string;
@@ -933,6 +1000,13 @@ export interface components {
             resolution?: string | null;
             /** @enum {string} */
             status?: "OPEN" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
+        };
+        UpdateInvitationDto: {
+            firstName?: string;
+            /** Format: email */
+            guardianEmail?: string | null;
+            lastName?: string;
+            message?: string | null;
         };
         UpdateMeDto: {
             birthDate?: string;
@@ -2169,6 +2243,138 @@ export interface operations {
             header?: never;
             path: {
                 wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_list: {
+        parameters: {
+            query?: {
+                status?: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+                role?: "STUDENT" | "TEACHER" | "ADMIN";
+                q?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInvitationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInvitationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_resend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
             };
             cookie?: never;
         };
