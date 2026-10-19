@@ -80,6 +80,14 @@ export type AuditAction =
   | 'course.restored'
   | 'course.deleted'
   | 'course.reassigned'
+  | 'module.created'
+  | 'module.updated'
+  | 'module.deleted'
+  | 'module.reordered'
+  | 'lesson.created'
+  | 'lesson.updated'
+  | 'lesson.deleted'
+  | 'lesson.reordered'
   | typeof CROSS_TENANT_AUDIT_ACTION;
 
 export interface AuditEntry {

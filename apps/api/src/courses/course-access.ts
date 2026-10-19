@@ -89,3 +89,23 @@ export async function bumpCourseVersion(tx: TenantTx, courseId: string): Promise
   });
   return version;
 }
+
+/**
+ * The media assets the caller may attach (lesson media, inline images): scope `all` → any of the
+ * workspace (the transaction is tenant-scoped); scope `own` → his own uploads, the media already
+ * used by a lesson of one of his live courses (a reassigned course keeps its media usable), and
+ * `keep` (the ids the edited row already references).
+ */
+export function mediaScopeFilter(
+  ctx: CourseCtx,
+  keep: readonly string[] = [],
+): Prisma.MediaAssetWhereInput {
+  if (ctx.scope === 'all') return {};
+  return {
+    OR: [
+      { ownerUserId: ctx.userId },
+      { lessons: { some: { module: { course: { ownerUserId: ctx.userId, deletedAt: null } } } } },
+      ...(keep.length > 0 ? [{ id: { in: [...keep] } }] : []),
+    ],
+  };
+}

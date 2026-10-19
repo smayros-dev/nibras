@@ -30,6 +30,7 @@ import { RequestContext } from '../common/request-context';
 import { DB } from '../db/db.module';
 import { STORAGE_PROVIDER } from '../media/tokens';
 import { QueueService } from '../queue/queue.service';
+import { RichTextService } from '../structure/rich-text.service';
 import { readSettings } from '../workspaces/workspace-settings.service';
 import { validationFailed } from '../workspaces/workspaces.service';
 import {
@@ -130,6 +131,7 @@ export class CoursesService {
     @Inject(DB) private readonly db: Pick<GuardedClient, 'workspace'>,
     private readonly audit: AuditService,
     private readonly queue: QueueService,
+    private readonly richText: RichTextService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
     private readonly logger: PinoLogger,
   ) {
@@ -198,7 +200,13 @@ export class CoursesService {
           workspaceId: ctx.workspaceId,
           ownerUserId: ctx.userId,
           title: input.title,
-          description: input.description,
+          description:
+            input.description === undefined
+              ? undefined
+              : this.richText.validate(input.description, {
+                  allowImages: false,
+                  path: 'description',
+                }).doc,
           category: input.category ?? null,
           level: input.level ?? null,
           language: input.language,
@@ -246,7 +254,10 @@ export class CoursesService {
         const next = input[key];
         if (next === undefined || sameValue(next, current[key])) continue;
         if (key === 'description') {
-          data.description = next as Prisma.InputJsonValue;
+          data.description = (next === null
+            ? next
+            : this.richText.validate(next, { allowImages: false, path: 'description' })
+                .doc) as unknown as Prisma.InputJsonValue;
           before.description = current.description === null ? null : '[rich text]';
           after.description = '[rich text]';
           continue;

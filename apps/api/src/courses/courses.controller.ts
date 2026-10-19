@@ -12,9 +12,10 @@ import {
   Res,
 } from '@nestjs/common';
 import { ApiHeader } from '@nestjs/swagger';
-import type { CourseDetail, CoursesPage } from '@nibras/contracts';
+import type { CourseDetail, CoursesPage, CourseStructure } from '@nibras/contracts';
 import type { Response } from 'express';
 import { IfMatch, setEtag } from '../common/if-match';
+import { StructureService } from '../structure/structure.service';
 import { RequirePermission, RequireVerifiedTeacher } from '../tenancy/decorators';
 import { courseCtx } from './course-access';
 import { CoursesService, type CourseTransition } from './courses.service';
@@ -29,7 +30,10 @@ import { CoursesQueryDto, CreateCourseDto, ReassignCourseDto, UpdateCourseDto } 
  */
 @Controller('workspaces/:wid/courses')
 export class CoursesController {
-  constructor(private readonly courses: CoursesService) {}
+  constructor(
+    private readonly courses: CoursesService,
+    private readonly structure: StructureService,
+  ) {}
 
   /** Newest first; `status`, `q` (title), `cursor` = the previous `nextCursor`. */
   @Get()
@@ -58,6 +62,22 @@ export class CoursesController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<CourseDetail> {
     return withEtag(res, await this.courses.get(courseCtx(wid), cid));
+  }
+
+  /**
+   * The editor's view (spec §4.2): modules → lessons by position with their media statuses;
+   * `ETag: "<course version>"` (the `If-Match` of every structure write).
+   */
+  @Get(':cid/structure')
+  @RequirePermission('course.manage')
+  async structureOf(
+    @Param('wid') wid: string,
+    @Param('cid') cid: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<CourseStructure> {
+    const structure = await this.structure.structure(courseCtx(wid), cid);
+    setEtag(res, structure.version);
+    return structure;
   }
 
   /**

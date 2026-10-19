@@ -26,6 +26,7 @@ import { ObservabilityModule } from './observability/observability.module';
 import { ProvidersModule } from './providers/providers.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
+import { StructureModule } from './structure/structure.module';
 import { PermissionGuard } from './tenancy/permission.guard';
 import { SuperAdminGuard } from './tenancy/super-admin.guard';
 import { TeacherVerifiedGuard } from './tenancy/teacher-verified.guard';
@@ -56,6 +57,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     AbuseReportsModule,
     AdminModule,
     CoursesModule,
+    StructureModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
     TenancyModule,
     RateLimitModule,

@@ -4,6 +4,7 @@ import { listRoutes, type RouteInfo } from '../../src/openapi/export';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
 import { as, loginAs } from '../helpers/auth';
 import { addMember, createOrganization, createStudent, createUser } from '../helpers/factories';
+import { expectStructureInvariant } from '../helpers/invariants';
 import { TENANT_ROUTE_EXEMPTIONS } from './exemptions';
 import {
   BODYLESS_WRITE_ROUTES,
@@ -41,6 +42,11 @@ import {
 const PREFIX = '/api/v1';
 const TENANT = `${PREFIX}/workspaces/:wid`;
 const WRITE = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+/**
+ * The two outsider scenarios reset the database and build fresh organisations once per route; with
+ * 40+ tenant routes (SP3 T6) they outgrow the default 15 s on a loaded machine.
+ */
+const ROUTE_LOOP_TIMEOUT_MS = 90_000;
 
 describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => {
   let ctx: TestContext;
@@ -119,6 +125,17 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         'POST /api/v1/workspaces/:wid/courses/:cid/archive',
         'POST /api/v1/workspaces/:wid/courses/:cid/restore',
         'POST /api/v1/workspaces/:wid/courses/:cid/reassign',
+        // SP3 T6: structure.
+        'GET /api/v1/workspaces/:wid/courses/:cid/structure',
+        'POST /api/v1/workspaces/:wid/courses/:cid/modules',
+        'POST /api/v1/workspaces/:wid/courses/:cid/modules/reorder',
+        'PATCH /api/v1/workspaces/:wid/modules/:mid',
+        'DELETE /api/v1/workspaces/:wid/modules/:mid',
+        'POST /api/v1/workspaces/:wid/modules/:mid/lessons',
+        'POST /api/v1/workspaces/:wid/modules/:mid/lessons/reorder',
+        'GET /api/v1/workspaces/:wid/lessons/:lid',
+        'PATCH /api/v1/workspaces/:wid/lessons/:lid',
+        'DELETE /api/v1/workspaces/:wid/lessons/:lid',
       ]),
     );
   });
@@ -137,38 +154,46 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     ).toEqual([]);
   });
 
-  it('every tenant route → 404 for an active TEACHER of another organisation (+ audit)', async () => {
-    for (const route of routes) {
-      await ctx.reset();
-      const { workspace: target } = await createOrganization({ owner: await createUser() });
-      const teacher = await createUser();
-      await createOrganization({ owner: await createUser(), teachers: [teacher] });
-      const label = `${route.method} ${route.path}`;
+  it(
+    'every tenant route → 404 for an active TEACHER of another organisation (+ audit)',
+    async () => {
+      for (const route of routes) {
+        await ctx.reset();
+        const { workspace: target } = await createOrganization({ owner: await createUser() });
+        const teacher = await createUser();
+        await createOrganization({ owner: await createUser(), teachers: [teacher] });
+        const label = `${route.method} ${route.path}`;
 
-      const res = await call(teacher, route, target.id);
-      expect(res.status, label).toBe(404);
-      expect(res.body.code, label).toBe('NOT_FOUND');
-      expect(
-        await ctx.db.auditLog.count({
-          where: { action: 'auth.forbidden_workspace', entityId: target.id },
-        }),
-        label,
-      ).toBe(1);
-    }
-  });
+        const res = await call(teacher, route, target.id);
+        expect(res.status, label).toBe(404);
+        expect(res.body.code, label).toBe('NOT_FOUND');
+        expect(
+          await ctx.db.auditLog.count({
+            where: { action: 'auth.forbidden_workspace', entityId: target.id },
+          }),
+          label,
+        ).toBe(1);
+      }
+    },
+    ROUTE_LOOP_TIMEOUT_MS,
+  );
 
-  it('every tenant route → 404 for a user with no membership', async () => {
-    for (const route of routes) {
-      await ctx.reset();
-      const { workspace: target } = await createOrganization({ owner: await createUser() });
-      const outsider = await createUser();
-      const label = `${route.method} ${route.path}`;
+  it(
+    'every tenant route → 404 for a user with no membership',
+    async () => {
+      for (const route of routes) {
+        await ctx.reset();
+        const { workspace: target } = await createOrganization({ owner: await createUser() });
+        const outsider = await createUser();
+        const label = `${route.method} ${route.path}`;
 
-      const res = await call(outsider, route, target.id);
-      expect(res.status, label).toBe(404);
-      expect(res.body.code, label).toBe('NOT_FOUND');
-    }
-  });
+        const res = await call(outsider, route, target.id);
+        expect(res.status, label).toBe(404);
+        expect(res.body.code, label).toBe('NOT_FOUND');
+      }
+    },
+    ROUTE_LOOP_TIMEOUT_MS,
+  );
 
   // ---- SP1.6 F8: an ACTIVE member of A reaching B, inactive members, read-only states ----
 
@@ -269,6 +294,8 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       invitations: await ctx.db.invitation.count(),
       inviteLinks: await ctx.db.inviteLink.count(),
       courses: await ctx.db.course.count(),
+      modules: await ctx.db.module.count(),
+      lessons: await ctx.db.lesson.count(),
     });
     const before = await counts();
 
@@ -336,6 +363,18 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     ).toBe(0);
     const aCourse = await ctx.db.course.findUniqueOrThrow({ where: { id: p.a.course.id } });
     expect(aCourse).toMatchObject({ ownerUserId: p.a.teacher.id, coverMediaId: null, version: 1 });
+    // SP3 T6: no lesson of A uses B's media or names B's image; A's structure kept its order.
+    expect(
+      await ctx.db.lesson.count({ where: { workspaceId: wid, mediaAssetId: { in: bIds } } }),
+    ).toBe(0);
+    const aLesson = await ctx.db.lesson.findUniqueOrThrow({ where: { id: p.a.lesson.id } });
+    expect(JSON.stringify(aLesson.content)).not.toContain(p.b.coverImage.id);
+    expect(aLesson).toMatchObject({ position: 1, version: 1 });
+    expect((await ctx.db.module.findUniqueOrThrow({ where: { id: p.a.module.id } })).position).toBe(
+      1,
+    );
+    await expectStructureInvariant(ctx.db, p.a.course.id);
+    await expectStructureInvariant(ctx.db, p.b.course.id);
     // Nothing moved on either side: A keeps its owner, B's admin stays an ADMIN of B.
     expect((await ctx.db.workspace.findUniqueOrThrow({ where: { id: wid } })).ownerUserId).toBe(
       p.a.owner.id,

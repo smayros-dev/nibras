@@ -1,4 +1,4 @@
-import { isMinor } from '@nibras/contracts';
+import { collectImageIds, isMinor, type RichTextDoc } from '@nibras/contracts';
 import type { PrismaClient } from '@nibras/db';
 import { expect } from 'vitest';
 
@@ -65,8 +65,10 @@ const contiguous = (positions: number[]): number[] => positions.map((_, i) => i 
 
 /**
  * The structure invariant (SP3): the modules of `courseId` sit at positions 1..n, the lessons of
- * each module at 1..n, every version is ≥ 1, and every module, lesson and referenced media asset
- * (lesson media, course cover) belongs to the course's workspace (Review Focus 5).
+ * each module at 1..n, every version is ≥ 1, every lesson's content matches its type (VIDEO / PDF:
+ * a media of that kind and no content; TEXT: a content and no media), and every module, lesson
+ * and referenced media asset (lesson media, inline images of TEXT content, course cover) belongs
+ * to the course's workspace (Review Focus 5).
  */
 export async function expectStructureInvariant(db: PrismaClient, courseId: string): Promise<void> {
   const course = await db.course.findUniqueOrThrow({
@@ -93,7 +95,9 @@ export async function expectStructureInvariant(db: PrismaClient, courseId: strin
           workspaceId: true,
           position: true,
           version: true,
-          mediaAsset: { select: { workspaceId: true } },
+          type: true,
+          content: true,
+          mediaAsset: { select: { workspaceId: true, kind: true } },
         },
       },
     },
@@ -114,6 +118,27 @@ export async function expectStructureInvariant(db: PrismaClient, courseId: strin
       expect(l.version, `lesson ${l.id}: version ≥ 1`).toBeGreaterThanOrEqual(1);
       if (l.mediaAsset) {
         expect(l.mediaAsset.workspaceId, `lesson ${l.id}: media of another workspace`).toBe(wid);
+      }
+      if (l.type === 'VIDEO' || l.type === 'PDF') {
+        expect(l.mediaAsset?.kind, `lesson ${l.id}: ${l.type} needs a ${l.type} media`).toBe(
+          l.type,
+        );
+        expect(l.content, `lesson ${l.id}: ${l.type} has no content`).toBeNull();
+      } else if (l.type === 'TEXT') {
+        expect(l.mediaAsset, `lesson ${l.id}: TEXT has no media`).toBeNull();
+        expect(l.content, `lesson ${l.id}: TEXT needs a content`).not.toBeNull();
+        const ids = collectImageIds(l.content as unknown as RichTextDoc);
+        if (ids.length > 0) {
+          const images = await db.mediaAsset.findMany({
+            where: { id: { in: ids } },
+            select: { workspaceId: true, kind: true },
+          });
+          expect(images, `lesson ${l.id}: unknown inline image`).toHaveLength(ids.length);
+          for (const image of images) {
+            expect(image.workspaceId, `lesson ${l.id}: image of another workspace`).toBe(wid);
+            expect(image.kind, `lesson ${l.id}: inline media is not an image`).toBe('IMAGE');
+          }
+        }
       }
     }
   }

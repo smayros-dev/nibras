@@ -5,7 +5,9 @@ import {
   type GuardianLink,
   type Invitation,
   type InviteLink,
+  type Lesson,
   type MediaAsset,
+  type Module,
   type TeacherStudentAssignment,
   type User,
   type Workspace,
@@ -18,7 +20,9 @@ import {
   createCourse,
   createInvitation,
   createInviteLink,
+  createLesson,
   createMediaAsset,
+  createModule,
   createOrganization,
   createStudent,
   createUser,
@@ -68,6 +72,12 @@ export interface Tenant {
   course: Course;
   /** SP3: a READY IMAGE uploaded by `owner` (a valid cover inside this workspace only). */
   coverImage: MediaAsset;
+  /** SP3 T6: the first module of `course`. */
+  module: Module;
+  /** SP3 T6: a TEXT lesson (no image) of `module`. */
+  lesson: Lesson;
+  /** SP3 T6: a READY VIDEO uploaded by `owner` (a valid lesson media inside this workspace only). */
+  video: MediaAsset;
 }
 
 export interface TenantPair {
@@ -120,6 +130,9 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
   });
   const course = await createCourse(workspace, teacher, { title: `Cours ${tag}` });
   const coverImage = await createMediaAsset(workspace, owner, { kind: 'IMAGE' });
+  const module = await createModule(course);
+  const lesson = await createLesson(module, { type: 'TEXT' });
+  const video = await createMediaAsset(workspace, owner, { kind: 'VIDEO' });
   return {
     workspace,
     owner,
@@ -136,6 +149,9 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     consentLink: consent.guardianLink!,
     course,
     coverImage,
+    module,
+    lesson,
+    video,
   };
 }
 
@@ -180,6 +196,9 @@ export function foreignIds(p: TenantPair): string[] {
     b.consentLink.id,
     b.course.id,
     b.coverImage.id,
+    b.module.id,
+    b.lesson.id,
+    b.video.id,
   ];
 }
 
@@ -205,6 +224,9 @@ const PARAMS: Record<string, (t: Tenant) => string> = {
   'students/:uid/guardian': (t) => t.consentStudent.id,
   // SP3: a course (DRAFT, version 1) of the tenant.
   ':cid': (t) => t.course.id,
+  // SP3 T6: the course's module and its TEXT lesson.
+  ':mid': (t) => t.module.id,
+  ':lid': (t) => t.lesson.id,
 };
 
 /** B's id for each path param: an ACTIVE OWNER of A calling with it gets `404 NOT_FOUND`. */
@@ -380,6 +402,43 @@ export const FOREIGN_BODIES: Record<
     params: 'local',
     body: (p) => ({ ownerUserId: p.b.teacher.id }),
   },
+  // SP3 T6. No id in the body (title, flags, unlock rule): the path (B's course) refuses it.
+  'POST /api/v1/workspaces/:wid/courses/:cid/modules': {
+    params: 'foreign',
+    body: () => ({ title: 'Sonde' }),
+  },
+  // A's modules reordered with B's module id (version 1, so the If-Match passes).
+  'POST /api/v1/workspaces/:wid/courses/:cid/modules/reorder': {
+    params: 'local',
+    body: (p) => ({ ids: [p.b.module.id] }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // No id in the body: the path (B's module) refuses it.
+  'PATCH /api/v1/workspaces/:wid/modules/:mid': {
+    params: 'foreign',
+    body: () => ({ title: 'Sonde' }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // A VIDEO lesson of A's module on B's video (Review Focus 5).
+  'POST /api/v1/workspaces/:wid/modules/:mid/lessons': {
+    params: 'local',
+    body: (p) => ({ type: 'VIDEO', title: 'Sonde', mediaAssetId: p.b.video.id }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // A's lessons reordered with B's lesson id.
+  'POST /api/v1/workspaces/:wid/modules/:mid/lessons/reorder': {
+    params: 'local',
+    body: (p) => ({ ids: [p.b.lesson.id] }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // A's TEXT lesson given B's image inline (Review Focus 5).
+  'PATCH /api/v1/workspaces/:wid/lessons/:lid': {
+    params: 'local',
+    body: (p) => ({
+      content: { type: 'doc', content: [{ type: 'image', attrs: { mediaId: p.b.coverImage.id } }] },
+    }),
+    headers: { 'If-Match': '"1"' },
+  },
 };
 
 /**
@@ -413,6 +472,9 @@ export const BODYLESS_WRITE_ROUTES: Set<string> = new Set<string>([
   'POST /api/v1/workspaces/:wid/courses/:cid/archive',
   'POST /api/v1/workspaces/:wid/courses/:cid/restore',
   'DELETE /api/v1/workspaces/:wid/courses/:cid',
+  // SP3 T6. No body; deletes the path's module (`:mid`) or lesson (`:lid`).
+  'DELETE /api/v1/workspaces/:wid/modules/:mid',
+  'DELETE /api/v1/workspaces/:wid/lessons/:lid',
 ]);
 
 /** A key that never appears, at any depth, in an organisation-facing abuse-report response. */

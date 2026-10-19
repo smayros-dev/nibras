@@ -801,6 +801,583 @@
         },
         "type": "object"
       },
+      "CreateLessonDto": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "maxLength": 2000,
+                "nullable": true,
+                "type": "string"
+              },
+              "estimatedMinutes": {
+                "maximum": 100000,
+                "minimum": 0,
+                "nullable": true,
+                "type": "integer"
+              },
+              "isRequired": {
+                "type": "boolean"
+              },
+              "mediaAssetId": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              },
+              "title": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "VIDEO"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "title",
+              "mediaAssetId"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "allowDownload": {
+                "type": "boolean"
+              },
+              "description": {
+                "maxLength": 2000,
+                "nullable": true,
+                "type": "string"
+              },
+              "estimatedMinutes": {
+                "maximum": 100000,
+                "minimum": 0,
+                "nullable": true,
+                "type": "integer"
+              },
+              "isRequired": {
+                "type": "boolean"
+              },
+              "mediaAssetId": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              },
+              "title": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "PDF"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "title",
+              "mediaAssetId"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "additionalProperties": false,
+                "properties": {
+                  "content": {
+                    "items": {
+                      "$ref": "#/components/schemas/CreateLessonDto__schema0"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "enum": [
+                      "doc"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              "description": {
+                "maxLength": 2000,
+                "nullable": true,
+                "type": "string"
+              },
+              "estimatedMinutes": {
+                "maximum": 100000,
+                "minimum": 0,
+                "nullable": true,
+                "type": "integer"
+              },
+              "isRequired": {
+                "type": "boolean"
+              },
+              "title": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "TEXT"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "title",
+              "content"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "CreateLessonDto__schema0": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "marks": {
+                "items": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "bold",
+                            "italic",
+                            "underline",
+                            "strike",
+                            "code"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attrs": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "class": {
+                              "type": "null"
+                            },
+                            "href": {
+                              "maxLength": 2048,
+                              "pattern": "^https?:\\/\\/",
+                              "type": "string"
+                            },
+                            "rel": {
+                              "maxLength": 100,
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "target": {
+                              "const": "_blank",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "href"
+                          ],
+                          "type": "object"
+                        },
+                        "type": {
+                          "enum": [
+                            "link"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "attrs"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "maxItems": 10,
+                "type": "array"
+              },
+              "text": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "text"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/CreateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "paragraph"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attrs": {
+                "additionalProperties": false,
+                "properties": {
+                  "level": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          1
+                        ],
+                        "type": "number"
+                      },
+                      {
+                        "enum": [
+                          2
+                        ],
+                        "type": "number"
+                      },
+                      {
+                        "enum": [
+                          3
+                        ],
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "level"
+                ],
+                "type": "object"
+              },
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/CreateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "heading"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "attrs"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/CreateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "bulletList"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attrs": {
+                "additionalProperties": false,
+                "properties": {
+                  "start": {
+                    "maximum": 100000,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "type": {
+                    "enum": [
+                      "1",
+                      "a",
+                      "A",
+                      "i",
+                      "I",
+                      null
+                    ],
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/CreateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "orderedList"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/CreateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "listItem"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/CreateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "blockquote"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attrs": {
+                "additionalProperties": false,
+                "properties": {
+                  "language": {
+                    "maxLength": 50,
+                    "nullable": true,
+                    "pattern": "^[A-Za-z0-9+#_-]*$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/CreateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "codeBlock"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "hardBreak"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "horizontalRule"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attrs": {
+                "additionalProperties": false,
+                "properties": {
+                  "alt": {
+                    "maxLength": 200,
+                    "type": "string"
+                  },
+                  "mediaId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "mediaId"
+                ],
+                "type": "object"
+              },
+              "type": {
+                "enum": [
+                  "image"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "attrs"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "CreateModuleDto": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 2000,
+            "nullable": true,
+            "type": "string"
+          },
+          "isOptional": {
+            "type": "boolean"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "unlockRule": {
+            "default": {
+              "type": "NONE"
+            },
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "NONE"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "PREVIOUS_MODULE_COMPLETED"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
       "CreateOrganizationDto": {
         "additionalProperties": false,
         "properties": {
@@ -1090,6 +1667,25 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "ReorderDto": {
+        "additionalProperties": false,
+        "properties": {
+          "ids": {
+            "items": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
         "type": "object"
       },
       "ResetPasswordDto": {
@@ -1705,6 +2301,432 @@
         },
         "type": "object"
       },
+      "UpdateLessonDto": {
+        "additionalProperties": false,
+        "properties": {
+          "allowDownload": {
+            "type": "boolean"
+          },
+          "content": {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/UpdateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "doc"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          "description": {
+            "maxLength": 2000,
+            "nullable": true,
+            "type": "string"
+          },
+          "estimatedMinutes": {
+            "maximum": 100000,
+            "minimum": 0,
+            "nullable": true,
+            "type": "integer"
+          },
+          "isRequired": {
+            "type": "boolean"
+          },
+          "mediaAssetId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateLessonDto__schema0": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "marks": {
+                "items": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "bold",
+                            "italic",
+                            "underline",
+                            "strike",
+                            "code"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attrs": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "class": {
+                              "type": "null"
+                            },
+                            "href": {
+                              "maxLength": 2048,
+                              "pattern": "^https?:\\/\\/",
+                              "type": "string"
+                            },
+                            "rel": {
+                              "maxLength": 100,
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "target": {
+                              "const": "_blank",
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "href"
+                          ],
+                          "type": "object"
+                        },
+                        "type": {
+                          "enum": [
+                            "link"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "attrs"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "maxItems": 10,
+                "type": "array"
+              },
+              "text": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "text"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/UpdateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "paragraph"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attrs": {
+                "additionalProperties": false,
+                "properties": {
+                  "level": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          1
+                        ],
+                        "type": "number"
+                      },
+                      {
+                        "enum": [
+                          2
+                        ],
+                        "type": "number"
+                      },
+                      {
+                        "enum": [
+                          3
+                        ],
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "level"
+                ],
+                "type": "object"
+              },
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/UpdateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "heading"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "attrs"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/UpdateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "bulletList"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attrs": {
+                "additionalProperties": false,
+                "properties": {
+                  "start": {
+                    "maximum": 100000,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "type": {
+                    "enum": [
+                      "1",
+                      "a",
+                      "A",
+                      "i",
+                      "I",
+                      null
+                    ],
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/UpdateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "orderedList"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/UpdateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "listItem"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/UpdateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "blockquote"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attrs": {
+                "additionalProperties": false,
+                "properties": {
+                  "language": {
+                    "maxLength": 50,
+                    "nullable": true,
+                    "pattern": "^[A-Za-z0-9+#_-]*$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/UpdateLessonDto__schema0"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "codeBlock"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "hardBreak"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "horizontalRule"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attrs": {
+                "additionalProperties": false,
+                "properties": {
+                  "alt": {
+                    "maxLength": 200,
+                    "type": "string"
+                  },
+                  "mediaId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "mediaId"
+                ],
+                "type": "object"
+              },
+              "type": {
+                "enum": [
+                  "image"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "attrs"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "UpdateMeDto": {
         "additionalProperties": false,
         "properties": {
@@ -1751,6 +2773,59 @@
               "GUARDIAN"
             ],
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateModuleDto": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 2000,
+            "nullable": true,
+            "type": "string"
+          },
+          "isOptional": {
+            "type": "boolean"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "unlockRule": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "NONE"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "PREVIOUS_MODULE_COMPLETED"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              }
+            ]
           }
         },
         "type": "object"
@@ -4070,6 +5145,106 @@
         ]
       }
     },
+    "/workspaces/{wid}/courses/{cid}/modules": {
+      "post": {
+        "operationId": "ModulesController_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The course version: \"<version>\" (checked when given)",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateModuleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Modules"
+        ]
+      }
+    },
+    "/workspaces/{wid}/courses/{cid}/modules/reorder": {
+      "post": {
+        "operationId": "ModulesController_reorder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The course version: \"<version>\"",
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Modules"
+        ]
+      }
+    },
     "/workspaces/{wid}/courses/{cid}/publish": {
       "post": {
         "operationId": "CoursesController_publish",
@@ -4145,6 +5320,37 @@
     "/workspaces/{wid}/courses/{cid}/restore": {
       "post": {
         "operationId": "CoursesController_restore",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Courses"
+        ]
+      }
+    },
+    "/workspaces/{wid}/courses/{cid}/structure": {
+      "get": {
+        "operationId": "CoursesController_structureOf",
         "parameters": [
           {
             "in": "path",
@@ -4570,6 +5776,123 @@
         ]
       }
     },
+    "/workspaces/{wid}/lessons/{lid}": {
+      "delete": {
+        "operationId": "LessonsController_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "lid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The course version: \"<version>\" (checked when given)",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Lessons"
+        ]
+      },
+      "get": {
+        "operationId": "LessonsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "lid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Lessons"
+        ]
+      },
+      "patch": {
+        "operationId": "LessonsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "lid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The course version: \"<version>\"",
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLessonDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Lessons"
+        ]
+      }
+    },
     "/workspaces/{wid}/members": {
       "get": {
         "operationId": "MembersController_list",
@@ -4825,6 +6148,194 @@
         },
         "tags": [
           "Approval"
+        ]
+      }
+    },
+    "/workspaces/{wid}/modules/{mid}": {
+      "delete": {
+        "operationId": "ModulesController_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "mid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The course version: \"<version>\" (checked when given)",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Modules"
+        ]
+      },
+      "patch": {
+        "operationId": "ModulesController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "mid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The course version: \"<version>\"",
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateModuleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Modules"
+        ]
+      }
+    },
+    "/workspaces/{wid}/modules/{mid}/lessons": {
+      "post": {
+        "operationId": "LessonsController_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "mid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The course version: \"<version>\" (checked when given)",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLessonDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Lessons"
+        ]
+      }
+    },
+    "/workspaces/{wid}/modules/{mid}/lessons/reorder": {
+      "post": {
+        "operationId": "LessonsController_reorder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "mid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The course version: \"<version>\"",
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Lessons"
         ]
       }
     },
