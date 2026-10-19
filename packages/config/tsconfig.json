@@ -3,5 +3,5 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["vitest/**/*.ts"]
+  "include": ["vitest/**/*.ts", "infra/**/*.ts"]
 }

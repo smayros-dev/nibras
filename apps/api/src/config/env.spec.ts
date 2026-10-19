@@ -41,6 +41,18 @@ describe('EnvSchema', () => {
     expect(env.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
   });
 
+  it('parses without DATABASE_URL_SYSTEM (never set on the api service, SP1.6 F3)', () => {
+    const { DATABASE_URL_SYSTEM: _omit, ...rest } = valid;
+    expect(EnvSchema.parse(rest).DATABASE_URL_SYSTEM).toBeUndefined();
+    // Staging/production too: the BYPASSRLS URL is only checked when present.
+    const { DATABASE_URL_SYSTEM: _omitStaging, ...stagingRest } = staging;
+    expect(EnvSchema.parse(stagingRest).APP_ENV).toBe('staging');
+    // When set (tests, CLI), it must still be a URL.
+    expect(() => EnvSchema.parse({ ...valid, DATABASE_URL_SYSTEM: 'not a url' })).toThrow(
+      /DATABASE_URL_SYSTEM/,
+    );
+  });
+
   it('defaults TRUST_PROXY_HOPS to 1 and coerces it', () => {
     expect(EnvSchema.parse(valid).TRUST_PROXY_HOPS).toBe(1);
     expect(EnvSchema.parse({ ...valid, TRUST_PROXY_HOPS: '2' }).TRUST_PROXY_HOPS).toBe(2);

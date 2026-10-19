@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PrismaClient, User } from '@nibras/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PinoLogger } from 'nestjs-pino';
 import { AbuseReportsService } from '../../src/abuse-reports/abuse-reports.service';
 import { SnapshotRegistry } from '../../src/abuse-reports/snapshot.registry';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
@@ -46,8 +47,8 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
     return { sa, owner, admin, teacher, student, workspace };
   }
 
-  it('a student reports a teacher in an organisation: OPEN report with USER snapshot, ack email, admins + (for MINOR_SAFETY) super-admins notified, reminder job queued', async () => {
-    const { sa, owner, admin, teacher, student, workspace } = await orgFixture();
+  it('a student reports a teacher in an organisation: OPEN report with USER snapshot, one notifications job and nothing sent inline (F12), reminder job queued', async () => {
+    const { teacher, student, workspace } = await orgFixture();
     const res = await (
       await agent(student)
     )
@@ -79,21 +80,16 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
       capturedAt: expect.any(String),
     });
 
-    expect(ctx.email.findByTemplate('abuse.report_received', student.email)).toHaveLength(1);
-    expect(ctx.email.findByTemplate('abuse.new_report', owner.email)).toHaveLength(1);
-    expect(ctx.email.findByTemplate('abuse.new_report', admin.email)).toHaveLength(1);
-    expect(ctx.email.findByTemplate('abuse.new_report', sa.email)).toHaveLength(1);
-    expect(ctx.email.findByTemplate('abuse.new_report', teacher.email)).toHaveLength(0);
-    expect(ctx.email.findByTemplate('abuse.new_report', student.email)).toHaveLength(0);
-    // Nothing reaches the reported teacher, and no email names the reporter.
-    expect(ctx.email.sent.filter((m) => m.to === teacher.email)).toHaveLength(0);
-    for (const m of ctx.email.findByTemplate('abuse.new_report')) {
-      expect(m.html).not.toContain(student.email);
-      expect(m.text).not.toContain(student.email);
-    }
-    const [saMail] = ctx.email.findByTemplate('abuse.new_report', sa.email);
-    expect(saMail!.params.link).toContain(`/admin/abuse-reports/${report.id}`);
-
+    // The acknowledgement and the handlers' emails are the worker's job (`abuse.report_created`,
+    // matrix in apps/worker/test/abuse.e2e-spec.ts): the request sends nothing itself.
+    expect(ctx.email.sent).toHaveLength(0);
+    expect(ctx.queue.jobs).toContainEqual({
+      queue: 'notifications',
+      name: 'abuse.report_created',
+      data: { reportId: report.id },
+      opts: { jobId: `abuse:${report.id}:notify`, attempts: 5 },
+    });
+    expect(ctx.queue.jobs.filter((j) => j.name === 'abuse.report_created')).toHaveLength(1);
     expect(ctx.queue.jobs).toContainEqual(
       expect.objectContaining({
         queue: 'compliance',
@@ -126,9 +122,9 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
     });
   });
 
-  it('HARASSMENT in an organisation notifies admins only; in a personal workspace only super-admins; owner of a personal workspace cannot list reports (403)', async () => {
-    const { sa, owner, admin, teacher, student, workspace } = await orgFixture();
-    await (
+  it('HARASSMENT (organisation or personal workspace) enqueues the notifications job only, no reminder; owner of a personal workspace cannot list reports (403)', async () => {
+    const { teacher, student, workspace } = await orgFixture();
+    const created = await (
       await agent(student)
     )
       .post(wsReports(workspace.id))
@@ -139,19 +135,24 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
         entityId: teacher.id,
       })
       .expect(201);
-    expect(ctx.email.findByTemplate('abuse.new_report', owner.email)).toHaveLength(1);
-    expect(ctx.email.findByTemplate('abuse.new_report', admin.email)).toHaveLength(1);
-    expect(ctx.email.findByTemplate('abuse.new_report', sa.email)).toHaveLength(0);
-    expect(ctx.queue.jobs).toHaveLength(0);
+    expect(ctx.email.sent).toHaveLength(0);
+    expect(ctx.queue.jobs).toEqual([
+      {
+        queue: 'notifications',
+        name: 'abuse.report_created',
+        data: { reportId: created.body.id },
+        opts: { jobId: `abuse:${created.body.id}:notify`, attempts: 5 },
+      },
+    ]);
 
-    ctx.email.clear();
+    ctx.queue.clear();
     const solo = await createUser({ firstName: 'Solo' });
     const pupil = await createUser();
     const personal = await createPersonalWorkspace(solo);
     await db.membership.create({
       data: { workspaceId: personal.id, userId: pupil.id, role: 'STUDENT', status: 'ACTIVE' },
     });
-    await (
+    const personalReport = await (
       await agent(pupil)
     )
       .post(wsReports(personal.id))
@@ -162,9 +163,10 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
         entityId: solo.id,
       })
       .expect(201);
-    expect(ctx.email.findByTemplate('abuse.new_report', sa.email)).toHaveLength(1);
-    expect(ctx.email.findByTemplate('abuse.new_report', solo.email)).toHaveLength(0);
-    expect(ctx.email.findByTemplate('abuse.report_received', pupil.email)).toHaveLength(1);
+    expect(ctx.email.sent).toHaveLength(0);
+    expect(ctx.queue.jobs.map((j) => [j.name, j.data])).toEqual([
+      ['abuse.report_created', { reportId: personalReport.body.id }],
+    ]);
 
     const soloAgent = await agent(solo);
     const denied = await soloAgent.get(wsReports(personal.id)).expect(403);
@@ -176,100 +178,34 @@ describe('abuse reports: snapshot, queues, MINOR_SAFETY escalation (AC-SAFE-05, 
       .expect(403);
   });
 
-  it('escalation emails to the super-admins go out concurrently; one failed send does not block the others', async () => {
-    const admins = await Promise.all(
-      Array.from({ length: 4 }, () => createUser({ platformRole: 'SUPER_ADMIN' })),
+  it('a failed enqueue is logged with the report id and does not fail the request (the report exists)', async () => {
+    const { teacher, student, workspace } = await orgFixture();
+    const add = vi.spyOn(ctx.queue, 'add').mockRejectedValue(new Error('redis down'));
+    const error = vi.spyOn(
+      (ctx.app.get(AbuseReportsService) as unknown as { logger: PinoLogger }).logger,
+      'error',
     );
-    const solo = await createUser();
-    const pupil = await createUser();
-    const personal = await createPersonalWorkspace(solo);
-    await db.membership.create({
-      data: { workspaceId: personal.id, userId: pupil.id, role: 'STUDENT', status: 'ACTIVE' },
-    });
-    const failing = admins[0]!.email;
-    const send = ctx.email.send.bind(ctx.email);
-    let inFlight = 0;
-    let maxInFlight = 0;
-    const spy = vi.spyOn(ctx.email, 'send').mockImplementation(async (msg) => {
-      if (msg.templateKey !== 'abuse.new_report') return send(msg);
-      inFlight += 1;
-      maxInFlight = Math.max(maxInFlight, inFlight);
-      try {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        if (msg.to === failing) throw new Error('smtp down');
-        return await send(msg);
-      } finally {
-        inFlight -= 1;
-      }
-    });
     try {
-      await (
-        await agent(pupil)
+      const res = await (
+        await agent(student)
       )
-        .post(wsReports(personal.id))
+        .post(wsReports(workspace.id))
         .send({
           category: 'HARASSMENT',
           description: DESCRIPTION,
           entityType: 'USER',
-          entityId: solo.id,
+          entityId: teacher.id,
         })
         .expect(201);
+      expect(await db.abuseReport.count({ where: { id: res.body.id } })).toBe(1);
+      expect(error).toHaveBeenCalledWith(
+        { reportId: res.body.id, err: { type: 'Error' } },
+        'abuse report notifications not enqueued',
+      );
     } finally {
-      spy.mockRestore();
+      add.mockRestore();
+      error.mockRestore();
     }
-    expect(maxInFlight).toBe(admins.length);
-    expect(ctx.email.findByTemplate('abuse.new_report', failing)).toHaveLength(0);
-    for (const sa of admins.slice(1)) {
-      expect(ctx.email.findByTemplate('abuse.new_report', sa.email)).toHaveLength(1);
-    }
-    expect(ctx.email.findByTemplate('abuse.report_received', pupil.email)).toHaveLength(1);
-    expect(await db.abuseReport.count({ where: { workspaceId: personal.id } })).toBe(1);
-  });
-
-  it('HARASSMENT against the org owner who is its only admin escalates to the super-admins; the owner gets nothing', async () => {
-    const sa = await createUser({ platformRole: 'SUPER_ADMIN', totpSecret: S });
-    const owner = await createUser({ totpSecret: S });
-    const student = await createUser();
-    const { workspace } = await createOrganization({ owner, students: [student] });
-    await (
-      await agent(student)
-    )
-      .post(wsReports(workspace.id))
-      .send({
-        category: 'HARASSMENT',
-        description: DESCRIPTION,
-        entityType: 'USER',
-        entityId: owner.id,
-      })
-      .expect(201);
-    const [saMail] = ctx.email.findByTemplate('abuse.new_report', sa.email);
-    expect(saMail).toBeDefined();
-    expect(saMail!.params.link).toContain('/admin/abuse-reports/');
-    expect(ctx.email.sent.filter((m) => m.to === owner.email)).toHaveLength(0);
-    expect(ctx.email.findByTemplate('abuse.report_received', student.email)).toHaveLength(1);
-  });
-
-  it('HARASSMENT against an org admin escalates to the super-admins too; the other handlers are notified, the reported admin is not', async () => {
-    const sa = await createUser({ platformRole: 'SUPER_ADMIN', totpSecret: S });
-    const owner = await createUser({ totpSecret: S });
-    const admin = await createUser({ totpSecret: S });
-    const student = await createUser();
-    const { workspace } = await createOrganization({ owner, admins: [admin], students: [student] });
-    await (
-      await agent(student)
-    )
-      .post(wsReports(workspace.id))
-      .send({
-        category: 'HARASSMENT',
-        description: DESCRIPTION,
-        entityType: 'USER',
-        entityId: admin.id,
-      })
-      .expect(201);
-    expect(ctx.email.findByTemplate('abuse.new_report', sa.email)).toHaveLength(1);
-    expect(ctx.email.findByTemplate('abuse.new_report', owner.email)).toHaveLength(1);
-    expect(ctx.email.sent.filter((m) => m.to === admin.email)).toHaveLength(0);
-    expect(ctx.queue.jobs).toHaveLength(0);
   });
 
   it('AC-SAFE-05: MINOR_SAFETY report handled by the org stays visible to the super-admin', async () => {

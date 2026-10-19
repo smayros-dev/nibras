@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma, type PrismaClient, type User } from '@prisma/client';
 import {
   CROSS_TENANT_AUDIT_ACTION,
@@ -912,5 +912,19 @@ describe.skipIf(!url)('tenant isolation', () => {
     onPrismaLog((level, e) => seen.push({ level, message: e.message }));
     await expect(db.$queryRaw`SELECT * FROM no_such_table`).rejects.toThrow();
     expect(seen.some((e) => e.level === 'error')).toBe(true);
+  });
+
+  it('onPrismaLog does not need DATABASE_URL_SYSTEM (the deployed api has none, SP1.6 F3)', async () => {
+    const saved = process.env.DATABASE_URL_SYSTEM;
+    delete process.env.DATABASE_URL_SYSTEM;
+    vi.resetModules();
+    try {
+      // Fresh modules: no `systemPrisma()` singleton left over from this file's seeding.
+      const fresh = await import('./tenant');
+      expect(() => fresh.onPrismaLog(() => undefined)).not.toThrow();
+    } finally {
+      process.env.DATABASE_URL_SYSTEM = saved;
+      vi.resetModules();
+    }
   });
 });

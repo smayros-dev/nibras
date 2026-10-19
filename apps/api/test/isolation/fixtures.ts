@@ -1,0 +1,395 @@
+import {
+  systemPrisma,
+  type AbuseReport,
+  type GuardianLink,
+  type Invitation,
+  type InviteLink,
+  type TeacherStudentAssignment,
+  type User,
+  type Workspace,
+} from '@nibras/db';
+import { expect } from 'vitest';
+import type { RouteInfo } from '../../src/openapi/export';
+import {
+  assign,
+  createAbuseReport,
+  createInvitation,
+  createInviteLink,
+  createOrganization,
+  createStudent,
+  createUser,
+} from '../helpers/factories';
+
+/**
+ * Fixtures of the generic isolation suite (`tenant-routes.e2e-spec.ts`, SP1.6 F8). Two
+ * organisations A and B with **disjoint** users and one row of every tenant resource each, so an
+ * id of B exists only in B (Review Focus 4: a foreign-id probe must never hit an id that is also
+ * valid in A). The tables below map route params, cursors and bodies to those rows; a new route
+ * whose param or id-bearing body has no entry makes the suite fail with "add a … fixture".
+ *
+ * Routes are spelled as `listRoutes` prints them: `/api/v1/workspaces/:wid/…`.
+ */
+
+/** Base32 TOTP seed: organisation OWNER/ADMIN and super-admins clear the 2FA gate with it. */
+export const TOTP_SEED = 'JBSWY3DPEHPK3PXP';
+
+export interface Tenant {
+  workspace: Workspace;
+  /**
+   * ACTIVE OWNER, 2FA on, verified teacher (phone + CODE_OF_CONDUCT, SP2): the
+   * `@RequireVerifiedTeacher()` routes reach their service, so the path / body is what is probed.
+   */
+  owner: User;
+  /** ACTIVE ADMIN, 2FA on. */
+  admin: User;
+  /** ACTIVE TEACHER, assigned `student`, the reported user of `report`. */
+  teacher: User;
+  /** ACTIVE STUDENT, the reporter of `report`. */
+  student: User;
+  report: AbuseReport;
+  assignment: TeacherStudentAssignment;
+  /** One `audit_log` row of this workspace (a cursor of its audit log). */
+  auditEntryId: string;
+  /** SP2: a PENDING email invitation of this workspace, sent by the OWNER. */
+  invitation: Invitation;
+  /** SP2: an ACTIVE group invite link of this workspace. */
+  inviteLink: InviteLink;
+  /** SP2: an adult STUDENT in `PENDING_APPROVAL` (joined by a code with approval). */
+  pendingStudent: User;
+  /** SP2: a minor STUDENT in `PENDING_GUARDIAN_CONSENT`, his guardian link sent (`PENDING`). */
+  consentStudent: User;
+  consentLink: GuardianLink;
+}
+
+export interface TenantPair {
+  a: Tenant;
+  b: Tenant;
+}
+
+async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
+  const owner = await createUser({
+    totpSecret: TOTP_SEED,
+    firstName: `Owner${tag}`,
+    phoneVerified: true,
+    consents: ['TERMS', 'PRIVACY', 'CODE_OF_CONDUCT'],
+  });
+  const admin = await createUser({ totpSecret: TOTP_SEED, firstName: `Admin${tag}` });
+  const teacher = await createUser({ firstName: `Teacher${tag}` });
+  // The reporter: distinctive names so a response leaking them is caught by `expectNoReporter`.
+  const student = await createUser({
+    firstName: `Reporter${tag}Prenom`,
+    lastName: `Reporter${tag}Nom`,
+  });
+  const { workspace } = await createOrganization({
+    owner,
+    admins: [admin],
+    teachers: [teacher],
+    students: [student],
+    name: `Organisation ${tag}`,
+  });
+  const assignment = await assign(workspace, teacher, student, owner);
+  const report = await createAbuseReport(workspace, student, teacher);
+  const audit = await systemAudit(workspace, owner);
+  const { invitation } = await createInvitation({ workspace, invitedBy: owner });
+  const { link: inviteLink } = await createInviteLink({ workspace, createdBy: owner });
+  const { user: pendingStudent } = await createStudent({
+    workspace,
+    status: 'PENDING_APPROVAL',
+    user: { firstName: `Pending${tag}` },
+  });
+  const consent = await createStudent({
+    workspace,
+    status: 'PENDING_GUARDIAN_CONSENT',
+    minor: true,
+    invitedBy: owner,
+    user: { firstName: `Minor${tag}` },
+  });
+  return {
+    workspace,
+    owner,
+    admin,
+    teacher,
+    student,
+    report,
+    assignment,
+    auditEntryId: audit,
+    invitation,
+    inviteLink,
+    pendingStudent,
+    consentStudent: consent.user,
+    consentLink: consent.guardianLink!,
+  };
+}
+
+async function systemAudit(workspace: Workspace, actor: User): Promise<string> {
+  const row = await systemPrisma().auditLog.create({
+    data: {
+      workspaceId: workspace.id,
+      actorUserId: actor.id,
+      actorRole: 'OWNER',
+      action: 'workspace.updated',
+      entityType: 'Workspace',
+      entityId: workspace.id,
+      requestId: 'isolation-fixture',
+    },
+  });
+  return row.id;
+}
+
+/** Organisations A (the caller's) and B (the foreign one), built in that order. */
+export async function createTenantPair(): Promise<TenantPair> {
+  const a = await createTenant('A');
+  const b = await createTenant('B');
+  return { a, b };
+}
+
+/** Every id that belongs to B only: none may appear in a response to A's members. */
+export function foreignIds(p: TenantPair): string[] {
+  const { b } = p;
+  return [
+    b.workspace.id,
+    b.owner.id,
+    b.admin.id,
+    b.teacher.id,
+    b.student.id,
+    b.report.id,
+    b.assignment.id,
+    b.auditEntryId,
+    b.invitation.id,
+    b.inviteLink.id,
+    b.pendingStudent.id,
+    b.consentStudent.id,
+    b.consentLink.id,
+  ];
+}
+
+/**
+ * Path param → the row of a tenant it names. Keyed by the param as it appears in
+ * `RouteInfo.path` (`':uid'`), or by `'<resource>/:param'` when the bare param is ambiguous
+ * (`':id'`); the longest key matching the end of the path up to the param wins. A key may also
+ * name the segments after the param (`'members/:uid/approve'`) when one action needs another row
+ * than its siblings. `:wid` is the route's workspace and never looked up here.
+ */
+const PARAMS: Record<string, (t: Tenant) => string> = {
+  // A member that is neither the OWNER nor the caller: GET/PATCH/DELETE reach a real row of A.
+  ':uid': (t) => t.student.id,
+  'abuse-reports/:id': (t) => t.report.id,
+  'assignments/:id': (t) => t.assignment.id,
+  // SP2.
+  'invitations/:id': (t) => t.invitation.id,
+  'invite-links/:id': (t) => t.inviteLink.id,
+  // The approval queue decides a PENDING_APPROVAL STUDENT: B's one is decidable inside B.
+  'members/:uid/approve': (t) => t.pendingStudent.id,
+  'members/:uid/reject': (t) => t.pendingStudent.id,
+  // A consent-waiting minor whose guardian link was sent: B's one could be re-sent inside B.
+  'students/:uid/guardian': (t) => t.consentStudent.id,
+};
+
+/** B's id for each path param: an ACTIVE OWNER of A calling with it gets `404 NOT_FOUND`. */
+export const FOREIGN_PARAMS: Record<string, (p: TenantPair) => string> = Object.fromEntries(
+  Object.entries(PARAMS).map(([key, get]) => [key, (p: TenantPair) => get(p.b)]),
+);
+
+/** A's own id for each path param (scenarios that must reach a real row of A). */
+export const LOCAL_PARAMS: Record<string, (p: TenantPair) => string> = Object.fromEntries(
+  Object.entries(PARAMS).map(([key, get]) => [key, (p: TenantPair) => get(p.a)]),
+);
+
+/**
+ * The table key for the param at `index` of `segments` (longest match), or `undefined`: a key
+ * matches when its segments line up with the route's, its own param at `index`.
+ */
+function paramKey(
+  table: Record<string, unknown>,
+  segments: string[],
+  index: number,
+): string | undefined {
+  return Object.keys(table)
+    .filter((key) => {
+      const ks = key.split('/');
+      const start = index - ks.indexOf(segments[index]!);
+      return start >= 0 && start <= index && ks.every((k, j) => segments[start + j] === k);
+    })
+    .sort((x, y) => y.length - x.length)[0];
+}
+
+/** Params of `route` other than `:wid` (`[':uid']`). */
+export function extraParams(route: RouteInfo): string[] {
+  return route.path.split('/').filter((seg) => seg.startsWith(':') && seg !== ':wid');
+}
+
+/**
+ * The URL of `route` in workspace `wid` with every other param taken from `table`. Throws
+ * `missing fixture` (as an assertion failure naming the route) when a param has no entry.
+ */
+export function urlFor(
+  route: RouteInfo,
+  wid: string,
+  table: Record<string, (p: TenantPair) => string>,
+  p: TenantPair,
+): string {
+  const segments = route.path.split('/');
+  return segments
+    .map((seg, i) => {
+      if (!seg.startsWith(':')) return seg;
+      if (seg === ':wid') return wid;
+      const key = paramKey(table, segments, i);
+      if (key === undefined) {
+        expect.fail(
+          `${route.method} ${route.path}: add a FOREIGN_PARAMS fixture for ${seg} (PARAMS)`,
+        );
+      }
+      return table[key]!(p);
+    })
+    .join('/');
+}
+
+/** Whether every param of `route` other than `:wid` has an entry in `table`. */
+export function hasParamFixtures(
+  route: RouteInfo,
+  table: Record<string, (p: TenantPair) => string>,
+): boolean {
+  const segments = route.path.split('/');
+  return segments.every(
+    (seg, i) =>
+      !seg.startsWith(':') || seg === ':wid' || paramKey(table, segments, i) !== undefined,
+  );
+}
+
+/**
+ * List routes whose `cursor` names a row: B's row as A's cursor → `422 VALIDATION_FAILED` on
+ * `cursor`. Keyed by `'GET <path>'`.
+ */
+export const FOREIGN_QUERIES: Record<string, (p: TenantPair) => Record<string, string>> = {
+  'GET /api/v1/workspaces/:wid/audit-log': (p) => ({ cursor: p.b.auditEntryId }),
+  'GET /api/v1/workspaces/:wid/abuse-reports': (p) => ({ cursor: p.b.report.id }),
+  'GET /api/v1/workspaces/:wid/members': (p) => ({ cursor: membersCursor(p.b.student) }),
+  // SP2: an invitation id of this workspace (`invitations.service.ts`).
+  'GET /api/v1/workspaces/:wid/invitations': (p) => ({ cursor: p.b.invitation.id }),
+  // Not here: `GET …/assignments` pages with `id > cursor` inside `tenantDb(wid)`; a foreign id
+  // only positions the scan over A's rows (nothing of B is read or revealed), so it stays `200`.
+};
+
+/** The `GET …/members` cursor of a member row (`members.service.ts`: last, first name, id). */
+function membersCursor(user: Pick<User, 'id' | 'firstName' | 'lastName'>): string {
+  return Buffer.from(JSON.stringify([user.lastName, user.firstName, user.id])).toString(
+    'base64url',
+  );
+}
+
+/**
+ * Write routes whose body carries ids, with a body naming B's rows. `params` says which tenant's
+ * ids fill the path: `'local'` when the route must reach A's own row so the **body** is what is
+ * probed, `'foreign'` when the path itself is the foreign id. The call must never be `2xx` and
+ * must leave no row referencing B's ids.
+ */
+export const FOREIGN_BODIES: Record<
+  string,
+  { params: 'local' | 'foreign'; body: (p: TenantPair) => unknown }
+> = {
+  'POST /api/v1/workspaces/:wid/assignments': {
+    params: 'local',
+    body: (p) => ({ teacherUserId: p.b.teacher.id, studentUserId: p.b.student.id }),
+  },
+  'POST /api/v1/workspaces/:wid/abuse-reports': {
+    params: 'local',
+    body: (p) => ({
+      category: 'HARASSMENT',
+      description: 'Comportement inapproprié pendant la session.',
+      entityType: 'USER',
+      entityId: p.b.teacher.id,
+    }),
+  },
+  // A's own report, assigned to B's admin.
+  'PATCH /api/v1/workspaces/:wid/abuse-reports/:id': {
+    params: 'local',
+    body: (p) => ({ assignedToUserId: p.b.admin.id }),
+  },
+  'POST /api/v1/workspaces/:wid/transfer-ownership': {
+    params: 'local',
+    body: (p) => ({ toUserId: p.b.admin.id }),
+  },
+  // The id is in the path (B's member): also covered by `FOREIGN_PARAMS`, listed for the body.
+  'PATCH /api/v1/workspaces/:wid/members/:uid': {
+    params: 'foreign',
+    body: () => ({ role: 'ADMIN' }),
+  },
+  // SP2: an invitation of A whose student would be assigned to B's teacher at acceptance.
+  'POST /api/v1/workspaces/:wid/invitations': {
+    params: 'local',
+    body: (p) => ({ email: 'probe@example.com', teacherUserId: p.b.teacher.id }),
+  },
+  // No id in the body (names, guardian email, message): the id is the path's (B's invitation).
+  'PATCH /api/v1/workspaces/:wid/invitations/:id': {
+    params: 'foreign',
+    body: () => ({ firstName: 'X' }),
+  },
+  // A group code of A whose students would be assigned to B's teacher.
+  'POST /api/v1/workspaces/:wid/invite-links': {
+    params: 'local',
+    body: (p) => ({ teacherUserId: p.b.teacher.id }),
+  },
+  // No id in the body (label, status, limits); a non-empty body passes validation, so the path
+  // (B's link) is what refuses the call.
+  'PATCH /api/v1/workspaces/:wid/invite-links/:id': {
+    params: 'foreign',
+    body: () => ({ label: 'X' }),
+  },
+};
+
+/**
+ * Write routes reviewed as carrying no id in their body (nothing to probe with B's ids). Their
+ * path params are covered by `FOREIGN_PARAMS`. Each entry says why.
+ */
+export const BODYLESS_WRITE_ROUTES: Set<string> = new Set<string>([
+  // No body: soft-deletes the route's own workspace.
+  'DELETE /api/v1/workspaces/:wid',
+  // Name, country, time zone, locale, `allowPersonalWorkspaces`: no id.
+  'PATCH /api/v1/workspaces/:wid',
+  // PRD §8.2.1 settings (ratios, durations, flags): no id.
+  'PATCH /api/v1/workspaces/:wid/settings',
+  // Optional `reason` (free text); the member is the path's `:uid`.
+  'DELETE /api/v1/workspaces/:wid/members/:uid',
+  // No body; the assignment is the path's `:id`.
+  'DELETE /api/v1/workspaces/:wid/assignments/:id',
+  // SP2. No body; the invitation is the path's `:id` (resend rotates its token, DELETE revokes).
+  'POST /api/v1/workspaces/:wid/invitations/:id/resend',
+  'DELETE /api/v1/workspaces/:wid/invitations/:id',
+  // No body; disables the path's invite link.
+  'DELETE /api/v1/workspaces/:wid/invite-links/:id',
+  // No body; the PENDING_APPROVAL student is the path's `:uid`.
+  'POST /api/v1/workspaces/:wid/members/:uid/approve',
+  'POST /api/v1/workspaces/:wid/members/:uid/reject',
+  // No body; the consent-waiting minor is the path's `:uid` (his guardian gets a new link).
+  'POST /api/v1/workspaces/:wid/students/:uid/guardian/resend-consent',
+]);
+
+/** A key that never appears, at any depth, in an organisation-facing abuse-report response. */
+const REPORTER_KEYS = ['reporter', 'reporterUserId'];
+
+/**
+ * AC-SAFE-02, owner Q1: an organisation-facing abuse-report response names no reporter — no
+ * `reporter`/`reporterUserId` key at any depth and, given the reporter, none of his id, first
+ * or last name anywhere in its JSON.
+ */
+export function expectNoReporter(body: unknown, label: string, reporter?: User): void {
+  const walk = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
+    if (value !== null && typeof value === 'object') {
+      for (const [key, inner] of Object.entries(value)) {
+        expect(REPORTER_KEYS, `${label}: response carries "${key}"`).not.toContain(key);
+        walk(inner);
+      }
+    }
+  };
+  walk(body);
+  if (reporter) {
+    const json = JSON.stringify(body ?? null);
+    for (const needle of [reporter.id, reporter.firstName, reporter.lastName]) {
+      expect(json, `${label}: response names the reporter`).not.toContain(needle);
+    }
+  }
+}

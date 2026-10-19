@@ -31,6 +31,10 @@ RUN pnpm turbo run build --filter=@nibras/web
 
 # Runtime: only the standalone server (traced node_modules) and static assets.
 FROM ${NODE_IMAGE} AS runner
+# No package manager at runtime (SP1.6 F10): npm, npx, corepack and yarn ship with the base image,
+# are never used by the app and carry their own advisories (trivy image gate in ci.yml).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-v* \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
 ARG API_URL=http://api:3001
 # APP_ENV (deployment tier) is never unset in an image; compose overrides it (staging).
 ENV NODE_ENV=production \
@@ -47,8 +51,8 @@ COPY --from=builder /repo/apps/web/.next/static ./apps/web/.next/static
 RUN mkdir -p apps/web/.next/cache && chown nibras:nibras apps/web/.next/cache
 USER nibras
 EXPOSE 3000
-# Probes ${PORT}, the port the server listens on. compose.staging.yml pins PORT per service because
-# the shared .env.staging would otherwise override it (healthy, yet listening on the wrong port).
+# Probes ${PORT}, the port the server listens on (compose.staging.yml sets PORT in the service's
+# own environment, so the probe and the server always agree).
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/health/live" || exit 1
 CMD ["node", "apps/web/server.js"]

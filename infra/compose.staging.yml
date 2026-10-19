@@ -5,11 +5,19 @@
 # NIBRAS_IMAGE_OWNER (GHCR owner, lowercase) and NIBRAS_IMAGE_TAG (commit SHA, default `latest`) pick the images.
 name: nibras-staging
 
-# Every app shares .env.staging, so each service pins its own listen port in `environment` (which
-# wins over env_file): a PORT=3001 copied from .env.example must not move web off 3000.
+# `.env.staging` is used for interpolation only (`--env-file`): no container reads it whole. Each app
+# service lists the variables it needs under `environment` (`${VAR:?}` required, `${VAR:-x}` optional),
+# so the published web container holds no secret and the api never sees the BYPASSRLS URL (SP1.6 F3;
+# allocation table in docs/runbooks/staging.md, enforced by packages/config/infra/compose-staging.test.ts).
+# App containers run read-only without capabilities; `/tmp` (and Next's cache) are tmpfs.
 x-app: &app
-  env_file: .env.staging
   restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop: ['ALL']
+  security_opt: ['no-new-privileges:true']
+  init: true
 
 services:
   postgres:
@@ -57,6 +65,8 @@ services:
     image: ghcr.io/${NIBRAS_IMAGE_OWNER:?set NIBRAS_IMAGE_OWNER}/nibras-api:${NIBRAS_IMAGE_TAG:-latest}
     command: ['migrate']
     restart: 'no'
+    environment:
+      DATABASE_URL_SYSTEM: ${DATABASE_URL_SYSTEM:?set DATABASE_URL_SYSTEM in .env.staging}
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,12 +75,29 @@ services:
     <<: *app
     image: ghcr.io/${NIBRAS_IMAGE_OWNER:?set NIBRAS_IMAGE_OWNER}/nibras-api:${NIBRAS_IMAGE_TAG:-latest}
     environment:
-      PORT: '3001'
+      NODE_ENV: production
       APP_ENV: staging
+      PORT: '3001'
+      # app_user (RLS enforced). No DATABASE_URL_SYSTEM: the api never uses the BYPASSRLS role.
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env.staging}
+      REDIS_URL: ${REDIS_URL:?set REDIS_URL in .env.staging}
+      WEB_ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN in .env.staging}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.staging}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?set TOTP_ENCRYPTION_KEY in .env.staging}
+      SMTP_URL: ${SMTP_URL:?set SMTP_URL in .env.staging}
+      EMAIL_FROM: ${EMAIL_FROM:?set EMAIL_FROM in .env.staging}
+      SMS_PROVIDER: ${SMS_PROVIDER:-console}
+      HIBP_ENABLED: ${HIBP_ENABLED:-true}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      RATE_LIMIT_USER: ${RATE_LIMIT_USER:-600}
+      RATE_LIMIT_ANON: ${RATE_LIMIT_ANON:-60}
       # Browser -> host TLS proxy (appends the client IP to X-Forwarded-For) -> web (Next.js, forwards
       # X-Forwarded-For unchanged) -> api. The api trusts its peer (web) and reads the client from the
       # entry the TLS proxy appended: 1 hop. See docs/runbooks/staging.md before changing it.
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Empty = tracing off.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -83,8 +110,16 @@ services:
     <<: *app
     image: ghcr.io/${NIBRAS_IMAGE_OWNER:?set NIBRAS_IMAGE_OWNER}/nibras-worker:${NIBRAS_IMAGE_TAG:-latest}
     environment:
-      WORKER_PORT: '3002'
+      NODE_ENV: production
       APP_ENV: staging
+      WORKER_PORT: '3002'
+      # app_system (BYPASSRLS, PRD §13.3): the worker spans workspaces. No auth secret, no app_user URL.
+      DATABASE_URL_SYSTEM: ${DATABASE_URL_SYSTEM:?set DATABASE_URL_SYSTEM in .env.staging}
+      REDIS_URL: ${REDIS_URL:?set REDIS_URL in .env.staging}
+      SMTP_URL: ${SMTP_URL:?set SMTP_URL in .env.staging}
+      EMAIL_FROM: ${EMAIL_FROM:?set EMAIL_FROM in .env.staging}
+      WEB_ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN in .env.staging}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -94,11 +129,18 @@ services:
   web:
     <<: *app
     image: ghcr.io/${NIBRAS_IMAGE_OWNER:?set NIBRAS_IMAGE_OWNER}/nibras-web:${NIBRAS_IMAGE_TAG:-latest}
+    # Next.js writes its fetch/image cache at runtime (tmpfs default mode 1777: writable by uid 1001).
+    tmpfs:
+      - /tmp
+      - /app/apps/web/.next/cache
+    # No secret at all: the web only proxies to the api (server-side fetches and the `/api/*` rewrite).
     environment:
-      PORT: '3000'
-      # Pinned like api/worker: the shared .env.staging (copied from .env.example) says
-      # `development`, which would enable the e2e TERMS override (testConsentTermsVersion).
+      NODE_ENV: production
+      # Pinned like api/worker: `development` would enable the e2e TERMS override
+      # (testConsentTermsVersion).
       APP_ENV: staging
+      PORT: '3000'
+      API_URL: ${API_URL:-http://api:3001}
     # Only the web app is published; the browser reaches the API through its `/api/*` rewrite.
     # Bound to loopback: a TLS reverse proxy on the host fronts it (WEB_BIND=0.0.0.0 to expose directly).
     ports:

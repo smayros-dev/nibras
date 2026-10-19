@@ -24,3 +24,10 @@
 # Not needed to build the apps.
 docs
 PRD.md
+
+# Tests: never needed to build an image (SP1.6 F11). apps/web/e2e/helpers stays: the web
+# typecheck (next build) covers playwright.config.ts, which imports it; the *.spec.ts suites go.
+**/*.test.ts
+**/*.spec.ts
+**/*.e2e-spec.ts
+apps/*/test

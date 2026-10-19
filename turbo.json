@@ -73,6 +73,17 @@
         "$TURBO_ROOT$/packages/ui/src/**"
       ]
     },
+    // Repo-contract tests (packages/config/infra) read files outside the package: the staging
+    // compose file and runbook (SP1.6 T8) and the GitHub workflows (T10).
+    "@nibras/config#test": {
+      "dependsOn": ["^build", "^generate", "generate"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/infra/compose.staging.yml",
+        "$TURBO_ROOT$/docs/runbooks/staging.md",
+        "$TURBO_ROOT$/.github/workflows/*.yml"
+      ]
+    },
     // Playwright starts the web dev server (`webServer`), which imports the workspace packages'
     // dist: build them first.
     "e2e": {
