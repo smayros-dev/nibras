@@ -7,12 +7,11 @@ import type { ReactNode } from 'react';
 import { routing } from '../../../../../../i18n/routing';
 import { asApiResult, serverApi } from '../../../../../../lib/api';
 import { MembershipPendingPanel } from '../../../../../../components/membership-pending-panel';
+import { PageSkeleton } from '../../../../../../components/page-skeleton';
 import { SuspendedBanner } from '../../../../../../components/suspended-banner';
 import { membershipStatusBadge } from '../../../../../../lib/membership-status';
+import { workspaceAccessOnError } from '../../../../../../lib/workspace-access';
 import { WorkspaceTabs } from './workspace-tabs';
-
-/** `403` codes of `GET /workspaces/{wid}` for a member whose membership is not active (SP2). */
-const INACTIVE_CODES = ['GUARDIAN_CONSENT_REQUIRED', 'MEMBERSHIP_INACTIVE'];
 
 /**
  * The caller's own non-active membership of `wid` (from `GET /me/workspaces`, which the workspace
@@ -26,10 +25,12 @@ async function inactiveMembership(wid: string): Promise<MyWorkspace | null> {
 
 /**
  * A workspace (PRD §9.2): header with its name, type and status, the suspended banner, and the
- * sub-navigation Paramètres · Membres · Journal d'audit. A member whose membership is not active
- * (`403 GUARDIAN_CONSENT_REQUIRED` / `MEMBERSHIP_INACTIVE`: a minor waiting on his guardian, a
- * student waiting on approval) sees the waiting panel instead of the pages (SP2 design §8); any
- * other failure stays a 404.
+ * sub-navigation Paramètres · Membres · Journal d'audit. A member whose membership is
+ * not active (`403 GUARDIAN_CONSENT_REQUIRED` / `MEMBERSHIP_INACTIVE`: a minor waiting on his
+ * guardian, a student waiting on approval) sees the waiting panel instead of the pages (SP2 design
+ * §8); pending app consents (`403 CONSENT_REQUIRED`) leave a placeholder under the `/app` layout's
+ * ConsentGate, whose refresh re-runs this layout; any other failure stays a 404
+ * (`workspaceAccessOnError`).
  */
 export default async function WorkspaceLayout({
   children,
@@ -55,8 +56,9 @@ export default async function WorkspaceLayout({
   const t = await getTranslations();
 
   if (!detail) {
-    const pending =
-      errorCode && INACTIVE_CODES.includes(errorCode) ? await inactiveMembership(wid) : null;
+    const access = workspaceAccessOnError(errorCode);
+    if (access === 'consent-gate') return <PageSkeleton />;
+    const pending = access === 'inactive' ? await inactiveMembership(wid) : null;
     if (!pending) notFound();
     const badge = membershipStatusBadge(pending.status);
     return (

@@ -131,13 +131,15 @@ test.describe('guardian (SP2 plan Task 12)', () => {
       await expect(page).toHaveURL(appUrl(`/${locale}/app/w/${teacher.wid}`), {
         timeout: 15_000,
       });
-      // The e2e API bumps TERMS: the workspace route answers 403 CONSENT_REQUIRED (a 404 page)
-      // until the gate is accepted, which the dashboard shows (production registers on the
-      // current versions, so a real minor lands on the waiting panel directly).
-      await page.goto(`/${locale}/app`);
+      // The e2e API bumps TERMS: the workspace route answers 403 CONSENT_REQUIRED, which leaves
+      // the ConsentGate on this very page (not a 404); once accepted, the layout re-runs and
+      // shows the waiting panel (production registers on the current versions, no gate).
+      await expect(page.getByRole('dialog', { name: t(locale, 'auth.consent.title') })).toBeVisible(
+        { timeout: 15_000 },
+      );
+      await expect(page.getByText(t(locale, 'errorPages.notFoundTitle'))).toHaveCount(0);
       await acceptConsentGate(page, locale);
-      await page.goto(`/${locale}/app/w/${teacher.wid}`);
-      await expect(waitingHeading(page, locale, guardianEmail)).toBeVisible();
+      await expect(waitingHeading(page, locale, guardianEmail)).toBeVisible({ timeout: 15_000 });
 
       // The guardian's request email, then the consent page (anonymous, own context).
       const request = await waitForEmail(guardianEmail, '/guardian-consent/');
