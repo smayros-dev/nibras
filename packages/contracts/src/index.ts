@@ -21,3 +21,12 @@ export * from './invite-links';
 export * from './guardian';
 export * from './students';
 export * from './imports';
+// SP3: courses, content & media
+export * from './course-constants';
+export * from './media-constants';
+export * from './rich-text';
+export * from './courses';
+export * from './structure';
+export * from './media';
+export * from './enrollments';
+export * from './learn';

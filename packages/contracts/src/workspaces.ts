@@ -69,6 +69,8 @@ export type WorkspaceDetail = z.infer<typeof WorkspaceDetailSchema>;
 export const WorkspaceStorageSchema = z.object({
   quotaBytes: z.string(),
   usedBytes: z.string(),
+  /** SP3: declared sizes of the `UPLOADING` assets (spec D17); filled by the media task. */
+  reservedBytes: z.string().optional(),
 });
 
 export type WorkspaceStorage = z.infer<typeof WorkspaceStorageSchema>;
