@@ -263,7 +263,7 @@ Accessibility (SP1.5 §8 DoD applied): axe serious/critical = 0 on the students 
 | D11 | Teacher edits of a student's identity are limited to the invitation stage (`PATCH …/invitations/{id}`) and the guardian email; the account owner edits his own name | `User` is global (one account, several workspaces): a teacher of workspace A must not rewrite a profile shared with workspace B                                                                            | per-workspace display name (new table, not in §11) — see Q1                                                   |
 | D12 | `/me/workspaces/{wid}/guardian/resend-consent` lives under `/me`, not `/workspaces/:wid`                                                                            | the student's membership is inactive, so the workspace guard would refuse it; the route is filtered by the caller's `userId`                                                                               | an exemption in `TENANT_ROUTE_EXEMPTIONS` (hides a route from the isolation suite)                            |
 
-## 11. Open questions for the owner (defaults applied)
+## 11. Open questions for the owner (answered 2026-10-18: defaults accepted)
 
 - **Q1 (D11)** PRD §7 lets a teacher « Modifier les informations d'un étudiant » (🔒). SP2 limits that to invitation-stage names, the guardian email and (SP3) course assignment; once the account exists, only the student changes his name. Confirm, or ask for a per-workspace display name.
 - **Q2 (D2)** Accepting an email invitation marks the address verified without a second email. Confirm.
