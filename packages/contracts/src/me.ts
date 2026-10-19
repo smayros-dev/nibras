@@ -2,6 +2,7 @@ import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js
 import { z } from 'zod';
 import { BirthDateSchema, OtpCodeSchema, TimezoneSchema } from './auth';
 import { CurrentConsentTypes } from './consents';
+import { GuardianInfoSchema } from './guardian';
 import { LocaleSchema } from './locale';
 
 const NameSchema = z.string().trim().min(1).max(80);
@@ -68,6 +69,8 @@ export const MyWorkspaceSchema = z.object({
     'SUSPENDED_NO_CONSENT',
     'SUSPENDED_CONSENT_REVOKED',
   ]),
+  /** A minor `STUDENT` membership's guardian (masked email, link status), else `null` or absent. */
+  guardian: GuardianInfoSchema.nullable().optional(),
 });
 
 export type MyWorkspace = z.infer<typeof MyWorkspaceSchema>;
