@@ -42,6 +42,7 @@ async function warmRoutes() {
     '/fr/app/settings/security',
     // Compiles the [wid] workspace tree (redirects to login, but the route is compiled).
     '/fr/app/w/00000000-0000-0000-0000-000000000000',
+    '/fr/app/w/00000000-0000-0000-0000-000000000000/students',
     '/fr/app/w/00000000-0000-0000-0000-000000000000/members',
     '/fr/app/w/00000000-0000-0000-0000-000000000000/audit-log',
     // Compiles the super-admin console (404 for anonymous, but the route tree is compiled).

@@ -25,7 +25,7 @@ async function inactiveMembership(wid: string): Promise<MyWorkspace | null> {
 
 /**
  * A workspace (PRD §9.2): header with its name, type and status, the suspended banner, and the
- * sub-navigation Paramètres · Membres · Journal d'audit. A member whose membership is
+ * sub-navigation Paramètres · Étudiants · Membres · Journal d'audit. A member whose membership is
  * not active (`403 GUARDIAN_CONSENT_REQUIRED` / `MEMBERSHIP_INACTIVE`: a minor waiting on his
  * guardian, a student waiting on approval) sees the waiting panel instead of the pages (SP2 design
  * §8); pending app consents (`403 CONSENT_REQUIRED`) leave a placeholder under the `/app` layout's
@@ -92,7 +92,7 @@ export default async function WorkspaceLayout({
           </span>
         }
       />
-      <WorkspaceTabs wid={wid} label={detail.name} />
+      <WorkspaceTabs wid={wid} label={detail.name} myRole={detail.myRole} />
       <div>{children}</div>
     </div>
   );

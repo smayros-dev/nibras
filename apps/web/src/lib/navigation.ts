@@ -4,6 +4,7 @@ import {
   Activity,
   Building2,
   Flag,
+  GraduationCap,
   Hourglass,
   LayoutDashboard,
   ScrollText,
@@ -25,6 +26,9 @@ export interface NavModelInput {
 }
 
 type ItemSpec = Omit<NavItem, 'current'>;
+
+/** Roles that see the workspace's students page (PRD §9.1 Étudiants; the API scopes the list). */
+const STUDENTS_PAGE_ROLES: readonly MyWorkspace['role'][] = ['OWNER', 'ADMIN', 'TEACHER'];
 
 /** The `{wid}` of a `/app/w/{wid}/...` path. */
 export function workspaceIdFromPath(pathname: string): string | null {
@@ -79,7 +83,7 @@ export function buildNavModel({ t, user, workspaces, locale }: NavModelInput): N
   ];
 
   // One section per workspace, shown only inside it (`/app/w/{wid}`).
-  for (const { workspace, status } of workspaces) {
+  for (const { workspace, status, role } of workspaces) {
     const base = `/app/w/${workspace.id}`;
     if (status !== 'ACTIVE') {
       // Not active yet (guardian consent, approval) or suspended: the workspace layout shows the
@@ -112,6 +116,16 @@ export function buildNavModel({ t, user, workspaces, locale }: NavModelInput): N
           icon: SlidersHorizontal,
           exact: true,
         }),
+        ...(STUDENTS_PAGE_ROLES.includes(role)
+          ? [
+              make({
+                id: `workspace-${workspace.id}-students`,
+                href: `${base}/students`,
+                label: t('workspace.navStudents'),
+                icon: GraduationCap,
+              }),
+            ]
+          : []),
         make({
           id: `workspace-${workspace.id}-members`,
           href: `${base}/members`,
