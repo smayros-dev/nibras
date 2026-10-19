@@ -127,6 +127,27 @@ logged (`abuse report notifications not enqueued`, with the report id) and the r
 succeeds: the report is in the super-admin queue. A job that exhausted its attempts stays in
 BullMQ's failed set (`removeOnFail: 5000`) with the worker's `job failed` log lines.
 
+## Scheduled jobs
+
+The worker registers BullMQ job schedulers on boot (`apps/worker/src/schedulers.ts`,
+`queue.upsertJobScheduler`): idempotent by id, so a restart or a second replica never adds a
+second occurrence (boot log `job scheduler upserted <id>`). Each occurrence runs with the default
+job options (3 attempts, exponential backoff). Their audit rows have `actorRole = 'SYSTEM'` and
+`requestId = job:<job id>`, and every processed row logs its `workspace_id` (PRD §13.3).
+
+| Scheduler id              | Queue        | Job                       | Pattern (UTC) | Effect                                                                                                                                                                                                                                                                                                |
+| ------------------------- | ------------ | ------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guardian-consent-expire` | `compliance` | `guardian_consent.expire` | `0 3 * * *`   | `PENDING` guardian links whose 14-day consent link ran out: token cleared (status stays `PENDING`, a resend re-arms it), a `PENDING_GUARDIAN_CONSENT` membership of that workspace → `SUSPENDED_NO_CONSENT`, audit `guardian.consent_expired`, email to the student and the teacher. No purge (D-O5). |
+| `invitation-expire`       | `compliance` | `invitation.expire`       | `0 3 * * *`   | stored `PENDING` invitations past `expiresAt` → `EXPIRED` (releases the one-pending-invitation-per-address index), audit `invitation.expired`; no email.                                                                                                                                              |
+
+A failed expiry email does not stop the run: the other links are processed, the failed recipients
+are kept in the job progress (`unsent`) and the job fails so BullMQ retries it; the retry only
+re-sends those (unless the link was re-armed or decided meanwhile) and resumes after `lastId`. If
+the worker dies between a link's suspension and its emails, that notice is not re-sent (the link
+is no longer selected); the student's waiting panel and the students page still show the state.
+To run a job immediately, add `guardian_consent.expire` or `invitation.expire` (empty payload) to
+the `compliance` queue, or wait for 03:00 UTC.
+
 ## Tenant isolation suite
 
 `apps/api/test/isolation/tenant-routes.e2e-spec.ts` enumerates **every** `/workspaces/{wid}`
