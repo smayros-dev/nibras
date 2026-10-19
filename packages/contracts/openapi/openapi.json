@@ -1,6 +1,103 @@
 {
   "components": {
     "schemas": {
+      "AcceptInvitationDto": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "acceptPrivacy": {
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
+              },
+              "acceptTerms": {
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
+              },
+              "birthDate": {
+                "type": "string"
+              },
+              "firstName": {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              "guardianEmail": {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              "lastName": {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              "locale": {
+                "enum": [
+                  "fr",
+                  "ar",
+                  "en"
+                ],
+                "type": "string"
+              },
+              "mode": {
+                "enum": [
+                  "REGISTER"
+                ],
+                "type": "string"
+              },
+              "password": {
+                "maxLength": 256,
+                "minLength": 12,
+                "type": "string"
+              },
+              "timezone": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "firstName",
+              "lastName",
+              "password",
+              "locale",
+              "timezone",
+              "acceptTerms",
+              "acceptPrivacy"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "birthDate": {
+                "type": "string"
+              },
+              "guardianEmail": {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              "mode": {
+                "enum": [
+                  "JOIN"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "ChangePasswordDto": {
         "properties": {
           "currentPassword": {
@@ -1613,6 +1710,62 @@
           "url": "/"
         }
       ]
+    },
+    "/invitations/{token}": {
+      "get": {
+        "operationId": "PublicInvitationsController_preview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicInvitations"
+        ]
+      }
+    },
+    "/invitations/{token}/accept": {
+      "post": {
+        "operationId": "PublicInvitationsController_acceptInvitation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicInvitations"
+        ]
+      }
     },
     "/me": {
       "get": {

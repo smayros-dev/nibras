@@ -436,6 +436,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/invitations/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PublicInvitationsController_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PublicInvitationsController_acceptInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -872,6 +904,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AcceptInvitationDto: {
+            /** @enum {boolean} */
+            acceptPrivacy: true;
+            /** @enum {boolean} */
+            acceptTerms: true;
+            birthDate?: string;
+            firstName: string;
+            /** Format: email */
+            guardianEmail?: string;
+            lastName: string;
+            /** @enum {string} */
+            locale: "fr" | "ar" | "en";
+            /** @enum {string} */
+            mode: "REGISTER";
+            password: string;
+            timezone: string;
+        } | {
+            birthDate?: string;
+            /** Format: email */
+            guardianEmail?: string;
+            /** @enum {string} */
+            mode: "JOIN";
+        };
         ChangePasswordDto: {
             currentPassword: string;
             newPassword: string;
@@ -1735,6 +1790,48 @@ export interface operations {
                         status?: string;
                     };
                 };
+            };
+        };
+    };
+    PublicInvitationsController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PublicInvitationsController_acceptInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInvitationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

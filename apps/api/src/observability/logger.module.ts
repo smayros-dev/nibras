@@ -30,13 +30,37 @@ interface SerializedRequest {
 }
 
 /**
+ * A path segment that is an opaque link token (32 random bytes as base64url, 43 characters: SP2
+ * invitation and guardian links travel in the path). UUIDs (36 characters) never match.
+ */
+const OPAQUE_TOKEN_SEGMENT = /\/[A-Za-z0-9_-]{43}(?=\/|$)/g;
+const OPAQUE_TOKEN = /^[A-Za-z0-9_-]{43}$/;
+
+/** `params` with every opaque-token string masked (Express's `splat` lists the path segments). */
+function maskTokenParams(value: unknown): unknown {
+  if (typeof value === 'string') return OPAQUE_TOKEN.test(value) ? '[REDACTED]' : value;
+  if (Array.isArray(value)) return value.map(maskTokenParams);
+  if (value === null || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, maskTokenParams(v)]));
+}
+
+/**
  * The standard request fields minus the query string: query values (emails, tokens, codes) are
- * never logged, so `url` is the path only and `query` is dropped.
+ * never logged, so `url` is the path only and `query` is dropped; an opaque token in the path is
+ * replaced by `[REDACTED]`, in `url` and in `params` (where Express lists the path segments).
  */
 function serializeRequest(req: SerializedRequest): SerializedRequest {
   const { id, method, url, params, headers, remoteAddress, remotePort } = req;
-  const path = url.split('?', 1)[0] ?? '';
-  return { id, method, url: path, params, headers, remoteAddress, remotePort };
+  const path = (url.split('?', 1)[0] ?? '').replace(OPAQUE_TOKEN_SEGMENT, '/[REDACTED]');
+  return {
+    id,
+    method,
+    url: path,
+    params: maskTokenParams(params),
+    headers,
+    remoteAddress,
+    remotePort,
+  };
 }
 
 /** pino-http options: JSON lines tagged `service: nibras-api` and `request_id`, secrets redacted. */
