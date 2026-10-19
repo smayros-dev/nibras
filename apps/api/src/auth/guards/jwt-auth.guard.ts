@@ -12,6 +12,7 @@ import { ApiError } from '../../common/api-error';
 import { RequestContext, type AuthUser } from '../../common/request-context';
 import { DB } from '../../db/db.module';
 import { accessTokenOf } from '../cookies';
+import { isOptionalAuthRequest } from '../decorators/optional-auth';
 import { isPublicRequest } from '../decorators/public';
 import { JwtService, type AccessPayload } from '../jwt.service';
 import { credentialsOutdated, sessionRevoked } from '../session.service';
@@ -42,6 +43,9 @@ const unauthenticated = () =>
  * effect immediately rather than when the 15-minute token expires: missing, revoked or expired
  * session, session of another user, or deleted account → `401 SESSION_REVOKED`. Fills
  * `RequestContext` `user` and `session`.
+ *
+ * On an `@OptionalAuth()` route every one of those refusals becomes "anonymous": the request goes on
+ * without `user` / `session` (never a `401`); a valid token loads them exactly as above.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -53,7 +57,21 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (isPublicRequest(this.reflector, context)) return true;
+    if (isOptionalAuthRequest(this.reflector, context)) {
+      try {
+        await this.authenticate(context);
+      } catch (err) {
+        // Anonymous: no / bad token, revoked session, deleted account.
+        if (!(err instanceof ApiError) || err.getStatus() !== HttpStatus.UNAUTHORIZED) throw err;
+      }
+      return true;
+    }
+    await this.authenticate(context);
+    return true;
+  }
 
+  /** Verifies the access token and its session, then fills `store.user` / `store.session`. */
+  private async authenticate(context: ExecutionContext): Promise<void> {
     const token = accessTokenOf(context.switchToHttp().getRequest<Request>());
     if (!token) throw unauthenticated();
     let payload: AccessPayload;
@@ -93,6 +111,5 @@ export class JwtAuthGuard implements CanActivate {
     if (!store) throw unauthenticated();
     store.user = user;
     store.session = { id: session.id, familyId: session.familyId };
-    return true;
   }
 }

@@ -223,18 +223,14 @@ describe('tenancy: WorkspaceContextGuard and PermissionGuard (AC-WS-01, AC-WS-03
     expect(audit).toMatchObject({ actorRole: 'SUPER_ADMIN' });
   });
 
-  it('REMOVED member gets 404; PENDING_GUARDIAN_CONSENT member gets 403 MEMBERSHIP_INACTIVE', async () => {
+  it('REMOVED / REJECTED members get 404 (+ audit)', async () => {
     const removed = await createUser();
     const rejected = await createUser();
-    const minor = await createUser();
-    const pendingApproval = await createUser();
     const A = await createOrganization({
       owner: await createUser({ totpSecret: S }),
       members: [
         { user: removed, role: 'TEACHER', status: 'REMOVED' },
         { user: rejected, role: 'STUDENT', status: 'REJECTED' },
-        { user: minor, role: 'STUDENT', status: 'PENDING_GUARDIAN_CONSENT' },
-        { user: pendingApproval, role: 'STUDENT', status: 'PENDING_APPROVAL' },
       ],
     });
 
@@ -245,19 +241,48 @@ describe('tenancy: WorkspaceContextGuard and PermissionGuard (AC-WS-01, AC-WS-03
         .expect(({ body }) => expect(body.code).toBe('NOT_FOUND'));
       expect(await forbiddenAudits(u.id, A.workspace.id)).toHaveLength(1);
     }
+  });
 
-    await as(http, (await loginAs(ctx, minor)).cookie)
+  it.each([
+    'PENDING_GUARDIAN_CONSENT',
+    'SUSPENDED_NO_CONSENT',
+    'SUSPENDED_CONSENT_REVOKED',
+  ] as const)(
+    '%s → 403 GUARDIAN_CONSENT_REQUIRED with details.status (no audit)',
+    async (status) => {
+      const minor = await createUser();
+      const A = await createOrganization({
+        owner: await createUser({ totpSecret: S }),
+        members: [{ user: minor, role: 'STUDENT', status }],
+      });
+      const s = await loginAs(ctx, minor);
+      for (const req of [
+        as(http, s.cookie).get(probe(A.workspace.id)),
+        as(http, s.cookie).post(probe(A.workspace.id)),
+      ]) {
+        await req.expect(403).expect(({ body }) => {
+          expect(body.code).toBe('GUARDIAN_CONSENT_REQUIRED');
+          expect(body.details).toEqual({ status });
+        });
+      }
+      expect(await forbiddenAudits(minor.id, A.workspace.id)).toHaveLength(0);
+    },
+  );
+
+  it('PENDING_APPROVAL → 403 MEMBERSHIP_INACTIVE with details.status', async () => {
+    const pendingApproval = await createUser();
+    const A = await createOrganization({
+      owner: await createUser({ totpSecret: S }),
+      members: [{ user: pendingApproval, role: 'STUDENT', status: 'PENDING_APPROVAL' }],
+    });
+    await as(http, (await loginAs(ctx, pendingApproval)).cookie)
       .get(probe(A.workspace.id))
       .expect(403)
       .expect(({ body }) => {
         expect(body.code).toBe('MEMBERSHIP_INACTIVE');
-        expect(body.details).toEqual({ status: 'PENDING_GUARDIAN_CONSENT' });
+        expect(body.details).toEqual({ status: 'PENDING_APPROVAL' });
       });
-    await as(http, (await loginAs(ctx, pendingApproval)).cookie)
-      .get(probe(A.workspace.id))
-      .expect(403)
-      .expect(({ body }) => expect(body.details).toEqual({ status: 'PENDING_APPROVAL' }));
-    expect(await forbiddenAudits(minor.id, A.workspace.id)).toHaveLength(0);
+    expect(await forbiddenAudits(pendingApproval.id, A.workspace.id)).toHaveLength(0);
   });
 
   it('runs after the session and account gates', async () => {

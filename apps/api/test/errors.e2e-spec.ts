@@ -166,7 +166,7 @@ describe('error envelope', () => {
     const logged = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     const res = await http
       .post('/api/v1/__test/echo')
-      .send({ name: 'x'.repeat(200 * 1024) })
+      .send({ name: 'x'.repeat(1_100_000) }) // above the 1 MiB JSON limit (configureApp)
       .expect(413);
     expect(res.body).toMatchObject({ code: 'PAYLOAD_TOO_LARGE', message: 'Payload too large' });
     expect(ApiErrorBodySchema.safeParse(res.body).success).toBe(true);

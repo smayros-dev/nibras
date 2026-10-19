@@ -15,3 +15,62 @@ export class MembershipRemovedEvent {
     readonly role: MembershipRole,
   ) {}
 }
+
+/** Event name of {@link InvitationAcceptedEvent} (`EventEmitter2`). */
+export const INVITATION_ACCEPTED = 'invitation.accepted';
+
+/**
+ * Emitted once an invitation's acceptance is committed (SP2: email invitation accepted, whatever
+ * the resulting membership status — a minor's stays `PENDING_GUARDIAN_CONSENT`).
+ */
+export class InvitationAcceptedEvent {
+  constructor(
+    readonly workspaceId: string,
+    readonly invitationId: string,
+    readonly userId: string,
+    readonly role: MembershipRole,
+  ) {}
+}
+
+/** Event name of {@link MembershipActivatedEvent} (`EventEmitter2`). */
+export const MEMBERSHIP_ACTIVATED = 'membership.activated';
+
+/**
+ * Emitted once a membership is committed as `ACTIVE` from a pending or suspended status (SP2:
+ * acceptance of an adult, approval, guardian grant or re-grant).
+ */
+export class MembershipActivatedEvent {
+  constructor(
+    readonly workspaceId: string,
+    readonly userId: string,
+  ) {}
+}
+
+/** Event name of {@link MembershipDeactivatedEvent} (`EventEmitter2`). */
+export const MEMBERSHIP_DEACTIVATED = 'membership.deactivated';
+
+/**
+ * Where a membership goes when deactivated in SP2 (a removal emits {@link MembershipRemovedEvent}).
+ */
+export type DeactivatedMembershipStatus =
+  'SUSPENDED_NO_CONSENT' | 'SUSPENDED_CONSENT_REVOKED' | 'REJECTED';
+
+/** Why: the guardian refused, revoked or never answered (14 days), or a staff member rejected. */
+export type MembershipDeactivationReason =
+  'CONSENT_REFUSED' | 'CONSENT_REVOKED' | 'CONSENT_EXPIRED' | 'REJECTED';
+
+/**
+ * Emitted (fire-and-forget) once a membership is committed as suspended or rejected by the API
+ * (guardian refusal / revocation, approval queue rejection). Later sub-projects listen to it: SP5
+ * cancels the member's future participations, SP6 disconnects him from the workspace's rooms. The
+ * worker's daily consent expiry cannot emit in-process events: SP5/SP6 add their own reaction to
+ * that job when they exist.
+ */
+export class MembershipDeactivatedEvent {
+  constructor(
+    readonly workspaceId: string,
+    readonly userId: string,
+    readonly status: DeactivatedMembershipStatus,
+    readonly reason: MembershipDeactivationReason,
+  ) {}
+}

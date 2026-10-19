@@ -9,6 +9,12 @@ export const API_PREFIX = 'api/v1';
 /** Infrastructure routes served outside `/api/v1` (probes and the Prometheus scrape). */
 export const UNPREFIXED_ROUTES = ['health/live', 'health/ready', 'metrics'];
 
+/**
+ * JSON body limit (Express' default is 100 kB): 1 MiB, the CSV import's `IMPORT_MAX_BYTES`
+ * (SP2), carried in a JSON body. Beyond it the parser answers `413 PAYLOAD_TOO_LARGE`.
+ */
+export const JSON_BODY_LIMIT = '1mb';
+
 /** HTTP-level setup shared by `main.ts` and the e2e harness, so tests run the real stack. */
 export function configureApp(app: NestExpressApplication): void {
   // Nest's own logs (and `Logger` calls such as the exception filter's) go through pino.
@@ -24,4 +30,5 @@ export function configureApp(app: NestExpressApplication): void {
   );
   app.enableCors({ origin: env.WEB_ORIGIN, credentials: true });
   app.use(cookieParser());
+  app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
 }

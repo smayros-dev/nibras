@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PATH_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
-import { tenantDb, type GuardedClient } from '@nibras/db';
+import { tenantDb, type GuardedClient, type MembershipStatus } from '@nibras/db';
 import type { Request } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { isPublicRequest } from '../auth/decorators/public';
@@ -21,6 +21,13 @@ export const WORKSPACE_PARAM = 'wid';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Methods a SUSPENDED / DELETING workspace still serves (AC-WS-06: reads stay possible). */
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/** Membership statuses of a minor waiting for (or deprived of) the guardian's consent. */
+const GUARDIAN_CONSENT_STATUSES: ReadonlySet<MembershipStatus> = new Set<MembershipStatus>([
+  'PENDING_GUARDIAN_CONSENT',
+  'SUSPENDED_NO_CONSENT',
+  'SUSPENDED_CONSENT_REVOKED',
+]);
 
 const WORKSPACE_ROUTE = new RegExp(`^workspaces/:${WORKSPACE_PARAM}(/|$)`);
 
@@ -56,7 +63,10 @@ export function isWorkspaceRoute(reflector: Reflector, context: ExecutionContext
  *    has no membership, a `REMOVED`/`REJECTED` one, or is a `SUPER_ADMIN` without membership →
  *    audit `auth.forbidden_workspace` then the same `404 NOT_FOUND` — never a 403 that would
  *    reveal the workspace exists (AC-WS-01);
- * 3. any other non-ACTIVE membership → `403 MEMBERSHIP_INACTIVE` with `details.status`;
+ * 3. a minor's membership blocked on the parental consent (`PENDING_GUARDIAN_CONSENT`,
+ *    `SUSPENDED_NO_CONSENT`, `SUSPENDED_CONSENT_REVOKED`, D-O5) → `403 GUARDIAN_CONSENT_REQUIRED`
+ *    with `details.status` (the web shows the guardian waiting panel); any other non-ACTIVE
+ *    membership (`PENDING_APPROVAL`) → `403 MEMBERSHIP_INACTIVE` with `details.status`;
  * 4. stores `workspace` and `membership` in `RequestContext`;
  * 5. workspace `SUSPENDED`/`DELETING` and a method other than GET/HEAD/OPTIONS →
  *    `423 WORKSPACE_SUSPENDED` with `details: { status, reason }` (AC-WS-06), before any
@@ -106,6 +116,14 @@ export class WorkspaceContextGuard implements CanActivate {
         workspaceId: wid,
       });
       throw notFound();
+    }
+    if (GUARDIAN_CONSENT_STATUSES.has(membership.status)) {
+      throw new ApiError(
+        HttpStatus.FORBIDDEN,
+        'GUARDIAN_CONSENT_REQUIRED',
+        'Parental consent is required for this workspace',
+        { status: membership.status },
+      );
     }
     if (membership.status !== 'ACTIVE') {
       throw new ApiError(HttpStatus.FORBIDDEN, 'MEMBERSHIP_INACTIVE', 'Membership is not active', {

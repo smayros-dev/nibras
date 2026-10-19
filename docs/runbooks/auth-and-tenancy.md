@@ -117,7 +117,10 @@ never blocks the business operation.
 `apps/api/test/isolation/tenant-routes.e2e-spec.ts` probes **every** `/workspaces/{wid}` route
 with a member of another organisation and asserts cross-tenant access is refused with 404
 (never 200/403/422, never data). Any new tenant route is covered automatically by the suite's
-route list.
+route list. A member whose membership is not `ACTIVE` gets a 403 whose code depends on the status:
+`GUARDIAN_CONSENT_REQUIRED` for a minor waiting for or deprived of parental consent
+(`PENDING_GUARDIAN_CONSENT`, `SUSPENDED_NO_CONSENT`, `SUSPENDED_CONSENT_REVOKED`), and
+`MEMBERSHIP_INACTIVE` otherwise (`PENDING_APPROVAL`), both with `details.status`.
 
 `apps/api/test/isolation/exemptions.ts` lists the rare routes the suite must NOT probe (e.g. ones
 that intentionally answer for non-members). An exemption hides a route from the isolation

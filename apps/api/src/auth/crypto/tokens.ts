@@ -1,18 +1,15 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 /**
- * Opaque token (refresh, email verification, password reset…): 32 random bytes as base64url
- * (43 chars). Only `hash` is stored; `raw` goes to the client once.
+ * Opaque tokens (refresh, email verification, password reset, SP2 invitation and guardian links):
+ * 32 random bytes as base64url (43 chars), stored as their SHA-256 hex. One implementation, shared
+ * with the worker through `@nibras/contracts` (`generateOpaqueToken` / `hashOpaqueToken`): only
+ * `hash` is stored, `raw` goes to the client once.
  */
-export function generateToken(): { raw: string; hash: string } {
-  const raw = randomBytes(32).toString('base64url');
-  return { raw, hash: hashToken(raw) };
-}
-
-/** SHA-256 hex of a raw token (high-entropy input, so no salt or slow hash is needed). */
-export function hashToken(raw: string): string {
-  return createHash('sha256').update(raw, 'utf8').digest('hex');
-}
+export {
+  generateOpaqueToken as generateToken,
+  hashOpaqueToken as hashToken,
+} from '@nibras/contracts';
 
 /**
  * Constant-time string comparison. Both sides are SHA-256'd first so the comparison runs over
