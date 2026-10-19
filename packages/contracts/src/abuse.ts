@@ -7,8 +7,27 @@ import {
   ABUSE_DESCRIPTION_MAX,
   ABUSE_ATTACHMENTS_MAX,
 } from './abuse-constants';
+import type { Locale } from './locale-codes';
 
 export * from './abuse-constants';
+
+/**
+ * Where a handler opens a report: `admin` (super-admin console) always, `workspace` (the
+ * organisation's own queue) when the report belongs to a workspace. `origin` is the web origin
+ * (`WEB_ORIGIN`); trailing slashes are ignored.
+ */
+export function abuseReportLinks(
+  origin: string,
+  locale: Locale,
+  workspaceId: string | null,
+  id: string,
+): { admin: string; workspace: string | null } {
+  const base = `${origin.replace(/\/+$/, '')}/${locale}`;
+  return {
+    admin: `${base}/admin/abuse-reports/${id}`,
+    workspace: workspaceId === null ? null : `${base}/app/w/${workspaceId}/abuse-reports/${id}`,
+  };
+}
 
 /**
  * `POST /workspaces/{wid}/abuse-reports` (`abuse.report`, any member) and `POST /abuse-reports`

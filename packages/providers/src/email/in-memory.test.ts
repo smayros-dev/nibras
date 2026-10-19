@@ -52,4 +52,23 @@ describe('InMemoryEmailProvider', () => {
     ).rejects.toThrow();
     expect(provider.sent).toHaveLength(0);
   });
+
+  it('failFor makes sends to that address reject (nothing recorded) until clear()', async () => {
+    const provider = new InMemoryEmailProvider();
+    const msg = (to: string) =>
+      provider.send({
+        to,
+        templateKey: 'security.password_changed',
+        locale: 'fr',
+        params: { firstName: 'A' },
+      });
+    provider.failFor('down@example.com');
+    await expect(msg('down@example.com')).rejects.toThrow(/down@example.com/);
+    await msg('up@example.com');
+    expect(provider.sent.map((m) => m.to)).toEqual(['up@example.com']);
+
+    provider.clear();
+    await msg('down@example.com');
+    expect(provider.sent.map((m) => m.to)).toEqual(['down@example.com']);
+  });
 });

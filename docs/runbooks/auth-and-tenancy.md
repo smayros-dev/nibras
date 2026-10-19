@@ -112,6 +112,15 @@ Every mutation writes an `AuditLog` row (`action`, actor, entity, before/after J
 Writes are fire-and-forget: a failed audit write increments `audit_write_failures_total` and
 never blocks the business operation.
 
+After `abuse_report.created`, the API enqueues one `abuse.report_created { reportId }` job on
+`notifications` (`jobId = abuse:{id}:notify`, 5 attempts, exponential backoff; SP1.6 F12) instead
+of emailing inline. The worker (`AbuseProcessor.reportCreated`) sends the acknowledgement to the
+reporter, then `abuse.new_report` to the handlers, one by one; the users already emailed are kept
+in the job progress (`sentTo`), so a retry only reaches the ones that failed. A failed enqueue is
+logged (`abuse report notifications not enqueued`, with the report id) and the request still
+succeeds: the report is in the super-admin queue. A job that exhausted its attempts stays in
+BullMQ's failed set (`removeOnFail: 5000`) with the worker's `job failed` log lines.
+
 ## Tenant isolation suite
 
 `apps/api/test/isolation/tenant-routes.e2e-spec.ts` enumerates **every** `/workspaces/{wid}`

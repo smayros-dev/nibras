@@ -5,6 +5,8 @@ import {
   AdminAbuseReportsPageSchema,
   CreateAbuseReportSchema,
   UpdateAbuseReportSchema,
+  abuseReportLinks,
+  abuseReportNotifyJobId,
   minorSafetyReminderJobId,
 } from './abuse';
 
@@ -80,5 +82,20 @@ describe('abuse contracts', () => {
 
   it('one reminder job id per report', () => {
     expect(minorSafetyReminderJobId('r1')).toBe('abuse:r1:minor-safety-reminder');
+  });
+
+  it('one notification job id per report', () => {
+    expect(abuseReportNotifyJobId('r1')).toBe('abuse:r1:notify');
+  });
+
+  it('report links: admin console always, organisation queue only with a workspace', () => {
+    expect(abuseReportLinks('https://nibras.test//', 'ar', 'w1', 'r1')).toEqual({
+      admin: 'https://nibras.test/ar/admin/abuse-reports/r1',
+      workspace: 'https://nibras.test/ar/app/w/w1/abuse-reports/r1',
+    });
+    expect(abuseReportLinks('https://nibras.test', 'fr', null, 'r1')).toEqual({
+      admin: 'https://nibras.test/fr/admin/abuse-reports/r1',
+      workspace: null,
+    });
   });
 });
