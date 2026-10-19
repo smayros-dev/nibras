@@ -7,6 +7,7 @@ import { DevicesList } from '../../../../../../components/devices-list';
 import { useRouter } from '../../../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../../../lib/api-error';
 import { api, asApiResult } from '../../../../../../lib/api';
+import { useErrorFocus } from '../../../../../../lib/use-error-focus';
 
 type Translator = ReturnType<typeof useTranslations>;
 
@@ -22,24 +23,33 @@ function applyError(
   else setFormError(apiErrorMessage(t, error));
 }
 
-/** 2FA status; enable reuses the `/2fa/setup` flow, disable asks for a code in a dialog. */
+/**
+ * 2FA status; enable reuses the `/2fa/setup` flow, disable asks for the current password and a
+ * code in a dialog (step-up, SP1.6 F5).
+ */
 function TwoFactorCard({ twoFactor }: { twoFactor: { enabled: boolean; required: boolean } }) {
   const t = useTranslations();
   const router = useRouter();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [otpCode, setOtpCode] = useState('');
+  const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
 
   const disable = useSubmit(async () => {
     setFieldErrors({});
     setFormError(null);
     try {
       const { error } = asApiResult<unknown>(
-        await api.POST('/auth/2fa/disable', { body: { otpCode } }),
+        await api.POST('/auth/2fa/disable', { body: { otpCode, password } }),
       );
       if (error) {
+        if ((error as { code?: string } | null)?.code === 'INVALID_CREDENTIALS') {
+          setFieldErrors({ password: t('auth.setup.wrongPassword') });
+          return;
+        }
         applyError(t, error, setFieldErrors, setFormError);
         return;
       }
@@ -49,6 +59,7 @@ function TwoFactorCard({ twoFactor }: { twoFactor: { enabled: boolean; required:
     }
     setOpen(false);
     setOtpCode('');
+    setPassword('');
     toast({ title: t('settings.security.twoFactorDisabled'), variant: 'success' });
     router.refresh();
   });
@@ -80,6 +91,7 @@ function TwoFactorCard({ twoFactor }: { twoFactor: { enabled: boolean; required:
               setOpen(next);
               if (!next) {
                 setOtpCode('');
+                setPassword('');
                 setFieldErrors({});
                 setFormError(null);
               }
@@ -98,13 +110,33 @@ function TwoFactorCard({ twoFactor }: { twoFactor: { enabled: boolean; required:
             >
               <form
                 method="post"
+                ref={formRef}
                 onSubmit={(e) => {
                   e.preventDefault();
                   void disable.submit();
                 }}
                 className="flex flex-col gap-4"
               >
-                {formError ? <Alert variant="danger">{formError}</Alert> : null}
+                {formError ? (
+                  <Alert ref={alertRef} tabIndex={-1} variant="danger">
+                    {formError}
+                  </Alert>
+                ) : null}
+                <Field
+                  htmlFor="disablePassword"
+                  label={t('settings.security.twoFactorDisablePassword')}
+                  error={fieldErrors.password}
+                >
+                  <Input
+                    id="disablePassword"
+                    name="password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </Field>
                 <Field
                   htmlFor="otpCode"
                   label={t('settings.security.otpCode')}
@@ -130,7 +162,7 @@ function TwoFactorCard({ twoFactor }: { twoFactor: { enabled: boolean; required:
                     type="submit"
                     variant="danger"
                     loading={disable.busy}
-                    disabled={otpCode.length === 0}
+                    disabled={otpCode.length === 0 || password.length === 0}
                   >
                     {t('settings.security.twoFactorDisable')}
                   </Button>

@@ -39,6 +39,7 @@ import {
   RegisterTeacherDto,
   TwoFactorDisableDto,
   TwoFactorRecoveryDto,
+  TwoFactorSetupDto,
   TwoFactorVerifyDto,
   VerifyEmailDto,
 } from './dto';
@@ -150,12 +151,18 @@ export class AuthController {
     return this.signedIn(res, result);
   }
 
-  /** Starts a TOTP enrolment: `200 { secret, otpauthUrl }` (2FA stays off until verified). */
+  /**
+   * Starts a TOTP enrolment after re-checking the password: `200 { secret, otpauthUrl }` (2FA stays
+   * off until verified). Wrong password → `401 INVALID_CREDENTIALS`; too many → `429`.
+   */
   @AllowUnverified()
   @Post('2fa/setup')
   @HttpCode(HttpStatus.OK)
-  setupTwoFactor(@CurrentUser() user: AuthUser): Promise<TwoFactorSetupResponse> {
-    return this.twoFactor.beginSetup(user);
+  setupTwoFactor(
+    @CurrentUser() user: AuthUser,
+    @Body() body: TwoFactorSetupDto,
+  ): Promise<TwoFactorSetupResponse> {
+    return this.twoFactor.beginSetup(user, body.password);
   }
 
   /**
@@ -197,7 +204,10 @@ export class AuthController {
     return this.signedIn(res, result);
   }
 
-  /** `204`; `403 TWO_FACTOR_MANDATORY` for a role that requires 2FA. */
+  /**
+   * `204`; `403 TWO_FACTOR_MANDATORY` for a role that requires 2FA; wrong password →
+   * `401 INVALID_CREDENTIALS`; wrong code → `401 TWO_FACTOR_INVALID`.
+   */
   @AllowUnverified()
   @Post('2fa/disable')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -205,7 +215,7 @@ export class AuthController {
     @CurrentUser() user: AuthUser,
     @Body() body: TwoFactorDisableDto,
   ): Promise<void> {
-    await this.twoFactor.disable(user, body.otpCode);
+    await this.twoFactor.disable(user, body.otpCode, body.password);
   }
 
   /**

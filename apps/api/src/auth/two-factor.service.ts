@@ -12,6 +12,7 @@ import { DB } from '../db/db.module';
 import { EMAIL_PROVIDER } from '../providers/providers.module';
 import { REDIS } from '../redis/redis.module';
 import { AuthService, GONE_STATUSES, type LoginResult } from './auth.service';
+import { verifyPassword } from './crypto/password';
 import {
   findRecoveryCode,
   generateRecoveryCodes,
@@ -44,7 +45,13 @@ const alreadyEnabled = () =>
     'Two-factor authentication is already enabled',
   );
 
+const invalidPassword = () =>
+  new ApiError(HttpStatus.UNAUTHORIZED, 'INVALID_CREDENTIALS', 'Invalid password');
+
 type SignedIn = Extract<LoginResult, { status: 'OK' }>;
+
+/** What a password step-up was for (`auth.reauth_failed { purpose }`). */
+export type ReauthPurpose = '2fa_setup' | '2fa_disable';
 
 /**
  * TOTP second factor (PRD §8.1.2, D-P12, AC-AUTH-05): enrolment, login challenge, recovery codes,
@@ -65,6 +72,11 @@ type SignedIn = Extract<LoginResult, { status: 'OK' }>;
  *   is `401 TOKEN_INVALID`; a suspended one `403 ACCOUNT_SUSPENDED`.
  * - Signed-in routes that check a code (setup confirmation, disable) are limited per user by
  *   `ReauthLimiter.attemptOtp` (5 wrong codes per 15 min → `429`).
+ * - Setup and disable first re-check the current password (step-up, SP1.6 F5) through
+ *   `ReauthLimiter.attempt` (5 wrong per 15 min, shared with password and email change → `429`);
+ *   a wrong one is `401 INVALID_CREDENTIALS` + `auth.reauth_failed { purpose }`. The setup
+ *   confirmation (`POST /auth/2fa/verify` without challenge) only confirms a seed created by a
+ *   password-checked setup; it never creates one.
  */
 @Injectable()
 export class TwoFactorService {
@@ -86,10 +98,14 @@ export class TwoFactorService {
   }
 
   /**
-   * Starts (or restarts) an enrolment: a new seed, sealed, 2FA still off until
-   * {@link confirmSetup}. `409 TWO_FACTOR_ALREADY_ENABLED` when TOTP is on.
+   * Starts (or restarts) an enrolment after the password step-up: a new seed, sealed, 2FA still off
+   * until {@link confirmSetup}. `409 TWO_FACTOR_ALREADY_ENABLED` when TOTP is on.
    */
-  async beginSetup(user: AuthUser): Promise<{ secret: string; otpauthUrl: string }> {
+  async beginSetup(
+    user: AuthUser,
+    password: string,
+  ): Promise<{ secret: string; otpauthUrl: string }> {
+    await this.stepUp(user, password, '2fa_setup');
     const secret = this.totp.generateSecret();
     const { count } = await this.db.user.updateMany({
       where: { id: user.id, totpEnabledAt: null },
@@ -183,10 +199,10 @@ export class TwoFactorService {
 
   /**
    * Turns TOTP off (seed and recovery codes erased), `security.2fa_disabled`, `auth.2fa_disabled`.
-   * `403 TWO_FACTOR_MANDATORY` when the user's role requires 2FA (checked first); TOTP off or
-   * wrong code → `401 TWO_FACTOR_INVALID`.
+   * `403 TWO_FACTOR_MANDATORY` when the user's role requires 2FA (checked first); then the password
+   * step-up (`401 INVALID_CREDENTIALS`); TOTP off or wrong code → `401 TWO_FACTOR_INVALID`.
    */
-  async disable(user: AuthUser, otpCode: string): Promise<void> {
+  async disable(user: AuthUser, otpCode: string, password: string): Promise<void> {
     if (await requiresTwoFactor(user)) {
       throw new ApiError(
         HttpStatus.FORBIDDEN,
@@ -194,6 +210,7 @@ export class TwoFactorService {
         'Two-factor authentication is mandatory for this account',
       );
     }
+    await this.stepUp(user, password, '2fa_disable');
     const row = await this.db.user.findUniqueOrThrow({
       where: { id: user.id },
       select: { totpSecretEnc: true, totpEnabledAt: true },
@@ -295,6 +312,29 @@ export class TwoFactorService {
         'Service unavailable',
       );
     }
+  }
+
+  /**
+   * Re-checks the current password (see the class comment): counted by `ReauthLimiter.attempt`
+   * first, a wrong one audited as `auth.reauth_failed { purpose }` and refused with
+   * `401 INVALID_CREDENTIALS`, a right one resets the count.
+   */
+  private async stepUp(user: AuthUser, password: string, purpose: ReauthPurpose): Promise<void> {
+    await this.limiter.attempt(user.id);
+    const { passwordHash } = await this.db.user.findUniqueOrThrow({
+      where: { id: user.id },
+      select: { passwordHash: true },
+    });
+    if (!passwordHash || !(await verifyPassword(passwordHash, password))) {
+      await this.audit.log({
+        action: 'auth.reauth_failed',
+        entityType: 'User',
+        entityId: user.id,
+        after: { purpose },
+      });
+      throw invalidPassword();
+    }
+    await this.limiter.succeeded(user.id);
   }
 
   /** A signed-in code check, limited per user (`ReauthLimiter.attemptOtp`). */

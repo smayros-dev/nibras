@@ -105,7 +105,9 @@ async function runJourney(page: Page, locale: string) {
   await page.goto(`/${locale}/app`);
   await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`), { timeout: 15_000 });
   await expect(page.locator('html')).toHaveAttribute('dir', dir);
-  // The setup page shows the otpauth secret: enrol with a real TOTP code.
+  // Step-up first (SP1.6 F5), then the setup page shows the otpauth secret: enrol with a real code.
+  await page.getByLabel(t(locale, 'auth.setup.password'), { exact: true }).fill(PASSWORD);
+  await page.getByRole('button', { name: t(locale, 'auth.setup.passwordContinue') }).click();
   const secretText = (await page.getByTestId('totp-secret').innerText()).trim();
   const secret = secretText.split(':').pop()?.trim();
   expect(secret).toBeTruthy();

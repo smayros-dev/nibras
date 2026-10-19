@@ -1,6 +1,7 @@
-import { appUrl, expect, fillLogin, t, test, uiLogin } from './helpers';
+import { appUrl, expect, fillLogin, t, test, toast, uiLogin } from './helpers';
 import { extractOtpCode, waitForEmail } from './helpers/mailpit';
 import { seedUser } from './helpers/seed';
+import { totpCode } from './helpers/totp';
 
 /** The dev phone OTP email's subject contains this (its `phone.otp_dev` key never appears in content). */
 const PHONE_OTP_HINT = 'code de vérification';
@@ -95,6 +96,50 @@ test('security: devices list shows this device; sign out everywhere ends the ses
   });
   await confirm.getByRole('button', { name: t(locale, 'settings.security.signOutAll') }).click();
   await expect(page).toHaveURL(appUrl(`/${locale}/login`), { timeout: 15_000 });
+});
+
+test('security: disabling 2FA asks for the current password and a code', async ({
+  page,
+  uiLocale: locale,
+}) => {
+  const user = await seedUser({ totp: true });
+  await page.goto(`/${locale}/login`);
+  await fillLogin(page, locale, user.email, user.password);
+  await expect(page).toHaveURL(appUrl(`/${locale}/2fa`), { timeout: 15_000 });
+  await page
+    .getByLabel(t(locale, 'auth.twoFactor.code'), { exact: true })
+    .fill(totpCode(user.secret!));
+  await page.getByRole('button', { name: t(locale, 'auth.twoFactor.submit') }).click();
+  await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
+
+  await page.goto(`/${locale}/app/settings/security`);
+  await page.getByRole('button', { name: t(locale, 'settings.security.twoFactorDisable') }).click();
+  const dialog = page.getByRole('dialog', {
+    name: t(locale, 'settings.security.twoFactorDisable'),
+  });
+  const password = dialog.getByLabel(t(locale, 'settings.security.twoFactorDisablePassword'), {
+    exact: true,
+  });
+  const code = dialog.getByLabel(t(locale, 'settings.security.otpCode'), { exact: true });
+  const submit = dialog.getByRole('button', {
+    name: t(locale, 'settings.security.twoFactorDisable'),
+  });
+
+  // A wrong password: field error, focus on it, 2FA stays on.
+  await password.fill('pas le bon mot de passe');
+  await code.fill(totpCode(user.secret!));
+  await submit.click();
+  await expect(dialog.getByText(t(locale, 'auth.setup.wrongPassword'))).toBeVisible();
+  await expect(password).toBeFocused();
+
+  await password.fill(user.password);
+  await code.fill(totpCode(user.secret!));
+  await submit.click();
+  await expect(dialog).toBeHidden();
+  await expect(toast(page, locale, t(locale, 'settings.security.twoFactorDisabled'))).toBeVisible();
+  await expect(
+    page.getByText(t(locale, 'settings.security.twoFactorStatusOff'), { exact: true }),
+  ).toBeVisible();
 });
 
 test('onboarding checklist shows 2/5 after email verification and phone verification', async ({

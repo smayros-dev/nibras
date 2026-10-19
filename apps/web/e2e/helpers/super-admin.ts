@@ -67,7 +67,7 @@ export async function seedSuperAdmin(): Promise<SeededSuperAdmin> {
     const ver = await ctx.post('/api/v1/auth/verify-email', { data: { token } });
     if (ver.status() !== 200) throw new Error(`verify-email ${ver.status()}: ${await ver.text()}`);
 
-    const setup = await ctx.post('/api/v1/auth/2fa/setup');
+    const setup = await ctx.post('/api/v1/auth/2fa/setup', { data: { password } });
     if (setup.status() !== 200)
       throw new Error(`2fa/setup ${setup.status()}: ${await setup.text()}`);
     const { secret } = (await setup.json()) as { secret: string };

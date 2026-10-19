@@ -344,10 +344,15 @@
           "otpCode": {
             "pattern": "^\\d{6}$",
             "type": "string"
+          },
+          "password": {
+            "maxLength": 256,
+            "type": "string"
           }
         },
         "required": [
-          "otpCode"
+          "otpCode",
+          "password"
         ],
         "type": "object"
       },
@@ -371,6 +376,18 @@
         "required": [
           "challengeToken",
           "recoveryCode"
+        ],
+        "type": "object"
+      },
+      "TwoFactorSetupDto": {
+        "properties": {
+          "password": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
         ],
         "type": "object"
       },
@@ -1036,6 +1053,16 @@
       "post": {
         "operationId": "AuthController_setupTwoFactor",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorSetupDto"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": ""

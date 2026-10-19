@@ -2,7 +2,12 @@ import { authenticator } from 'otplib';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
 import { as, loginAs, setCookies } from '../helpers/auth';
-import { createOrganization, createPersonalWorkspace, createUser } from '../helpers/factories';
+import {
+  createOrganization,
+  createPersonalWorkspace,
+  createUser,
+  DEFAULT_PASSWORD,
+} from '../helpers/factories';
 
 const SECRET = authenticator.generateSecret();
 
@@ -37,7 +42,12 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
 
   /** Enables TOTP for `u` through the API; returns the seed and the recovery codes. */
   async function enable(cookie: string): Promise<{ secret: string; recoveryCodes: string[] }> {
-    const { secret } = (await as(http, cookie).post('/api/v1/auth/2fa/setup').expect(200)).body;
+    const { secret } = (
+      await as(http, cookie)
+        .post('/api/v1/auth/2fa/setup')
+        .send({ password: DEFAULT_PASSWORD })
+        .expect(200)
+    ).body;
     const { recoveryCodes } = (
       await as(http, cookie)
         .post('/api/v1/auth/2fa/verify')
@@ -50,7 +60,10 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
   it('setup → verify enables TOTP, returns 10 recovery codes once, then login requires a challenge', async () => {
     const u = await createUser();
     const s = await loginAs(ctx, u);
-    const setup = await as(http, s.cookie).post('/api/v1/auth/2fa/setup').expect(200);
+    const setup = await as(http, s.cookie)
+      .post('/api/v1/auth/2fa/setup')
+      .send({ password: DEFAULT_PASSWORD })
+      .expect(200);
     const { secret, otpauthUrl } = setup.body;
     expect(secret).toMatch(/^[A-Z2-7]+$/);
     expect(otpauthUrl).toMatch(/^otpauth:\/\/totp\//);
@@ -92,6 +105,7 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
     // Already enabled: setup again is refused; codes are never shown again.
     await as(http, s.cookie)
       .post('/api/v1/auth/2fa/setup')
+      .send({ password: DEFAULT_PASSWORD })
       .expect(409)
       .expect(({ body }) => expect(body.code).toBe('TWO_FACTOR_ALREADY_ENABLED'));
     await as(http, s.cookie)
@@ -253,7 +267,12 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
       .get('/api/v1/me')
       .expect(200)
       .expect(({ body }) => expect(body.twoFactor).toEqual({ enabled: false, required: true }));
-    const { secret } = (await as(http, s.cookie).post('/api/v1/auth/2fa/setup').expect(200)).body;
+    const { secret } = (
+      await as(http, s.cookie)
+        .post('/api/v1/auth/2fa/setup')
+        .send({ password: DEFAULT_PASSWORD })
+        .expect(200)
+    ).body;
     // Still blocked while setup is pending.
     await as(http, s.cookie).get('/api/v1/auth/sessions').expect(403);
     await as(http, s.cookie)
@@ -267,7 +286,7 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
       .expect(({ body }) => expect(body.twoFactor).toEqual({ enabled: true, required: true }));
     await as(http, s.cookie)
       .post('/api/v1/auth/2fa/disable')
-      .send({ otpCode: authenticator.generate(secret) })
+      .send({ otpCode: authenticator.generate(secret), password: DEFAULT_PASSWORD })
       .expect(403)
       .expect(({ body }) => expect(body.code).toBe('TWO_FACTOR_MANDATORY'));
     expect(
@@ -298,7 +317,7 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
     // Nothing to disable yet.
     await as(http, s.cookie)
       .post('/api/v1/auth/2fa/disable')
-      .send({ otpCode: '123456' })
+      .send({ otpCode: '123456', password: DEFAULT_PASSWORD })
       .expect(401)
       .expect(({ body }) => expect(body.code).toBe('TWO_FACTOR_INVALID'));
 
@@ -308,12 +327,12 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
       .expect(({ body }) => expect(body.twoFactor).toEqual({ enabled: true, required: false }));
     await as(http, s.cookie)
       .post('/api/v1/auth/2fa/disable')
-      .send({ otpCode: wrongCode(secret) })
+      .send({ otpCode: wrongCode(secret), password: DEFAULT_PASSWORD })
       .expect(401)
       .expect(({ body }) => expect(body.code).toBe('TWO_FACTOR_INVALID'));
     await as(http, s.cookie)
       .post('/api/v1/auth/2fa/disable')
-      .send({ otpCode: authenticator.generate(secret) })
+      .send({ otpCode: authenticator.generate(secret), password: DEFAULT_PASSWORD })
       .expect(204);
 
     const after = await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } });
@@ -326,5 +345,103 @@ describe('2FA: TOTP setup, login challenge, recovery codes, mandatory policy', (
     expect(await ctx.db.auditLog.count({ where: { action: 'auth.2fa_disabled' } })).toBe(1);
     const res = await login(u);
     expect(res.body.status).toBe('OK');
+  });
+  describe('password step-up (SP1.6 F5)', () => {
+    const WRONG = 'wrong wrong wrong';
+
+    it('setup requires the current password: 422 without, 401 INVALID_CREDENTIALS + audit with a wrong one, 429 past 5 wrong', async () => {
+      const u = await createUser();
+      const s = await loginAs(ctx, u);
+      await as(http, s.cookie)
+        .post('/api/v1/auth/2fa/setup')
+        .send({})
+        .expect(422)
+        .expect(({ body }) => expect(body.code).toBe('VALIDATION_FAILED'));
+      await as(http, s.cookie)
+        .post('/api/v1/auth/2fa/setup')
+        .send({ password: WRONG })
+        .expect(401)
+        .expect(({ body }) => expect(body.code).toBe('INVALID_CREDENTIALS'));
+      expect(
+        (await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } })).totpSecretEnc,
+      ).toBeNull();
+      const audit = await ctx.db.auditLog.findMany({
+        where: { action: 'auth.reauth_failed', entityId: u.id },
+      });
+      expect(audit).toHaveLength(1);
+      expect(audit[0]!.after).toEqual({ purpose: '2fa_setup' });
+      expect(JSON.stringify(audit)).not.toContain(WRONG);
+
+      // The confirmation route never creates a pending seed: nothing to confirm.
+      await as(http, s.cookie)
+        .post('/api/v1/auth/2fa/verify')
+        .send({ otpCode: '123456' })
+        .expect(401)
+        .expect(({ body }) => expect(body.code).toBe('TWO_FACTOR_INVALID'));
+      expect(
+        (await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } })).totpSecretEnc,
+      ).toBeNull();
+
+      for (let i = 0; i < 4; i += 1) {
+        await as(http, s.cookie)
+          .post('/api/v1/auth/2fa/setup')
+          .send({ password: WRONG })
+          .expect(401);
+      }
+      // The limiter counts attempts, right or wrong, past 5 in the window.
+      await as(http, s.cookie)
+        .post('/api/v1/auth/2fa/setup')
+        .send({ password: DEFAULT_PASSWORD })
+        .expect(429)
+        .expect(({ body }) => expect(body.code).toBe('RATE_LIMITED'));
+      expect(
+        (await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } })).totpSecretEnc,
+      ).toBeNull();
+    });
+
+    it('disable requires password + code: 422 without the password, a wrong password leaves TOTP on, the right pair disables', async () => {
+      const u = await createUser();
+      await createPersonalWorkspace(u);
+      const s = await loginAs(ctx, u);
+      const { secret } = await enable(s.cookie);
+      await as(http, s.cookie)
+        .post('/api/v1/auth/2fa/disable')
+        .send({ otpCode: authenticator.generate(secret) })
+        .expect(422)
+        .expect(({ body }) => expect(body.code).toBe('VALIDATION_FAILED'));
+      await as(http, s.cookie)
+        .post('/api/v1/auth/2fa/disable')
+        .send({ otpCode: authenticator.generate(secret), password: WRONG })
+        .expect(401)
+        .expect(({ body }) => expect(body.code).toBe('INVALID_CREDENTIALS'));
+      const still = await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } });
+      expect(still.totpEnabledAt).toBeInstanceOf(Date);
+      expect(still.totpSecretEnc).not.toBeNull();
+      const audit = await ctx.db.auditLog.findFirstOrThrow({
+        where: { action: 'auth.reauth_failed', entityId: u.id },
+      });
+      expect(audit.after).toEqual({ purpose: '2fa_disable' });
+      expect(await ctx.db.auditLog.count({ where: { action: 'auth.2fa_disabled' } })).toBe(0);
+
+      await as(http, s.cookie)
+        .post('/api/v1/auth/2fa/disable')
+        .send({ otpCode: authenticator.generate(secret), password: DEFAULT_PASSWORD })
+        .expect(204);
+      expect(
+        (await ctx.db.user.findUniqueOrThrow({ where: { id: u.id } })).totpEnabledAt,
+      ).toBeNull();
+    });
+
+    it('a role that requires 2FA is refused before the password is checked', async () => {
+      const owner = await createUser({ totpSecret: SECRET });
+      await createOrganization({ owner });
+      const s = await loginAs(ctx, owner);
+      await as(http, s.cookie)
+        .post('/api/v1/auth/2fa/disable')
+        .send({ otpCode: authenticator.generate(SECRET), password: WRONG })
+        .expect(403)
+        .expect(({ body }) => expect(body.code).toBe('TWO_FACTOR_MANDATORY'));
+      expect(await ctx.db.auditLog.count({ where: { action: 'auth.reauth_failed' } })).toBe(0);
+    });
   });
 });

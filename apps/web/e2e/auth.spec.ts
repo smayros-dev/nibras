@@ -135,7 +135,7 @@ test('login with 2FA: challenge page, wrong code error, right code enters; recov
   await expect(page).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
 });
 
-test('AC-AUTH-05 UI: org admin without 2FA is forced to /2fa/setup and cannot leave before confirming', async ({
+test('AC-AUTH-05 UI: org admin without 2FA is forced to /2fa/setup, confirms the password, and cannot leave before confirming', async ({
   page,
   uiLocale: locale,
 }) => {
@@ -144,6 +144,17 @@ test('AC-AUTH-05 UI: org admin without 2FA is forced to /2fa/setup and cannot le
   await page.goto(`/${locale}/login`);
   await fillLogin(page, locale, user.email, user.password);
   await expect(page).toHaveURL(appUrl(`/${locale}/2fa/setup`), { timeout: 15_000 });
+
+  // Step-up (SP1.6 F5): the password comes first; a wrong one shows a field error, no QR.
+  const password = page.getByLabel(t(locale, 'auth.setup.password'), { exact: true });
+  await password.fill('pas le bon mot de passe');
+  await page.getByRole('button', { name: t(locale, 'auth.setup.passwordContinue') }).click();
+  await expect(page.getByText(t(locale, 'auth.setup.wrongPassword'))).toBeVisible();
+  await expect(password).toBeFocused();
+  await expect(page.getByTestId('totp-secret')).toHaveCount(0);
+  await password.fill(user.password);
+  await page.getByRole('button', { name: t(locale, 'auth.setup.passwordContinue') }).click();
+  await expect(page.getByTestId('totp-secret')).toBeVisible();
 
   // Leaving for the app bounces straight back until 2FA is confirmed.
   await page.goto(`/${locale}/app`);

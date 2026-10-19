@@ -98,16 +98,16 @@ Every email lands in Mailpit (http://localhost:8025):
 Every mutation writes an `AuditLog` row (`action`, actor, entity, before/after JSON) through
 `AuditService.log`. Actions (SP1, `apps/api/src/audit/audit.service.ts`):
 
-| Prefix           | Meaning                                                                                                                                                                |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.*`         | registration, login (and failures/lock), refresh-token reuse, sessions revoked, password/email changes and resets, 2FA recovery code used, forbidden-workspace attempt |
-| `user.*`         | profile updated, suspended/unsuspended, super-admin granted                                                                                                            |
-| `phone.*`        | phone verified (OTP)                                                                                                                                                   |
-| `consent.*`      | TERMS/PRIVACY/CODE_OF_CONDUCT granted or revoked                                                                                                                       |
-| `workspace.*`    | created, updated, settings updated, ownership transferred, suspended/unsuspended, deleted, quota changed                                                               |
-| `member.*`       | added, removed, role changed                                                                                                                                           |
-| `assignment.*`   | course/session assignment created or deleted                                                                                                                           |
-| `abuse_report.*` | report created or updated (status/resolution)                                                                                                                          |
+| Prefix           | Meaning                                                                                                                                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.*`         | registration, login (and failures/lock), refresh-token reuse, sessions revoked, password/email changes and resets, 2FA recovery code used, failed password step-up (`auth.reauth_failed`), forbidden-workspace attempt |
+| `user.*`         | profile updated, suspended/unsuspended, super-admin granted                                                                                                                                                            |
+| `phone.*`        | phone verified (OTP)                                                                                                                                                                                                   |
+| `consent.*`      | TERMS/PRIVACY/CODE_OF_CONDUCT granted or revoked                                                                                                                                                                       |
+| `workspace.*`    | created, updated, settings updated, ownership transferred, suspended/unsuspended, deleted, quota changed                                                                                                               |
+| `member.*`       | added, removed, role changed                                                                                                                                                                                           |
+| `assignment.*`   | course/session assignment created or deleted                                                                                                                                                                           |
+| `abuse_report.*` | report created or updated (status/resolution)                                                                                                                                                                          |
 
 Writes are fire-and-forget: a failed audit write increments `audit_write_failures_total` and
 never blocks the business operation.
@@ -136,6 +136,20 @@ Global API limits are configured by env (`apps/api/src/config/env.ts`, applied b
 
 Separately, the login throttle (Redis `login:fail:*` / `login:lock:*`) bounds password guessing,
 and the phone OTP endpoint has its own request window (1/60 s) and attempt cap (5).
+
+Signed-in routes that re-check the password share one per-user limiter (`ReauthLimiter`, Redis
+`auth:reauth-attempts:{userId}`): more than 5 attempts in 15 min → `429 RATE_LIMITED`, a right
+password resets the count.
+
+| Route                    | Re-checks                                   | Wrong password                                                                         |
+| ------------------------ | ------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `PATCH /me/password`     | `currentPassword`                           | `401 INVALID_CREDENTIALS`, `auth.password_change_failed`                               |
+| `POST /me/email-change`  | `password`                                  | `401 INVALID_CREDENTIALS`, `auth.email_change_failed`                                  |
+| `POST /auth/2fa/setup`   | `password` (step-up, SP1.6)                 | `401 INVALID_CREDENTIALS`, `auth.reauth_failed { purpose: '2fa_setup' }`; no seed      |
+| `POST /auth/2fa/disable` | `password`, then `otpCode` (step-up, SP1.6) | `401 INVALID_CREDENTIALS`, `auth.reauth_failed { purpose: '2fa_disable' }`; TOTP stays |
+
+The TOTP code checked by signed-in routes (setup confirmation, disable) has its own count
+(`auth:2fa-attempts:{userId}`, same 5 per 15 min).
 
 ## Super-admin console
 

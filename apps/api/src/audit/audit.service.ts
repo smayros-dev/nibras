@@ -26,6 +26,7 @@ export type AuditAction =
   | 'auth.2fa_enabled'
   | 'auth.2fa_disabled'
   | 'auth.recovery_code_used'
+  | 'auth.reauth_failed'
   | 'auth.forbidden_workspace'
   | 'user.profile_updated'
   | 'user.suspended'

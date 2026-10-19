@@ -8,6 +8,7 @@ import {
   ResetPasswordSchema,
   TwoFactorDisableSchema,
   TwoFactorRecoverySchema,
+  TwoFactorSetupSchema,
   TwoFactorVerifySchema,
   VerifyEmailSchema,
 } from '@nibras/contracts';
@@ -68,4 +69,11 @@ export class TwoFactorVerifyDto extends createZodDto(TwoFactorVerifySchema) {}
 
 export class TwoFactorRecoveryDto extends createZodDto(TwoFactorRecoverySchema) {}
 
-export class TwoFactorDisableDto extends createZodDto(TwoFactorDisableSchema) {}
+/** Step-up (SP1.6 F5): the current password, capped like any password input. */
+export class TwoFactorSetupDto extends createZodDto(
+  TwoFactorSetupSchema.extend({ password: CurrentPasswordSchema }),
+) {}
+
+export class TwoFactorDisableDto extends createZodDto(
+  TwoFactorDisableSchema.extend({ password: CurrentPasswordSchema }),
+) {}
