@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { createPrismaClient, systemPrisma } from './client';
-import { NULLABLE_TENANT_MODELS, TENANT_MODELS } from './tenancy';
+import { NULLABLE_TENANT_MODELS, TENANT_MODELS, type TenantModel } from './tenancy';
 
 /**
  * Tenant isolation, Prisma half of PRD §13.3 / D-P13. The other half is the `tenant_isolation`
@@ -15,9 +15,11 @@ import { NULLABLE_TENANT_MODELS, TENANT_MODELS } from './tenancy';
  *   and runs it in a batch transaction after `set_config('app.workspace_id', wid, true)`.
  * - `withTenantTx(wid, fn)` — interactive transaction with `app.workspace_id` set for its lifetime;
  *   use it for multi-statement writes and for raw SQL on tenant tables.
- * - `crossTenantDb()` — READ-ONLY, for `/me/…` and system paths: `app.bypass_tenant = 'on'`, every
- *   tenant-model query needs a top-level `userId`/`id` equality filter, and `include`/`select`
- *   (including `_count`) may not reach a tenant relation — issue a separate filtered query.
+ * - `crossTenantDb()` — READ-ONLY, for `/me/…`, public token routes and system paths:
+ *   `app.bypass_tenant = 'on'`, every tenant-model query needs a top-level `userId`/`id` equality
+ *   filter or a plain string equality on one of the model's `CROSS_TENANT_LOOKUP_KEYS` (unique
+ *   secret columns), and `include`/`select` (including `_count`) may not reach a tenant relation —
+ *   issue a separate filtered query.
  *   `crossTenantDb({ reason: 'super_admin', actor })` lifts the filter rule for the admin
  *   console's aggregates only: it checks the actor is a SUPER_ADMIN and writes the
  *   `admin.cross_tenant_query` audit row in the same transaction as the query. ESLint allows that
@@ -57,14 +59,34 @@ export class TenantMismatchError extends Error {
   }
 }
 
+/** The filter keys every tenant model accepts in `crossTenantDb()`. */
+const BASE_FILTER_KEYS = ['userId', 'id'] as const;
+
 export class CrossTenantFilterMissingError extends Error {
   readonly code = 'CROSS_TENANT_FILTER_MISSING' as const;
-  constructor(model: string, operation: string) {
+  constructor(model: string, operation: string, keys: readonly string[] = BASE_FILTER_KEYS) {
     super(
-      `CrossTenantFilterMissing: ${model}.${operation} via crossTenantDb needs a top-level where.userId or where.id equality filter`,
+      `CrossTenantFilterMissing: ${model}.${operation} via crossTenantDb needs a top-level where equality filter on one of: ${keys.join(', ')}`,
     );
     this.name = 'CrossTenantFilterMissingError';
   }
+}
+
+/**
+ * Unique secret columns that may resolve a tenant row through `crossTenantDb()` on their own (PRD
+ * §13.3 "always filtered", SP2 spec §3): a public token route looks the row up by the hash of the
+ * token it was given (or by the invite code), learns its `workspaceId`, then does every write under
+ * `withTenantTx(workspaceId)`. Only a plain, non-empty string equality counts — never an object
+ * filter (`contains`, `in`, `not`…) and never a non-secret column such as `email` or `status`.
+ */
+export const CROSS_TENANT_LOOKUP_KEYS = {
+  Invitation: ['tokenHash'],
+  InviteLink: ['code'],
+  GuardianLink: ['consentTokenHash', 'sessionsViewTokenHash'],
+} as const satisfies Partial<Record<TenantModel, readonly string[]>>;
+
+function lookupKeys(model: string): readonly string[] {
+  return (CROSS_TENANT_LOOKUP_KEYS as Partial<Record<string, readonly string[]>>)[model] ?? [];
 }
 
 /** A `crossTenantDb` call shape that is never allowed (write, nested tenant relation, bad actor). */
@@ -211,16 +233,25 @@ function scopeArgs(
   return a;
 }
 
-/** A top-level `userId`/`id` equality (`'x'`, `{ equals: 'x' }` or a non-empty `{ in: [...] }`). */
-function hasUserOrIdFilter(args: unknown): boolean {
+/**
+ * The "always filtered" rule of `crossTenantDb()`: a top-level `userId`/`id` equality (`'x'`,
+ * `{ equals: 'x' }` or a non-empty `{ in: [...] }`), or a plain non-empty string on one of the
+ * model's `CROSS_TENANT_LOOKUP_KEYS`.
+ */
+function hasCrossTenantFilter(model: string, args: unknown): boolean {
   const where = isObject(args) ? args.where : undefined;
   if (!isObject(where)) return false;
-  return ['userId', 'id'].some((key) => {
+  const byUserOrId = BASE_FILTER_KEYS.some((key) => {
     const v = where[key];
     if (typeof v === 'string') return true;
     if (!isObject(v) || Object.keys(v).length !== 1) return false;
     if (typeof v.equals === 'string') return true;
     return Array.isArray(v.in) && v.in.length > 0 && v.in.every((x) => typeof x === 'string');
+  });
+  if (byUserOrId) return true;
+  return lookupKeys(model).some((key) => {
+    const v = where[key];
+    return typeof v === 'string' && v.length > 0;
   });
 }
 
@@ -343,7 +374,12 @@ function crossTenant(base: PrismaClient, superAdmin: SuperAdminCrossTenant | und
           }
           if (!isScoped(model)) return query(args);
           if (!superAdmin) {
-            if (!hasUserOrIdFilter(args)) throw new CrossTenantFilterMissingError(model, operation);
+            if (!hasCrossTenantFilter(model, args)) {
+              throw new CrossTenantFilterMissingError(model, operation, [
+                ...BASE_FILTER_KEYS,
+                ...lookupKeys(model),
+              ]);
+            }
             const [, result] = await base.$transaction([
               base.$executeRaw`SELECT set_config('app.bypass_tenant', 'on', true)`,
               query(args) as Prisma.PrismaPromise<unknown>,
