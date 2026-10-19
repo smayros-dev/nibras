@@ -67,6 +67,13 @@ jobs:
       S3_BUCKET_TEST: nibras-test
       S3_FORCE_PATH_STYLE: 'true'
       VIDEO_PROVIDER: s3
+      # Cloudflare Stream is never called in CI (VIDEO_PROVIDER=s3): empty = unset.
+      CLOUDFLARE_ACCOUNT_ID: ''
+      CLOUDFLARE_STREAM_API_TOKEN: ''
+      CLOUDFLARE_STREAM_WEBHOOK_SECRET: ''
+      CLOUDFLARE_STREAM_SIGNING_KEY_ID: ''
+      CLOUDFLARE_STREAM_SIGNING_KEY_PEM: ''
+      CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN: ''
     services:
       postgres:
         image: postgres:17
@@ -183,6 +190,13 @@ jobs:
       S3_BUCKET_TEST: nibras-test
       S3_FORCE_PATH_STYLE: 'true'
       VIDEO_PROVIDER: s3
+      # Cloudflare Stream is never called in CI (VIDEO_PROVIDER=s3): empty = unset.
+      CLOUDFLARE_ACCOUNT_ID: ''
+      CLOUDFLARE_STREAM_API_TOKEN: ''
+      CLOUDFLARE_STREAM_WEBHOOK_SECRET: ''
+      CLOUDFLARE_STREAM_SIGNING_KEY_ID: ''
+      CLOUDFLARE_STREAM_SIGNING_KEY_PEM: ''
+      CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN: ''
     services:
       postgres:
         image: postgres:17

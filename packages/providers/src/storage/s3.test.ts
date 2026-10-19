@@ -67,6 +67,22 @@ describe.skipIf(!process.env.S3_ENDPOINT)('S3StorageProvider (MinIO)', () => {
     expect((await fetch(expiring)).status).toBe(403);
   });
 
+  it('putBucketCors applies the browser upload rule, or reports MinIO NotImplemented', async () => {
+    const result = await s3.putBucketCors(['http://localhost:3000']);
+    expect(['applied', 'not-implemented']).toContain(result);
+    if (result === 'applied') {
+      expect(await s3.getBucketCors()).toEqual([
+        {
+          AllowedOrigins: ['http://localhost:3000'],
+          AllowedMethods: ['GET', 'PUT', 'HEAD'],
+          AllowedHeaders: ['*'],
+          ExposeHeaders: ['ETag'],
+          MaxAgeSeconds: 3600,
+        },
+      ]);
+    }
+  });
+
   it('listParts follows the pagination', async () => {
     const key = keyFor('many.bin');
     const { uploadId } = await s3.createMultipartUpload(key, 'application/octet-stream');

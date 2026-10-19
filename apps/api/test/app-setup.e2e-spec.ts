@@ -1,4 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  type RawBodyRequest,
+} from '@nestjs/common';
+import type { Request } from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { testDbName, testRedisDb } from '@nibras/config/vitest/test-env';
 import { createZodDto } from 'nestjs-zod';
@@ -19,14 +28,22 @@ class BodyLimitController {
     void body;
     return { ok: true };
   }
+
+  /** The exact bytes received (media webhooks verify their HMAC over them, SP3). */
+  @Post('raw-body')
+  @HttpCode(HttpStatus.OK)
+  raw(@Req() req: RawBodyRequest<Request>): { raw: string | null } {
+    return { raw: req.rawBody?.toString('utf8') ?? null };
+  }
 }
 
 describe('http setup (shared with main.ts)', () => {
   let app: Awaited<ReturnType<typeof createTestApp>>['app'];
   let http: TestAgent;
+  let storage: Awaited<ReturnType<typeof createTestApp>>['storage'];
 
   beforeAll(async () => {
-    ({ app, http } = await createTestApp({ controllers: [BodyLimitController] }));
+    ({ app, http, storage } = await createTestApp({ controllers: [BodyLimitController] }));
   });
   afterAll(async () => {
     await app.close();
@@ -43,6 +60,24 @@ describe('http setup (shared with main.ts)', () => {
     if (process.env.DATABASE_URL_TEST) {
       expect(new URL(process.env.DATABASE_URL ?? '').pathname).toBe(`/${testDbName('api')}`);
     }
+  });
+
+  it('keeps the raw JSON body next to the parsed one (rawBody, like main.ts)', async () => {
+    // Not re-serialisable from the parsed object: whitespace, key order, a newline, non-ASCII.
+    const body = '{ "b":1,\n  "a": "é" }';
+    const res = await http
+      .post('/api/v1/__test/raw-body')
+      .set('Content-Type', 'application/json')
+      .send(body)
+      .expect(200);
+    expect(res.body).toEqual({ raw: body });
+  });
+
+  it('uses its own MinIO test bucket (nibras-api-test), never the development bucket', async () => {
+    expect(storage.bucket).toBe(process.env.S3_BUCKET_TEST);
+    expect(storage.bucket).toMatch(/-api-test$/);
+    // ensureBucket ran in createTestApp: the bucket answers.
+    expect(await storage.head('w/missing/key')).toBeNull();
   });
 
   it('sends helmet headers forbidding framing', async () => {

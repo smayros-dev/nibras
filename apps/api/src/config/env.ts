@@ -3,6 +3,21 @@ import { z } from 'zod';
 
 /** Empty strings in `.env` (e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=`) mean "unset". */
 const optionalUrl = z.preprocess((v) => (v === '' ? undefined : v), z.url().optional());
+/** S3 endpoints: http(s) only (`minio:9000` parses as a URL with the scheme `minio:`). */
+const httpUrl = () => z.url({ protocol: /^https?$/ });
+const optionalHttpUrl = z.preprocess((v) => (v === '' ? undefined : v), httpUrl().optional());
+/** Same for strings: compose passes optional variables as `${VAR:-}` (empty). */
+const optionalString = z.preprocess((v) => (v === '' ? undefined : v), z.string().optional());
+
+/** Every value `VIDEO_PROVIDER=cloudflare_stream` needs in the API (tus upload, JWT, webhooks). */
+export const CLOUDFLARE_API_VARS = [
+  'CLOUDFLARE_ACCOUNT_ID',
+  'CLOUDFLARE_STREAM_API_TOKEN',
+  'CLOUDFLARE_STREAM_WEBHOOK_SECRET',
+  'CLOUDFLARE_STREAM_SIGNING_KEY_ID',
+  'CLOUDFLARE_STREAM_SIGNING_KEY_PEM',
+  'CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN',
+] as const;
 
 const TOTP_KEY_BYTES = 32;
 
@@ -68,6 +83,27 @@ const EnvObject = z.object({
   RATE_LIMIT_USER: z.coerce.number().int().min(1).default(600),
   /** Requests per minute per anonymous ip (public routes, login, register, …). */
   RATE_LIMIT_ANON: z.coerce.number().int().min(1).default(60),
+  // SP3 object storage (MinIO locally/CI, OVH Object Storage in production).
+  /** Endpoint the API reaches (e.g. `http://minio:9000`). */
+  S3_ENDPOINT: httpUrl(),
+  /** Endpoint browsers reach, used for presigned URLs only; empty = `S3_ENDPOINT`. */
+  S3_PUBLIC_ENDPOINT: optionalHttpUrl,
+  S3_REGION: z.string().min(1).default('us-east-1'),
+  S3_ACCESS_KEY: z.string().min(1),
+  S3_SECRET_KEY: z.string().min(1),
+  S3_BUCKET: z.string().regex(/^[a-z0-9.-]{3,63}$/, 'S3_BUCKET must be a valid S3 bucket name'),
+  /** Path-style URLs (`http://host/bucket/key`): true for MinIO. */
+  S3_FORCE_PATH_STYLE: z.stringbool().default(true),
+  /** `s3` = passthrough in the bucket above (dev/CI/staging); `cloudflare_stream` (D-P1). */
+  VIDEO_PROVIDER: z.enum(['s3', 'cloudflare_stream']).default('s3'),
+  CLOUDFLARE_ACCOUNT_ID: optionalString,
+  CLOUDFLARE_STREAM_API_TOKEN: optionalString,
+  CLOUDFLARE_STREAM_WEBHOOK_SECRET: optionalString,
+  CLOUDFLARE_STREAM_SIGNING_KEY_ID: optionalString,
+  /** PEM (PKCS#1 or PKCS#8), or the base64 of it as `POST /stream/keys` returns it. */
+  CLOUDFLARE_STREAM_SIGNING_KEY_PEM: optionalString,
+  /** `customer-<code>.cloudflarestream.com`. */
+  CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN: optionalString,
 });
 
 // Defaults first, so the rules see the effective values: a staging env that omits COOKIE_SECURE
@@ -85,8 +121,20 @@ export const EnvSchema = EnvObject.transform((e) => ({
       message: 'SMS_PROVIDER=console (log only) is not allowed when APP_ENV=production',
     });
   }
+  if (e.VIDEO_PROVIDER === 'cloudflare_stream') {
+    for (const name of CLOUDFLARE_API_VARS) {
+      if (!e[name]) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [name],
+          message: `${name} is required when VIDEO_PROVIDER=cloudflare_stream`,
+        });
+      }
+    }
+  }
   // Staging/production: no repository placeholder secret, no init.sql DB password, secure
-  // cookies, https origin (SP1.6 F6). HIBP_ENABLED stays free (owner Q2).
+  // cookies, https origin (SP1.6 F6), no MinIO root password or placeholder Cloudflare secret
+  // (SP3). HIBP_ENABLED stays free (owner Q2).
   assertDeployableEnv(e, (path, message) =>
     ctx.addIssue({ code: 'custom', path: [path], message }),
   );

@@ -5,12 +5,15 @@ import {
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
+  GetBucketCorsCommand,
   GetObjectCommand,
   HeadObjectCommand,
   ListMultipartUploadsCommand,
   ListObjectsV2Command,
   ListPartsCommand,
+  PutBucketCorsCommand,
   S3Client,
+  type CORSRule,
   S3ServiceException,
   UploadPartCommand,
 } from '@aws-sdk/client-s3';
@@ -207,6 +210,49 @@ export class S3StorageProvider implements StorageProvider {
       await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
     } catch (error) {
       if (error instanceof S3ServiceException && error.name === 'BucketAlreadyOwnedByYou') return;
+      throw error;
+    }
+  }
+
+  /**
+   * Ops helper (`s3:init`): lets the browser `PUT` presigned parts and read the `ETag` from
+   * `origins`. MinIO answers `NotImplemented` (it allows any origin by default) → `'not-implemented'`.
+   */
+  async putBucketCors(origins: readonly string[]): Promise<'applied' | 'not-implemented'> {
+    try {
+      await this.client.send(
+        new PutBucketCorsCommand({
+          Bucket: this.bucket,
+          CORSConfiguration: {
+            CORSRules: [
+              {
+                AllowedOrigins: [...origins],
+                AllowedMethods: ['GET', 'PUT', 'HEAD'],
+                AllowedHeaders: ['*'],
+                ExposeHeaders: ['ETag'],
+                MaxAgeSeconds: 3600,
+              },
+            ],
+          },
+        }),
+      );
+      return 'applied';
+    } catch (error) {
+      if (error instanceof S3ServiceException && error.name === 'NotImplemented') {
+        return 'not-implemented';
+      }
+      throw error;
+    }
+  }
+
+  /** Ops helper: the bucket's CORS rules (`[]` when none is set). */
+  async getBucketCors(): Promise<CORSRule[]> {
+    try {
+      const res = await this.client.send(new GetBucketCorsCommand({ Bucket: this.bucket }));
+      return (res.CORSRules ?? []).map(({ ID: _id, ...rule }) => rule);
+    } catch (error) {
+      if (error instanceof S3ServiceException && error.name === 'NoSuchCORSConfiguration')
+        return [];
       throw error;
     }
   }

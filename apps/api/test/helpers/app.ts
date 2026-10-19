@@ -3,12 +3,18 @@ import type { INestApplication, Type } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { resetDatabase, systemPrisma, type PrismaClient } from '@nibras/db';
-import { InMemoryEmailProvider, InMemorySmsProvider } from '@nibras/providers';
+import {
+  InMemoryEmailProvider,
+  InMemorySmsProvider,
+  type S3StorageProvider,
+  type VideoProvider,
+} from '@nibras/providers';
 import type Redis from 'ioredis';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { FakePwnedClient } from '../../src/auth/crypto/hibp';
+import { STORAGE_PROVIDER, VIDEO_PROVIDER_TOKEN } from '../../src/media/tokens';
 import { LOG_DESTINATION } from '../../src/observability/logger.module';
 import { REDIS } from '../../src/redis/redis.module';
 import { EMAIL_PROVIDER, PWNED_CLIENT, SMS_PROVIDER } from '../../src/providers/providers.module';
@@ -82,9 +88,20 @@ export async function createTestApp(opts: CreateTestAppOptions = {}) {
   if (opts.overrides) builder = opts.overrides(builder);
   const moduleRef = await builder.compile();
   // Nest's own boot logs stay off; `configureApp` routes the app's logs to pino (`logs`).
-  const app = moduleRef.createNestApplication<NestExpressApplication>({ logger: false });
+  const app = moduleRef.createNestApplication<NestExpressApplication>({
+    logger: false,
+    rawBody: true,
+  });
   configureApp(app);
   await app.listen(0, '127.0.0.1');
+  /**
+   * Real MinIO (spec D10) on this package's test bucket (`S3_BUCKET` = derived `S3_BUCKET_TEST`,
+   * test/setup.ts), unless a spec overrode the token with a fake.
+   */
+  const storage = app.get<S3StorageProvider>(STORAGE_PROVIDER);
+  const video = app.get<VideoProvider>(VIDEO_PROVIDER_TOKEN);
+  const bucketHelpers = isBucketHelper(storage) ? storage : undefined;
+  if (bucketHelpers) await ensureTestBucket(bucketHelpers);
   /** `app_system` (BYPASSRLS) on this package's test database: fixtures and assertions. */
   const db: PrismaClient = systemPrisma();
   return {
@@ -96,13 +113,16 @@ export async function createTestApp(opts: CreateTestAppOptions = {}) {
     sms,
     queue,
     pwned,
+    storage,
+    video,
     /**
      * Empties the database (refuses a non-`_test` one), this package's test Redis index (login
-     * throttle and rate-limit counters; refuses DB 0) and every fake.
+     * throttle and rate-limit counters; refuses DB 0), the test bucket and every fake.
      */
     async reset(): Promise<void> {
       await resetDatabase(db);
       await flushTestRedis(app.get<Redis>(REDIS));
+      if (bucketHelpers) await emptyTestBucket(bucketHelpers);
       email.clear();
       sms.clear();
       queue.clear();
@@ -110,6 +130,39 @@ export async function createTestApp(opts: CreateTestAppOptions = {}) {
       logs.clear();
     },
   };
+}
+
+type BucketHelpers = Pick<S3StorageProvider, 'bucket' | 'ensureBucket' | 'emptyBucket'>;
+
+function isBucketHelper(storage: unknown): storage is BucketHelpers {
+  const s = storage as Partial<BucketHelpers> | null;
+  return typeof s?.ensureBucket === 'function' && typeof s.emptyBucket === 'function';
+}
+
+/** Refuses any bucket but this package's derived test bucket (`nibras-api-test`, …). */
+function assertTestBucket(storage: BucketHelpers): void {
+  if (storage.bucket !== process.env.S3_BUCKET_TEST || !/-api(-test)?$/.test(storage.bucket)) {
+    throw new Error(
+      `refusing to use bucket "${storage.bucket}" in tests: set S3_BUCKET_TEST (e.g. nibras-test) so the API gets its own bucket`,
+    );
+  }
+}
+
+let bucketReady: Promise<void> | undefined;
+
+/** Creates the test bucket once per process (each spec file boots its own app). */
+function ensureTestBucket(storage: BucketHelpers): Promise<void> {
+  assertTestBucket(storage);
+  bucketReady ??= storage.ensureBucket().catch((error: unknown) => {
+    bucketReady = undefined;
+    throw error;
+  });
+  return bucketReady;
+}
+
+async function emptyTestBucket(storage: BucketHelpers): Promise<void> {
+  assertTestBucket(storage);
+  await storage.emptyBucket();
 }
 
 /** FLUSHDB on the API's Redis connection, only when it points at a test index (never DB 0). */
