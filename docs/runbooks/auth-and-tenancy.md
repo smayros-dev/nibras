@@ -114,14 +114,41 @@ never blocks the business operation.
 
 ## Tenant isolation suite
 
-`apps/api/test/isolation/tenant-routes.e2e-spec.ts` probes **every** `/workspaces/{wid}` route
-with a member of another organisation and asserts cross-tenant access is refused with 404
-(never 200/403/422, never data). Any new tenant route is covered automatically by the suite's
-route list.
+`apps/api/test/isolation/tenant-routes.e2e-spec.ts` enumerates **every** `/workspaces/{wid}`
+route from the app's router (`listRoutes`), so a new tenant route is covered automatically. Each
+scenario loops over that list:
+
+| Scenario                        | Caller                                                               | Expected                                                                                                                                             |
+| ------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Non-member (SP1)                | a TEACHER of another organisation; a user with no membership         | `404 NOT_FOUND` on every route (+ `auth.forbidden_workspace` audit)                                                                                  |
+| Foreign path params and cursors | ACTIVE OWNER of A, with B's real ids                                 | `404 NOT_FOUND` for every route with a param other than `:wid`; `422 VALIDATION_FAILED` on `cursor` for the cursor listings; no B id in any response |
+| Foreign bodies                  | ACTIVE OWNER of A, bodies naming B's users/rows                      | never `2xx` (and never `5xx`); no new assignment, report or membership; no row of A references a B id                                                |
+| Inactive membership             | `PENDING_APPROVAL` TEACHER, `SUSPENDED_CONSENT_REVOKED` STUDENT of A | `403 MEMBERSHIP_INACTIVE` on every route                                                                                                             |
+| Read-only states                | ACTIVE OWNER of a `SUSPENDED` / `DELETING` A                         | `423 WORKSPACE_SUSPENDED` on every write route; `200` on every read, abuse-report responses without any reporter (owner Q1)                          |
+
+`apps/api/test/isolation/admin-routes.e2e-spec.ts` enumerates every `/admin/**` route: an ACTIVE
+organisation OWNER (2FA on) gets `403 PERMISSION_DENIED` (no 404 masking: the console's existence
+is public), a super-admin never gets `403` nor a `5xx`.
+
+The ids come from `apps/api/test/isolation/fixtures.ts`: `createTenantPair()` builds two
+organisations A and B with **disjoint** users and one report, assignment and audit row each, so
+an id of B exists only in B. Its tables are the review surface:
+
+- `PARAMS` → `FOREIGN_PARAMS` / `LOCAL_PARAMS`: path param (`':uid'`, or `'<resource>/:id'` when
+  ambiguous; longest match wins) → the tenant's row.
+- `FOREIGN_QUERIES`: `GET` listings whose `cursor` names a row (audit log, abuse reports,
+  members). `GET …/assignments` is deliberately absent: its keyset `id > cursor` inside the
+  workspace only positions the scan over A's rows.
+- `FOREIGN_BODIES`: write routes with id-bearing bodies, the body naming B's ids and whether the
+  path takes A's own ids (`local`, so the body is what is probed) or B's (`foreign`).
+- `BODYLESS_WRITE_ROUTES`: write routes reviewed as carrying no id in their body, one comment each.
+
+A new route whose param, cursor or id-bearing body has no entry fails the suite with "add a …
+fixture"; add the fixture, never skip the route.
 
 `apps/api/test/isolation/exemptions.ts` lists the rare routes the suite must NOT probe (e.g. ones
-that intentionally answer for non-members). An exemption hides a route from the isolation
-guarantee, so each entry needs a comment justifying it and code review — never add one to make a
+that intentionally answer for non-members). An exemption hides a route from **every** scenario
+above, so each entry needs a comment justifying it and code review — never add one to make a
 failing test pass.
 
 ## One OWNER per workspace

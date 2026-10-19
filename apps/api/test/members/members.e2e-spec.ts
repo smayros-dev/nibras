@@ -201,6 +201,29 @@ describe('members: scoped listing, role changes, removal (AC-WS-02, Review Focus
       .expect(({ body }) => expect(body.code).toBe('VALIDATION_FAILED'));
   });
 
+  it('SP1.6 F8: a well-formed cursor naming a member of another workspace → 422 on cursor', async () => {
+    const ownerA = await createUser({ totpSecret: S });
+    const ownerB = await createUser({ totpSecret: S });
+    const onlyB = await createUser({ lastName: 'Aaa' });
+    const removedA = await createUser({ lastName: 'Aaa' });
+    const { workspace: a } = await createOrganization({
+      owner: ownerA,
+      students: [await createUser({ lastName: 'Zzz' })],
+      members: [{ user: removedA, role: 'STUDENT', status: 'REMOVED' }],
+    });
+    await createOrganization({ owner: ownerB, students: [onlyB] });
+    const cursorOf = (u: { id: string; firstName: string; lastName: string }) =>
+      Buffer.from(JSON.stringify([u.lastName, u.firstName, u.id])).toString('base64url');
+    const admin = await agent(ownerA);
+
+    const foreign = await admin.get(`${members(a.id)}?cursor=${cursorOf(onlyB)}`).expect(422);
+    expect(foreign.body.code).toBe('VALIDATION_FAILED');
+    expect(foreign.body.details.issues[0].path).toEqual(['cursor']);
+    // A position of this workspace (any status) still pages.
+    const local = await admin.get(`${members(a.id)}?cursor=${cursorOf(removedA)}`).expect(200);
+    expect(local.body.items.map((m: { lastName: string }) => m.lastName)).toEqual(['User', 'Zzz']);
+  });
+
   it('a STUDENT may not list members (403 PERMISSION_DENIED); a personal OWNER lists all with emails', async () => {
     const owner = await createUser({ totpSecret: S });
     const st = await createUser();
