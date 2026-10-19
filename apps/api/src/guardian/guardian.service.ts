@@ -5,6 +5,7 @@ import {
   GUARDIAN_CONSENT_VERSION,
   guardianPageLink,
   hashOpaqueToken,
+  isMinor,
   maskEmail,
   OPAQUE_TOKEN_RAW_LENGTH,
   type GuardianConsentPreview,
@@ -41,9 +42,10 @@ import {
   MembershipActivatedEvent,
   MembershipDeactivatedEvent,
 } from '../members/events';
-import type { MemberCtx } from '../members/members.service';
+import { ownScope, type MemberCtx } from '../members/members.service';
+import { validationFailed } from '../workspaces/workspaces.service';
 import { GuardianMailerService, type GuardianMailUser } from './guardian-mailer.service';
-import { GuardianRequestService } from './guardian-request.service';
+import { GuardianRequestService, type ArmedGuardianRequest } from './guardian-request.service';
 
 /** A raw opaque token as the links carry it (base64url of 32 bytes). */
 const TOKEN_SHAPE = new RegExp(`^[A-Za-z0-9_-]{${OPAQUE_TOKEN_RAW_LENGTH}}$`);
@@ -447,6 +449,121 @@ export class GuardianService {
   }
 
   /**
+   * `PATCH /workspaces/{wid}/students/{uid}` `{ guardianEmail }` (design §4.5, Q1): the guardian
+   * email of a minor STUDENT of `wid` within `scope` (the caller's membership filter, resolved by
+   * `StudentsService`); not found, ended (`REMOVED` / `REJECTED`) or outside the scope → `404`.
+   * An adult (no birth date, or `!isMinor`) → `422 VALIDATION_FAILED` on `guardianEmail`; the
+   * student's own address → `422 GUARDIAN_EMAIL_INVALID`; the address on record → nothing to do
+   * (`false`). An `ACTIVE` link → `409 CONSENT_ALREADY_DECIDED`: the consent on record was given
+   * by that guardian, who must keep his page to revoke it (D-O5); a guardian change goes through
+   * his revocation first.
+   *
+   * Otherwise, under the link's row lock (a decision committing in between is seen): the new
+   * address, and both tokens of the previous guardian cleared — his consent link and his guardian
+   * page can no longer grant or re-grant. When the membership waits on the consent
+   * (`PENDING_GUARDIAN_CONSENT`, `SUSPENDED_*`), a new 14-day request is armed to the new address
+   * (no resend cooldown: another address; `consentResentCount` kept); otherwise (e.g.
+   * `PENDING_APPROVAL`) the address is only recorded, the approval sends the request. After the
+   * commit: audit `guardian.email_changed` (masked addresses) + `student.updated`, then the
+   * consent email. Returns whether something changed.
+   */
+  async changeEmail(
+    wid: string,
+    scope: Prisma.MembershipWhereInput,
+    uid: string,
+    guardianEmail: string,
+  ): Promise<boolean> {
+    if (!UUID.test(uid)) throw notFound();
+    const email = guardianEmail.toLowerCase();
+    const changed = await withTenantTx(wid, async (tx) => {
+      await lockWorkspaceOpen(tx, wid);
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM "guardian_link"
+          WHERE workspace_id = ${wid}::uuid AND student_user_id = ${uid}::uuid
+          FOR UPDATE`,
+      );
+      const membership = await tx.membership.findFirst({
+        where: { AND: [{ userId: uid, role: 'STUDENT', status: { notIn: ENDED } }, scope] },
+        select: {
+          id: true,
+          status: true,
+          user: { select: { email: true, birthDate: true } },
+        },
+      });
+      if (!membership) throw notFound();
+      const birthDate = membership.user.birthDate?.toISOString().slice(0, 10);
+      if (!birthDate || !isMinor(birthDate)) {
+        throw validationFailed('guardianEmail', 'Only a minor has a guardian email');
+      }
+      if (membership.user.email.toLowerCase() === email) {
+        throw new ApiError(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'GUARDIAN_EMAIL_INVALID',
+          "The guardian email must differ from the student's",
+        );
+      }
+      const link = await tx.guardianLink.findFirst({ where: { studentUserId: uid } });
+      if (link && link.guardianEmail.toLowerCase() === email) return null;
+      if (link?.status === 'ACTIVE') {
+        throw new ApiError(
+          HttpStatus.CONFLICT,
+          'CONSENT_ALREADY_DECIDED',
+          'The guardian already consented; he must revoke before another guardian is asked',
+        );
+      }
+      let current: GuardianLink;
+      if (link) {
+        current = await tx.guardianLink.update({
+          where: { id: link.id },
+          data: { guardianEmail: email, consentTokenHash: null, sessionsViewTokenHash: null },
+        });
+      } else {
+        current = await tx.guardianLink.create({
+          data: { workspaceId: wid, studentUserId: uid, guardianEmail: email, status: 'PENDING' },
+        });
+      }
+      let armed: ArmedGuardianRequest | null = null;
+      if (CONSENT_WAITING.includes(membership.status)) {
+        armed = await this.request.start(tx, {
+          workspaceId: wid,
+          studentUserId: uid,
+          guardianEmail: email,
+        });
+        current = armed.link;
+      }
+      return {
+        before: link?.guardianEmail ?? null,
+        link: current,
+        armed,
+        membershipId: membership.id,
+      };
+    });
+    if (!changed) return false;
+
+    const { link, armed } = changed;
+    await this.audit.log({
+      action: 'guardian.email_changed',
+      entityType: 'GuardianLink',
+      entityId: link.id,
+      workspaceId: wid,
+      before: { guardianEmailMasked: changed.before === null ? null : maskEmail(changed.before) },
+      after: { studentUserId: uid, guardianEmailMasked: maskEmail(link.guardianEmail) },
+    });
+    await this.audit.log({
+      action: 'student.updated',
+      entityType: 'Membership',
+      entityId: changed.membershipId,
+      workspaceId: wid,
+      after: { studentUserId: uid, fields: ['guardianEmail'] },
+    });
+    if (armed) {
+      const { workspace, student, teacher } = await this.context(link);
+      await this.request.notify({ ...armed, student, workspace, teacher });
+    }
+    return true;
+  }
+
+  /**
    * The shared resend: `423` for a SUSPENDED / DELETING workspace; the membership must wait on
    * the consent (`PENDING_GUARDIAN_CONSENT`, `SUSPENDED_NO_CONSENT`, `SUSPENDED_CONSENT_REVOKED`,
    * else `409 MEMBERSHIP_NOT_PENDING`); `GuardianRequestService.resend` arms a new 14-day
@@ -482,16 +599,7 @@ export class GuardianService {
   private async studentScope(ctx: MemberCtx): Promise<Prisma.MembershipWhereInput> {
     if (ctx.scope === 'all') return {};
     if (RequestContext.get()?.membership?.role === 'STUDENT') return { userId: ctx.userId };
-    const assigned = await tenantDb(ctx.workspaceId).teacherStudentAssignment.findMany({
-      where: { teacherUserId: ctx.userId },
-      select: { studentUserId: true },
-    });
-    return {
-      OR: [
-        { userId: { in: assigned.map((a) => a.studentUserId) } },
-        { invitedByUserId: ctx.userId },
-      ],
-    };
+    return ownScope(ctx);
   }
 
   /**

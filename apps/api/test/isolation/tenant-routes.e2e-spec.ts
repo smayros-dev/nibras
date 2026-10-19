@@ -108,6 +108,10 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         // SP2 T7: the teacher's guardian consent resend (the student's own resend lives under
         // /me/workspaces/:wid and is not a tenant route, D12).
         'POST /api/v1/workspaces/:wid/students/:uid/guardian/resend-consent',
+        // SP2 T8: students list, profile skeleton, guardian email.
+        'GET /api/v1/workspaces/:wid/students',
+        'GET /api/v1/workspaces/:wid/students/:uid/profile',
+        'PATCH /api/v1/workspaces/:wid/students/:uid',
       ]),
     );
   });
@@ -229,6 +233,8 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       where: { id: p.b.consentLink.id },
     });
     expect(bGuardian.consentTokenHash).toBe(p.b.consentLink.consentTokenHash);
+    expect(bGuardian.guardianEmail).toBe(p.b.consentLink.guardianEmail);
+    expect(bGuardian.sessionsViewTokenHash).toBe(p.b.consentLink.sessionsViewTokenHash);
 
     const known = new Set(routes.map(key));
     expect(Object.keys(FOREIGN_QUERIES).length).toBeGreaterThanOrEqual(3);

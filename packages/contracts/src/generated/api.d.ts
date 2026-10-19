@@ -1060,6 +1060,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{wid}/students": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["StudentsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/students/{uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["StudentsController_update"];
+        trace?: never;
+    };
     "/workspaces/{wid}/students/{uid}/guardian/resend-consent": {
         parameters: {
             query?: never;
@@ -1070,6 +1102,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["StudentGuardianController_resend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/students/{uid}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["StudentsController_profile"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1328,6 +1376,10 @@ export interface components {
             canTeach?: boolean;
             /** @enum {string} */
             role?: "OWNER" | "ADMIN" | "TEACHER" | "ASSISTANT" | "STUDENT" | "GUARDIAN";
+        };
+        UpdateStudentDto: {
+            /** Format: email */
+            guardianEmail?: string;
         };
         UpdateWorkspaceDto: {
             allowPersonalWorkspaces?: boolean;
@@ -3182,7 +3234,75 @@ export interface operations {
             };
         };
     };
+    StudentsController_list: {
+        parameters: {
+            query?: {
+                status?: "ACTIVE" | "PENDING_APPROVAL" | "PENDING_GUARDIAN_CONSENT" | "SUSPENDED_NO_CONSENT" | "SUSPENDED_CONSENT_REVOKED" | "REMOVED" | "REJECTED";
+                q?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStudentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     StudentGuardianController_resend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentsController_profile: {
         parameters: {
             query?: never;
             header?: never;

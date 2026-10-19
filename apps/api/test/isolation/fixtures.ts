@@ -183,6 +183,9 @@ const PARAMS: Record<string, (t: Tenant) => string> = {
   'members/:uid/reject': (t) => t.pendingStudent.id,
   // A consent-waiting minor whose guardian link was sent: B's one could be re-sent inside B.
   'students/:uid/guardian': (t) => t.consentStudent.id,
+  // SP2 T8: the same minor for the profile and the guardian email change (B's one could have
+  // its guardian email replaced inside B, the most sensitive write of the students routes).
+  'students/:uid': (t) => t.consentStudent.id,
 };
 
 /** B's id for each path param: an ACTIVE OWNER of A calling with it gets `404 NOT_FOUND`. */
@@ -266,6 +269,8 @@ export const FOREIGN_QUERIES: Record<string, (p: TenantPair) => Record<string, s
   'GET /api/v1/workspaces/:wid/members': (p) => ({ cursor: membersCursor(p.b.student) }),
   // SP2: an invitation id of this workspace (`invitations.service.ts`).
   'GET /api/v1/workspaces/:wid/invitations': (p) => ({ cursor: p.b.invitation.id }),
+  // SP2 T8: the members cursor naming a STUDENT of this workspace (`students.service.ts`).
+  'GET /api/v1/workspaces/:wid/students': (p) => ({ cursor: membersCursor(p.b.consentStudent) }),
   // Not here: `GET …/assignments` pages with `id > cursor` inside `tenantDb(wid)`; a foreign id
   // only positions the scan over A's rows (nothing of B is read or revealed), so it stays `200`.
 };
@@ -334,6 +339,12 @@ export const FOREIGN_BODIES: Record<
   'PATCH /api/v1/workspaces/:wid/invite-links/:id': {
     params: 'foreign',
     body: () => ({ label: 'X' }),
+  },
+  // SP2 T8: no id in the body (a guardian email); the path is B's consent-waiting minor, whose
+  // guardian link must keep its address and tokens.
+  'PATCH /api/v1/workspaces/:wid/students/:uid': {
+    params: 'foreign',
+    body: () => ({ guardianEmail: 'probe-guardian@example.com' }),
   },
 };
 
