@@ -74,7 +74,10 @@ function newReport(reporter: User, reported: User, category: AbuseCategory, ws: 
   });
 }
 
-/** A BullMQ-like job whose `progress` survives between runs, as on a BullMQ retry. */
+/**
+ * A BullMQ-like job whose `progress` survives between runs, as on a BullMQ retry. The progress is
+ * stored as a copy (BullMQ serialises it to Redis), so a later in-memory change never leaks in.
+ */
 function createdJob(reportId: string) {
   const job = {
     name: 'abuse.report_created',
@@ -82,7 +85,7 @@ function createdJob(reportId: string) {
     data: { reportId },
     progress: 0 as unknown,
     updateProgress(p: unknown) {
-      job.progress = p;
+      job.progress = structuredClone(p);
       return Promise.resolve();
     },
   };
@@ -346,6 +349,66 @@ describe('abuse.report_created processor (F12, AC-SAFE-02/05, Review Focus 5/6)'
     await expect(dispatch(job)).rejects.toThrow(/1 email/);
     const { sentTo } = job.progress as { sentTo: string[] };
     expect([...sentTo].sort()).toEqual([pupil.id, sa1.id, sa3.id].sort());
+    expect(email.sent.map((m) => m.to).sort()).toEqual([pupil.email, sa1.email, sa3.email].sort());
+
+    email.clear(); // sa2's mailbox is reachable again
+    await expect(dispatch(job)).resolves.toEqual({ sent: 4 });
+    expect(email.sent.map((m) => m.to)).toEqual([sa2.email]);
+  });
+
+  /** Makes the given (1-based) `updateProgress` calls throw, as a Redis blip would. */
+  function failProgressWrites(job: ReturnType<typeof createdJob>, calls: number[]) {
+    const write = job.updateProgress.bind(job);
+    let call = 0;
+    job.updateProgress = (p: unknown) => {
+      call += 1;
+      return calls.includes(call) ? Promise.reject(new Error('redis down')) : write(p);
+    };
+  }
+
+  /** Dispatches like BullMQ: a failed attempt is retried with the job progress kept. */
+  async function dispatchWithRetries(job: ReturnType<typeof createdJob>, attempts = 5) {
+    for (let i = 1; ; i += 1) {
+      try {
+        return await dispatch(job);
+      } catch (err) {
+        if (i >= attempts) throw err;
+      }
+    }
+  }
+
+  it('a failed progress write after a sent email never re-sends it on retry (last write lost)', async () => {
+    const admins = [
+      await user('SUPER_ADMIN'),
+      await user('SUPER_ADMIN'),
+      await user('SUPER_ADMIN'),
+    ];
+    const solo = await user();
+    const pupil = await user();
+    const personal = await workspace('PERSONAL', solo, [[pupil, 'STUDENT']]);
+    const r = await newReport(pupil, solo, 'HARASSMENT', personal);
+    const job = createdJob(r.id);
+
+    failProgressWrites(job, [4]); // the write after the 4th (last) successful send
+    await expect(dispatchWithRetries(job)).resolves.toEqual({ sent: 4 });
+    expect(email.sent.map((m) => m.to).sort()).toEqual(
+      [pupil.email, ...admins.map((a) => a.email)].sort(),
+    );
+  });
+
+  it('a failed progress write plus a failed send: the retry emails only the failed recipient', async () => {
+    const sa1 = await user('SUPER_ADMIN');
+    const sa2 = await user('SUPER_ADMIN');
+    const sa3 = await user('SUPER_ADMIN');
+    const solo = await user();
+    const pupil = await user();
+    const personal = await workspace('PERSONAL', solo, [[pupil, 'STUDENT']]);
+    const r = await newReport(pupil, solo, 'HARASSMENT', personal);
+    const job = createdJob(r.id);
+
+    email.failFor(sa2.email);
+    failProgressWrites(job, [3]); // the write after the last successful send of the first run
+    await expect(dispatch(job)).rejects.toThrow(/1 email/);
     expect(email.sent.map((m) => m.to).sort()).toEqual([pupil.email, sa1.email, sa3.email].sort());
 
     email.clear(); // sa2's mailbox is reachable again

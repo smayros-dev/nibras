@@ -20,7 +20,16 @@ import { WORKER_DB } from '../worker-db';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Job progress: the users already emailed, so a retry never emails them twice. */
+/**
+ * Job progress: the users already emailed, so a retry never emails them twice.
+ *
+ * The send and the progress write are separate steps: a progress write that fails after a sent
+ * email never counts as a failed send (it alone never fails the job) and the in-memory `sentTo`
+ * keeps that user, so this run never emails them again. Before a run fails (a send failed), the
+ * progress is written once more so the retry sees every user reached. Remaining at-least-once
+ * window: when that final write also fails (Redis unreachable), or the worker dies between a send
+ * and its write, the retry can email those users a second time.
+ */
 interface SentToProgress {
   sentTo: string[];
 }
@@ -91,7 +100,8 @@ export class AbuseProcessor implements OnModuleInit {
   /**
    * Sends the report's notifications sequentially (reporter first, then by user id). A failed
    * email fails the job once every other recipient was tried (BullMQ retries it); the users
-   * already reached are kept in the job progress (`sentTo`) and skipped (Review Focus 5).
+   * already reached are kept in the job progress (`sentTo`) and skipped (Review Focus 5). A failed
+   * progress write never fails the job nor re-sends within the run (see `SentToProgress`).
    */
   async reportCreated(job: Job<AbuseReportCreatedJob>): Promise<ReportCreatedResult> {
     const { reportId } = job.data;
@@ -117,12 +127,11 @@ export class AbuseProcessor implements OnModuleInit {
 
     const sentTo = sentSoFar(job.progress);
     let failed = 0;
+    let unsaved = false;
     for (const n of notifications) {
       if (sentTo.includes(n.userId)) continue;
       try {
         await this.email.send({ to: n.to, locale: n.locale, ...n.mail });
-        sentTo.push(n.userId);
-        await job.updateProgress({ sentTo } satisfies SentToProgress);
       } catch (err) {
         failed += 1;
         this.logger.error(
@@ -134,11 +143,37 @@ export class AbuseProcessor implements OnModuleInit {
           },
           'abuse report email not sent',
         );
+        continue;
       }
+      sentTo.push(n.userId);
+      unsaved = !(await this.saveSentTo(job, sentTo, reportId));
     }
+    if (failed > 0 && unsaved) await this.saveSentTo(job, sentTo, reportId);
     if (failed > 0) throw new Error(`abuse report notifications: ${failed} email(s) not sent`);
     this.logger.info({ reportId, recipients: sentTo.length }, 'abuse report notifications sent');
     return { sent: sentTo.length };
+  }
+
+  /**
+   * Persists `sentTo` in the job progress; a failure is logged (warning, with the report id) and
+   * reported as `false`, never thrown: the email it records was sent (see `SentToProgress`).
+   */
+  private async saveSentTo(job: Job, sentTo: string[], reportId: string): Promise<boolean> {
+    try {
+      await job.updateProgress({ sentTo: [...sentTo] } satisfies SentToProgress);
+      return true;
+    } catch (err) {
+      this.logger.warn(
+        {
+          reportId,
+          jobName: job.name,
+          recipients: sentTo.length,
+          err: { type: err instanceof Error ? err.name : typeof err },
+        },
+        'abuse notification progress not saved',
+      );
+      return false;
+    }
   }
 
   /**
@@ -228,6 +263,7 @@ export class AbuseProcessor implements OnModuleInit {
     });
     const sentTo = sentSoFar(job.progress);
     let failed = 0;
+    let unsaved = false;
     for (const admin of admins) {
       if (sentTo.includes(admin.id)) continue;
       try {
@@ -239,8 +275,6 @@ export class AbuseProcessor implements OnModuleInit {
             link: abuseReportLinks(this.env.WEB_ORIGIN, admin.locale, null, reportId).admin,
           },
         });
-        sentTo.push(admin.id);
-        await job.updateProgress({ sentTo } satisfies SentToProgress);
       } catch (err) {
         failed += 1;
         this.logger.error(
@@ -251,8 +285,12 @@ export class AbuseProcessor implements OnModuleInit {
           },
           'minor-safety reminder email not sent',
         );
+        continue;
       }
+      sentTo.push(admin.id);
+      unsaved = !(await this.saveSentTo(job, sentTo, reportId));
     }
+    if (failed > 0 && unsaved) await this.saveSentTo(job, sentTo, reportId);
     if (failed > 0) throw new Error(`minor-safety reminder: ${failed} email(s) not sent`);
     this.logger.info({ reportId, recipients: sentTo.length }, 'minor-safety reminder sent');
     return { sent: sentTo.length };

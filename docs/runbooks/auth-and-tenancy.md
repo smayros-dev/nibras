@@ -117,7 +117,12 @@ After `abuse_report.created`, the API enqueues one `abuse.report_created { repor
 `notifications` (`jobId = abuse:{id}:notify`, 5 attempts, exponential backoff; SP1.6 F12) instead
 of emailing inline. The worker (`AbuseProcessor.reportCreated`) sends the acknowledgement to the
 reporter, then `abuse.new_report` to the handlers, one by one; the users already emailed are kept
-in the job progress (`sentTo`), so a retry only reaches the ones that failed. A failed enqueue is
+in the job progress (`sentTo`), so a retry only reaches the ones that failed. The send and the
+progress write are separate: a failed progress write is logged as a warning (`abuse notification
+progress not saved`, with the report id), never counts as a failed send, and the user is not
+emailed again in that run; before a failing run ends, the progress is written once more. Delivery
+stays at-least-once: if that last write also fails (Redis unreachable), or the worker dies between
+a send and its progress write, the retry can email those users twice. A failed enqueue is
 logged (`abuse report notifications not enqueued`, with the report id) and the request still
 succeeds: the report is in the super-admin queue. A job that exhausted its attempts stays in
 BullMQ's failed set (`removeOnFail: 5000`) with the worker's `job failed` log lines.
