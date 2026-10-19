@@ -214,6 +214,92 @@
         "title": "Compte réactivé",
         "body": "Bonjour {firstName},\n\nVotre compte a été réactivé. Vous pouvez de nouveau vous connecter et utiliser la plateforme."
       }
+    },
+    "invitation": {
+      "received_student": {
+        "subject": "{inviterName} vous invite à rejoindre l’espace {workspaceName}",
+        "title": "Invitation à rejoindre {workspaceName}",
+        "body": "{hasName, select, yes {Bonjour {firstName},} other {Bonjour,}}\n\n{inviterName} vous invite à rejoindre l’espace « {workspaceName} » pour y suivre des cours en ligne et des sessions vidéo en direct.{hasMessage, select, yes {\n\nMessage de {inviterName} :\n« {message} »} other {}}\n\nCette invitation est valable jusqu’au {expiresAt}. Elle est réservée à cette adresse email : ne la transférez pas.\n\nSi vous ne connaissez pas {inviterName}, ignorez cet email.",
+        "cta": "Accepter l’invitation"
+      },
+      "received_staff": {
+        "subject": "{inviterName} vous invite à rejoindre l’équipe de {workspaceName}",
+        "title": "Invitation à rejoindre l’équipe de {workspaceName}",
+        "body": "Bonjour,\n\n{inviterName} vous invite à rejoindre l’organisation « {workspaceName} » en tant que {role, select, TEACHER {professeur} ADMIN {administrateur} other {membre}}.\n\nCette invitation est valable jusqu’au {expiresAt}. Elle est réservée à cette adresse email : ne la transférez pas.\n\nSi vous ne connaissez pas {inviterName}, ignorez cet email.",
+        "cta": "Accepter l’invitation"
+      },
+      "accepted": {
+        "subject": "{memberName} a rejoint l’espace {workspaceName}",
+        "title": "Invitation acceptée",
+        "body": "Bonjour {firstName},\n\n{memberName} a accepté votre invitation à rejoindre l’espace « {workspaceName} ». Vous pouvez suivre son statut depuis votre espace.",
+        "cta": "Ouvrir l’espace"
+      }
+    },
+    "guardian": {
+      "consent_requested": {
+        "subject": "{studentName} souhaite rejoindre l’espace de {teacherName}",
+        "title": "Autorisation parentale demandée",
+        "body": "Bonjour,\n\n{studentName} souhaite rejoindre l’espace « {workspaceName} » de {teacherName} pour y suivre des cours en ligne et des sessions vidéo en direct. Comme {studentName} a moins de 18 ans, votre autorisation est nécessaire avant tout accès.\n\nVous pouvez autoriser ou refuser cette demande depuis la page ci-dessous, sans créer de compte. Ce lien est valable jusqu’au {expiresAt}.\n\nVotre autorisation ne vaut que pour cet espace et vous pourrez la retirer à tout moment.\n\nSi vous n’êtes pas le parent ou le tuteur légal de {studentName}, ignorez cet email.",
+        "cta": "Répondre à la demande"
+      },
+      "consent_confirmation": {
+        "subject": "Votre autorisation pour {studentName} est enregistrée",
+        "title": "Merci, votre autorisation est enregistrée",
+        "body": "Bonjour,\n\nVous avez autorisé {studentName} à utiliser l’espace « {workspaceName} » de {teacherName}.\n\nLe lien ci-dessous vous donne accès à la liste des sessions de {studentName} dans cet espace et vous permet de retirer votre autorisation à tout moment. Ce lien est personnel : ne le transférez à personne.\n\nLe retrait de votre autorisation suspend l’accès de {studentName} à cet espace uniquement.",
+        "cta": "Sessions de {studentName}"
+      },
+      "consent_granted": {
+        "subject": "Vous avez maintenant accès à l’espace {workspaceName}",
+        "title": "Autorisation parentale accordée",
+        "body": "Bonjour {firstName},\n\nVotre parent ou tuteur a donné son autorisation : vous pouvez désormais accéder à l’espace « {workspaceName} » de {teacherName}.",
+        "cta": "Accéder à l’espace"
+      },
+      "consent_granted_teacher": {
+        "subject": "Autorisation parentale accordée pour {studentName}",
+        "title": "Autorisation parentale accordée",
+        "body": "Bonjour {firstName},\n\nLe parent ou tuteur de {studentName} a donné son autorisation. {studentName} a désormais accès à l’espace « {workspaceName} » de {teacherName}.",
+        "cta": "Voir le profil de l’étudiant"
+      },
+      "consent_refused": {
+        "subject": "Autorisation parentale refusée — {workspaceName}",
+        "title": "Autorisation parentale refusée",
+        "body": "Bonjour {firstName},\n\n{recipientRole, select, STUDENT {Votre parent ou tuteur a refusé que vous utilisiez l’espace « {workspaceName} » de {teacherName}. Votre accès à cet espace reste suspendu. Vous pouvez en parler avec lui et renvoyer la demande depuis l’espace.} other {Le parent ou tuteur de {studentName} a refusé son autorisation pour l’espace « {workspaceName} » de {teacherName}. L’accès de {studentName} à cet espace reste suspendu ; vous pouvez renvoyer la demande depuis son profil.}}",
+        "cta": "{recipientRole, select, STUDENT {Ouvrir l’espace} other {Voir le profil de l’étudiant}}"
+      },
+      "consent_revoked": {
+        "subject": "Autorisation parentale retirée — {workspaceName}",
+        "title": "Autorisation parentale retirée",
+        "body": "Bonjour {firstName},\n\n{recipientRole, select, STUDENT {Votre parent ou tuteur a retiré son autorisation pour l’espace « {workspaceName} » de {teacherName}. Votre accès à cet espace est suspendu ; vos autres espaces ne sont pas concernés et vos données sont conservées.} other {Le parent ou tuteur de {studentName} a retiré son autorisation pour l’espace « {workspaceName} » de {teacherName}. L’accès de {studentName} à cet espace est suspendu ; ses données sont conservées.}}",
+        "cta": "{recipientRole, select, STUDENT {Ouvrir l’espace} other {Voir le profil de l’étudiant}}"
+      },
+      "consent_expired": {
+        "subject": "Demande d’autorisation parentale expirée — {workspaceName}",
+        "title": "Demande d’autorisation expirée",
+        "body": "Bonjour {firstName},\n\n{recipientRole, select, STUDENT {Votre parent ou tuteur n’a pas répondu sous 14 jours à la demande d’autorisation pour l’espace « {workspaceName} » de {teacherName}. Votre accès à cet espace est suspendu ; vous pouvez renvoyer la demande depuis l’espace.} other {Le parent ou tuteur de {studentName} n’a pas répondu sous 14 jours à la demande d’autorisation pour l’espace « {workspaceName} » de {teacherName}. L’accès de {studentName} à cet espace est suspendu ; vous pouvez renvoyer la demande depuis son profil.}}",
+        "cta": "{recipientRole, select, STUDENT {Ouvrir l’espace} other {Voir le profil de l’étudiant}}"
+      }
+    },
+    "join": {
+      "approved": {
+        "subject": "Votre demande pour rejoindre {workspaceName} est acceptée",
+        "title": "Demande acceptée",
+        "body": "Bonjour {firstName},\n\n{teacherName} a accepté votre demande pour rejoindre l’espace « {workspaceName} ».\n\nSi vous avez moins de 18 ans, votre accès s’ouvrira dès que votre parent ou tuteur aura donné son autorisation : un email lui a été envoyé.",
+        "cta": "Accéder à l’espace"
+      },
+      "rejected": {
+        "subject": "Votre demande pour rejoindre {workspaceName} n’a pas été acceptée",
+        "title": "Demande non acceptée",
+        "body": "Bonjour {firstName},\n\n{teacherName} n’a pas accepté votre demande pour rejoindre l’espace « {workspaceName} ».\n\nSi vous pensez qu’il s’agit d’une erreur, contactez directement votre professeur.",
+        "cta": "Accéder à mon compte"
+      }
+    },
+    "imports": {
+      "completed": {
+        "subject": "Import terminé — {workspaceName}",
+        "title": "Import des invitations terminé",
+        "body": "Bonjour {firstName},\n\nL’import de votre fichier dans l’espace « {workspaceName} » est terminé. {created, plural, =0 {Aucune invitation n’a été envoyée.} one {# invitation a été envoyée.} other {# invitations ont été envoyées.}} {failed, plural, =0 {Aucun envoi n’a échoué.} one {# envoi a échoué : l’invitation existe et vous pouvez la renvoyer depuis l’onglet « En attente ».} other {# envois ont échoué : les invitations existent et vous pouvez les renvoyer depuis l’onglet « En attente ».}}\n\nLe rapport détaillé, ligne par ligne, est disponible depuis la page des étudiants.",
+        "cta": "Voir les invitations en attente"
+      }
     }
   },
   "sms": {

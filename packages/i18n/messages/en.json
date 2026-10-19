@@ -214,6 +214,92 @@
         "title": "Account reactivated",
         "body": "Hello {firstName},\n\nYour account was reactivated. You can sign in and use the platform again."
       }
+    },
+    "invitation": {
+      "received_student": {
+        "subject": "{inviterName} invites you to join {workspaceName}",
+        "title": "Invitation to join {workspaceName}",
+        "body": "{hasName, select, yes {Hello {firstName},} other {Hello,}}\n\n{inviterName} invites you to join the “{workspaceName}” space to take online courses and live video sessions.{hasMessage, select, yes {\n\nMessage from {inviterName}:\n“{message}”} other {}}\n\nThis invitation is valid until {expiresAt}. It is reserved for this email address: please do not forward it.\n\nIf you do not know {inviterName}, ignore this email.",
+        "cta": "Accept the invitation"
+      },
+      "received_staff": {
+        "subject": "{inviterName} invites you to join the {workspaceName} team",
+        "title": "Invitation to join the {workspaceName} team",
+        "body": "Hello,\n\n{inviterName} invites you to join the “{workspaceName}” organisation as {role, select, TEACHER {a teacher} ADMIN {an administrator} other {a member}}.\n\nThis invitation is valid until {expiresAt}. It is reserved for this email address: please do not forward it.\n\nIf you do not know {inviterName}, ignore this email.",
+        "cta": "Accept the invitation"
+      },
+      "accepted": {
+        "subject": "{memberName} joined {workspaceName}",
+        "title": "Invitation accepted",
+        "body": "Hello {firstName},\n\n{memberName} accepted your invitation to join the “{workspaceName}” space. You can follow their status from your space.",
+        "cta": "Open the space"
+      }
+    },
+    "guardian": {
+      "consent_requested": {
+        "subject": "{studentName} would like to join {teacherName}’s space",
+        "title": "Parental consent requested",
+        "body": "Hello,\n\n{studentName} would like to join the “{workspaceName}” space of {teacherName} to take online courses and live video sessions. As {studentName} is under 18, your consent is required before any access.\n\nYou can grant or refuse this request from the page below, without creating an account. This link is valid until {expiresAt}.\n\nYour consent applies to this space only, and you can withdraw it at any time.\n\nIf you are not the parent or legal guardian of {studentName}, ignore this email.",
+        "cta": "Answer the request"
+      },
+      "consent_confirmation": {
+        "subject": "Your consent for {studentName} is recorded",
+        "title": "Thank you, your consent is recorded",
+        "body": "Hello,\n\nYou have allowed {studentName} to use the “{workspaceName}” space of {teacherName}.\n\nThe link below gives you access to the list of {studentName}’s sessions in this space and lets you withdraw your consent at any time. This link is personal: do not forward it to anyone.\n\nWithdrawing your consent suspends {studentName}’s access to this space only.",
+        "cta": "Sessions of {studentName}"
+      },
+      "consent_granted": {
+        "subject": "You now have access to {workspaceName}",
+        "title": "Parental consent granted",
+        "body": "Hello {firstName},\n\nYour parent or guardian has given their consent: you can now access the “{workspaceName}” space of {teacherName}.",
+        "cta": "Go to the space"
+      },
+      "consent_granted_teacher": {
+        "subject": "Parental consent granted for {studentName}",
+        "title": "Parental consent granted",
+        "body": "Hello {firstName},\n\nThe parent or guardian of {studentName} has given their consent. {studentName} now has access to the “{workspaceName}” space of {teacherName}.",
+        "cta": "View the student’s profile"
+      },
+      "consent_refused": {
+        "subject": "Parental consent refused — {workspaceName}",
+        "title": "Parental consent refused",
+        "body": "Hello {firstName},\n\n{recipientRole, select, STUDENT {Your parent or guardian has refused your use of the “{workspaceName}” space of {teacherName}. Your access to this space remains suspended. You can talk it over with them and send the request again from the space.} other {The parent or guardian of {studentName} has refused consent for the “{workspaceName}” space of {teacherName}. {studentName}’s access to this space remains suspended; you can send the request again from their profile.}}",
+        "cta": "{recipientRole, select, STUDENT {Open the space} other {View the student’s profile}}"
+      },
+      "consent_revoked": {
+        "subject": "Parental consent withdrawn — {workspaceName}",
+        "title": "Parental consent withdrawn",
+        "body": "Hello {firstName},\n\n{recipientRole, select, STUDENT {Your parent or guardian has withdrawn their consent for the “{workspaceName}” space of {teacherName}. Your access to this space is suspended; your other spaces are not affected and your data is kept.} other {The parent or guardian of {studentName} has withdrawn their consent for the “{workspaceName}” space of {teacherName}. {studentName}’s access to this space is suspended; their data is kept.}}",
+        "cta": "{recipientRole, select, STUDENT {Open the space} other {View the student’s profile}}"
+      },
+      "consent_expired": {
+        "subject": "Parental consent request expired — {workspaceName}",
+        "title": "Consent request expired",
+        "body": "Hello {firstName},\n\n{recipientRole, select, STUDENT {Your parent or guardian did not answer the consent request for the “{workspaceName}” space of {teacherName} within 14 days. Your access to this space is suspended; you can send the request again from the space.} other {The parent or guardian of {studentName} did not answer the consent request for the “{workspaceName}” space of {teacherName} within 14 days. {studentName}’s access to this space is suspended; you can send the request again from their profile.}}",
+        "cta": "{recipientRole, select, STUDENT {Open the space} other {View the student’s profile}}"
+      }
+    },
+    "join": {
+      "approved": {
+        "subject": "Your request to join {workspaceName} was accepted",
+        "title": "Request accepted",
+        "body": "Hello {firstName},\n\n{teacherName} accepted your request to join the “{workspaceName}” space.\n\nIf you are under 18, your access will open as soon as your parent or guardian gives their consent: an email has been sent to them.",
+        "cta": "Go to the space"
+      },
+      "rejected": {
+        "subject": "Your request to join {workspaceName} was not accepted",
+        "title": "Request not accepted",
+        "body": "Hello {firstName},\n\n{teacherName} did not accept your request to join the “{workspaceName}” space.\n\nIf you think this is a mistake, contact your teacher directly.",
+        "cta": "Go to my account"
+      }
+    },
+    "imports": {
+      "completed": {
+        "subject": "Import completed — {workspaceName}",
+        "title": "Invitation import completed",
+        "body": "Hello {firstName},\n\nThe import of your file into the “{workspaceName}” space is complete. {created, plural, =0 {No invitation was sent.} one {# invitation was sent.} other {# invitations were sent.}} {failed, plural, =0 {No email failed.} one {# email failed: the invitation exists and you can resend it from the “Pending” tab.} other {# emails failed: the invitations exist and you can resend them from the “Pending” tab.}}\n\nThe detailed line-by-line report is available from the students page.",
+        "cta": "View pending invitations"
+      }
     }
   },
   "sms": {

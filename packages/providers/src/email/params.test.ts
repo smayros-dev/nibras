@@ -47,7 +47,7 @@ describe('typed email params', () => {
       params: { firstName: 'A', minutes: 15 },
     });
     expect(email.findByTemplate('security.account_locked')).toHaveLength(2);
-    expect(EMAIL_TEMPLATE_KEYS).toHaveLength(18);
+    expect(EMAIL_TEMPLATE_KEYS).toHaveLength(31);
     expect(_keysMatch).toBe(true);
   });
 });

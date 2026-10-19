@@ -27,12 +27,33 @@ const PDI = '\u2069';
 
 type IcuValues = Record<string, string | number>;
 
-/** String params replaced by sentinels (numbers stay raw: ICU plurals need them). */
-function sentinelParams(params: IcuValues): { values: string[]; params: IcuValues } {
+const SELECT_ARG = /\{\s*(\w+)\s*,\s*select\s*,/g;
+
+/**
+ * Names of the `{name, select, …}` arguments of the template's messages: they are compared to
+ * the select keys, so they stay raw (never sentinel- or FSI-wrapped) and are never displayed.
+ */
+function selectArgs(locale: Locale, base: string): Set<string> {
+  const names = new Set<string>();
+  for (const part of ['subject', 'title', 'body', 'cta']) {
+    const source = lookup(locale, `${base}.${part}`);
+    if (source !== undefined) for (const [, name] of source.matchAll(SELECT_ARG)) names.add(name!);
+  }
+  return names;
+}
+
+/**
+ * String params replaced by sentinels (numbers stay raw: ICU plurals need them; so do select
+ * discriminators).
+ */
+function sentinelParams(
+  params: IcuValues,
+  raw: Set<string>,
+): { values: string[]; params: IcuValues } {
   const values: string[] = [];
   const out: IcuValues = {};
   for (const [name, value] of Object.entries(params)) {
-    if (typeof value === 'string') {
+    if (typeof value === 'string' && !raw.has(name)) {
       out[name] = sentinel(values.length);
       values.push(value);
     } else out[name] = value;
@@ -41,10 +62,13 @@ function sentinelParams(params: IcuValues): { values: string[]; params: IcuValue
 }
 
 /** Text part: string params wrapped in FSI…PDI for RTL locales (Latin names, emails, IPs). */
-function textParams(locale: Locale, params: IcuValues): IcuValues {
+function textParams(locale: Locale, params: IcuValues, raw: Set<string>): IcuValues {
   if (dirOf(locale) !== 'rtl') return params;
   return Object.fromEntries(
-    Object.entries(params).map(([k, v]) => [k, typeof v === 'string' ? `${FSI}${v}${PDI}` : v]),
+    Object.entries(params).map(([k, v]) => [
+      k,
+      typeof v === 'string' && !raw.has(k) ? `${FSI}${v}${PDI}` : v,
+    ]),
   );
 }
 
@@ -54,6 +78,7 @@ function textParams(locale: Locale, params: IcuValues): IcuValues {
  * text in which every string param is an escaped `<bdi>` (bidi isolation, no markup injection);
  * the text part isolates string params with FSI…PDI in Arabic. When the template has a `cta`,
  * the `link` param (absolute http(s) URL) becomes the button and is appended to the text part.
+ * `{name, select, …}` discriminators (`role`, `recipientRole`, `hasName`) are passed unwrapped.
  */
 export function renderEmail<K extends EmailTemplateKey>(
   key: K,
@@ -72,7 +97,8 @@ export function renderEmail<K extends EmailTemplateKey>(
     cta = { label: formatMessage(locale, `${base}.cta`, raw), url: assertHttpUrl(link) };
   }
 
-  const marked = sentinelParams(raw);
+  const selects = selectArgs(locale, base);
+  const marked = sentinelParams(raw, selects);
   const bodyHtml = formatMessage(locale, `${base}.body`, marked.params)
     .split(/\n{2,}/)
     .map((p) => {
@@ -87,7 +113,7 @@ export function renderEmail<K extends EmailTemplateKey>(
   const appName = formatMessage(locale, 'common.appName');
   const text = [
     title,
-    ...formatMessage(locale, `${base}.body`, textParams(locale, raw)).split(/\n{2,}/),
+    ...formatMessage(locale, `${base}.body`, textParams(locale, raw, selects)).split(/\n{2,}/),
     ...(cta ? [`${cta.label}: ${cta.url}`] : []),
     '--',
     appName,

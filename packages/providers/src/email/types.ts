@@ -1,6 +1,6 @@
-import type { Locale } from '@nibras/contracts';
+import type { InvitableRole, Locale } from '@nibras/contracts';
 
-/** Every transactional email of SP1; messages live in `@nibras/i18n` under `emails.<key>`. */
+/** Every transactional email of SP1 and SP2; messages live in `@nibras/i18n` under `emails.<key>`. */
 export const EMAIL_TEMPLATE_KEYS = [
   'auth.verify_email',
   'auth.password_reset',
@@ -20,11 +20,34 @@ export const EMAIL_TEMPLATE_KEYS = [
   'abuse.minor_safety_reminder',
   'admin.user_suspended',
   'admin.user_unsuspended',
+  'invitation.received_student',
+  'invitation.received_staff',
+  'invitation.accepted',
+  'guardian.consent_requested',
+  'guardian.consent_confirmation',
+  'guardian.consent_granted',
+  'guardian.consent_granted_teacher',
+  'guardian.consent_refused',
+  'guardian.consent_revoked',
+  'guardian.consent_expired',
+  'join.approved',
+  'join.rejected',
+  'imports.completed',
 ] as const;
 
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number];
 
 type Name = { firstName: string };
+
+/** An ICU `select` discriminator for an optional string (ICU cannot test a string for emptiness). */
+type YesNo = 'yes' | 'no';
+
+/** The workspace and the teacher every SP2 template names (PRD §18 row 2, AC-I18N-02). */
+type WorkspaceTeacher = { workspaceName: string; teacherName: string };
+
+/** Guardian decision notices: one template, `recipientRole` selects the sentence. */
+type GuardianDecision = Name &
+  WorkspaceTeacher & { studentName: string; recipientRole: 'STUDENT' | 'TEACHER'; link: string };
 
 /**
  * Exact ICU arguments of each template (a wrong or missing param fails at compile time; the
@@ -54,6 +77,56 @@ export type EmailParamsByKey = {
   'abuse.minor_safety_reminder': { link: string };
   'admin.user_suspended': Name & { reason: string };
   'admin.user_unsuspended': Name;
+  /**
+   * `hasName: 'no'` → neutral greeting (`firstName` may be empty); `hasMessage: 'no'` → no
+   * personal-message paragraph. `expiresAt` (here and below) is a date already formatted in the
+   * recipient's locale and time zone (`formatDate`, AC-I18N-02).
+   */
+  'invitation.received_student': {
+    hasName: YesNo;
+    firstName: string;
+    inviterName: string;
+    workspaceName: string;
+    hasMessage: YesNo;
+    message: string;
+    link: string;
+    expiresAt: string;
+  };
+  'invitation.received_staff': {
+    inviterName: string;
+    workspaceName: string;
+    role: Exclude<InvitableRole, 'STUDENT'>;
+    link: string;
+    expiresAt: string;
+  };
+  /** To the inviter (`firstName`); `link`: the students page. */
+  'invitation.accepted': Name & { memberName: string; workspaceName: string; link: string };
+  /** To the guardian; `link`: the public consent page. */
+  'guardian.consent_requested': WorkspaceTeacher & {
+    studentName: string;
+    link: string;
+    expiresAt: string;
+  };
+  /** To the guardian; `link`: the guardian page (sessions + revoke). */
+  'guardian.consent_confirmation': WorkspaceTeacher & { studentName: string; link: string };
+  /** To the student. */
+  'guardian.consent_granted': Name & WorkspaceTeacher & { studentName: string; link: string };
+  /** To the inviting teacher or the workspace owner. */
+  'guardian.consent_granted_teacher': Name &
+    WorkspaceTeacher & { studentName: string; link: string };
+  'guardian.consent_refused': GuardianDecision;
+  'guardian.consent_revoked': GuardianDecision;
+  'guardian.consent_expired': GuardianDecision;
+  /** To the student. */
+  'join.approved': Name & WorkspaceTeacher & { link: string };
+  'join.rejected': Name & WorkspaceTeacher & { link: string };
+  /** To the importer (`firstName`); `link`: the pending tab of the students page. */
+  'imports.completed': Name & {
+    workspaceName: string;
+    created: number;
+    failed: number;
+    link: string;
+  };
 };
 
 /** ICU arguments of template `K`. */
