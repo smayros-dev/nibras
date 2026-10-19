@@ -1,7 +1,7 @@
 # SP3 — Courses, content & media design
 
 **Date:** 2026-10-19
-**Status:** Planned — plan: `docs/superpowers/plans/2026-10-19-sp3-courses-media.md`; branch `sp3/courses-media` (from `main` once `sp2/students-invitations` is merged). Owner questions in §12 carry a default each; implementation may start on the defaults.
+**Status:** Planned — plan: `docs/superpowers/plans/2026-10-19-sp3-courses-media.md`; branch `sp3/courses-media` (from `main` once `sp2/students-invitations` is merged). Owner questions in §12 answered 2026-10-19: defaults accepted.
 **Scope:** `packages/db` (7 tables, 1 migration), `packages/contracts`, `packages/providers` (`StorageProvider`, `VideoProvider`: S3, S3 passthrough video, Cloudflare Stream), `packages/i18n`, `apps/api` (modules `courses`, `modules-lessons`, `media`, `enrollments`, `learn`, `webhooks`), `apps/worker` (media processors, schedulers, course notifications), `apps/web` (course list and editor, uploads, rich text, enrollment panel, student course and lesson pages, video player, PDF viewer, watermark), `infra`/CI (MinIO in CI, env allocation).
 **Authoritative spec:** `PRD.md` v2.1 — §4.1 D-O8; §4.2 D-P1, D-P8, D-P13, D-P14, D-P15, D-P20; §7 (rows « Cours »); §8.2.1 (`default_sequential_lessons`, `default_pdf_download`); §8.3.1 (courses in the student list/profile); §8.4.1–8.4.4; §8.5.1–8.5.2; §8.6 (formula only, the rest is SP4); §8.11.1 (`COURSE_ASSIGNED`, `COURSE_PUBLISHED`); §9.1, §9.3, §9.5 (Liste de cours, Éditeur, Lecteur de leçon); §10.5, §10.7, §10.8, §10.9; §11.1, §11.3; §12.1 (Cours, Modules / leçons, Médias, Apprentissage), §12.3 (VOD webhooks); §13.4 (`VideoProvider`, `StorageProvider`), §13.5 (`media`, `notifications`, `compliance` queues); §14.1 (budget, video start), §14.7 (fichiers vérifiés par signature, texte riche assaini, webhooks); §15.4 AC-CRS-01…05, AC-MED-01…09; §15.5 AC-ENR-01…03, 05; §18 sub-project **3**; §19 R5, R6, R11; §22 (PDF viewer, HLS player and rich-text editor are builder choices).
 
@@ -293,7 +293,7 @@ First-load budget: the player, viewer, Tiptap and dnd-kit are `next/dynamic` imp
 | `notifications` | `course.assigned_notify { enrollmentIds }`, `course.published_notify { courseId }` | enrollment, publish                     | `sentTo` progress (SP1.6 pattern); skips revoked enrollments and unpublished courses at run time |
 | `compliance`    | `course.purge_deleted`                                                             | scheduler daily 03:30                   | per course `deletedAt < now − 30 d`                                                              |
 
-## 12. Open questions for the owner (defaults in bold)
+## 12. Open questions for the owner (defaults in bold) — answered 2026-10-19: defaults accepted
 
 - **Q1 — VOD provider.** PRD D-P1 picks Cloudflare Stream (US company; Stream has no EU-only storage option; DPA + SCCs needed). EU/OVH-friendly alternatives with the same tus + signed-URL model: Bunny Stream (EU storage zones), api.video (FR), or self-hosted ffmpeg → HLS on OVH Object Storage. **Default: ship the Cloudflare adapter as specified, run dev/CI/staging on the S3 passthrough provider, decide before the first production video traffic; a Bunny/api.video adapter is one `VideoProvider` class (same interface, same tests).**
 - **Q2 — Realtime media status.** `media.status_changed` is delivered by 5 s polling in the editor until SP7/SP8's gateway. **Default: accepted.**
