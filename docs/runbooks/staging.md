@@ -14,24 +14,60 @@ Postgres, Redis and MinIO on a single Docker host, described by `infra/compose.s
    The api's `migrate` one-shot service applies migrations before the api and worker start.
 
 The deploy job is **off** until the repository variable `STAGING_DEPLOY_ENABLED` is `true`, and it is
-skipped (with a notice, not a failure) while the SSH secrets below are missing.
+skipped (with a notice naming each missing secret, not a failure) while any of the four SSH secrets
+below is missing — `STAGING_SSH_FINGERPRINT` included: the job never deploys without a pinned host
+key.
 
 ## GitHub configuration
 
 Settings > Secrets and variables > Actions (or the `staging` environment):
 
-| Name                     | Kind     | Value                                                                     |
-| ------------------------ | -------- | ------------------------------------------------------------------------- |
-| `STAGING_SSH_HOST`       | secret   | Host name or IP of the staging server                                     |
-| `STAGING_SSH_USER`       | secret   | Deploy user on that host (member of the `docker` group, no sudo needed)   |
-| `STAGING_SSH_KEY`        | secret   | Private key (ed25519) whose public key is in the user's `authorized_keys` |
-| `GHCR_READ_USER`         | secret   | GitHub user owning the token below                                        |
-| `GHCR_READ_TOKEN`        | secret   | Classic PAT with `read:packages` only (pulls private images on the host)  |
-| `STAGING_DEPLOY_ENABLED` | variable | `true` to turn deploys on                                                 |
-| `STAGING_DIR`            | variable | Optional; deploy directory on the host (default `/opt/nibras`)            |
+| Name                      | Kind     | Value                                                                                                                                                        |
+| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `STAGING_SSH_HOST`        | secret   | Host name or IP of the staging server                                                                                                                        |
+| `STAGING_SSH_USER`        | secret   | Deploy user on that host (member of the `docker` group, no sudo needed)                                                                                      |
+| `STAGING_SSH_KEY`         | secret   | Private key (ed25519) whose public key is in the user's `authorized_keys`                                                                                    |
+| `STAGING_SSH_FINGERPRINT` | secret   | Optional for now: SHA256 fingerprint of the host's ed25519 key (below). While absent the deploy job skips with a notice; add it before the first real deploy |
+| `GHCR_READ_USER`          | secret   | GitHub user owning the token below                                                                                                                           |
+| `GHCR_READ_TOKEN`         | secret   | Classic PAT with `read:packages` only (pulls private images on the host)                                                                                     |
+| `STAGING_DEPLOY_ENABLED`  | variable | `true` to turn deploys on                                                                                                                                    |
+| `STAGING_DIR`             | variable | Optional; deploy directory on the host (default `/opt/nibras`)                                                                                               |
 
 CI pushes images with the workflow's own `GITHUB_TOKEN` (`packages: write`, `images` job only);
 no extra secret is needed for that. If the GHCR packages are public, `GHCR_READ_*` can be omitted.
+
+### Host-key fingerprint (`STAGING_SSH_FINGERPRINT`)
+
+Both SSH steps (`appleboy/scp-action`, `appleboy/ssh-action`) verify the server's host key against
+this value, so a hijacked `STAGING_SSH_HOST` (DNS, routing) never receives the deploy key's
+authentication, the compose file or the GHCR token (SP1.6 F4). Obtain it once, from a trusted
+network (ideally on the host itself: `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), and
+compare both outputs:
+
+```sh
+ssh-keyscan -t ed25519 "$STAGING_SSH_HOST" | ssh-keygen -lf -
+# 256 SHA256:AbCd…xyz staging.example (ED25519)
+```
+
+The secret is the `SHA256:…` field (with the `SHA256:` prefix). Re-run it after the host key is
+regenerated (new VM, reinstall): until the secret is updated, the deploy fails on the key mismatch.
+The procedure is identical for today's local staging machine and for the OVHcloud production target.
+
+### Updating actions
+
+Every `uses:` in `.github/workflows/*.yml` is pinned to a full commit SHA with the release as a
+trailing comment (`uses: actions/checkout@<40-hex> # v5.1.0`); `packages/config/infra/workflows.test.ts`
+fails on a tag or branch reference. Dependabot (`.github/dependabot.yml`) opens a weekly PR that
+bumps both the SHA and the comment for GitHub Actions, npm (minor/patch grouped; majors of `next`,
+`@nestjs/*`, `prisma`, `@prisma/client` are ignored — planned upgrades) and the `infra/docker`
+base images. To pin a new action by hand, resolve the tag to its commit, never copy a SHA from
+elsewhere:
+
+```sh
+gh api repos/<owner>/<repo>/git/ref/tags/<tag> --jq '.object.type + " " + .object.sha'
+# an annotated tag ("tag <sha>") needs one more call for the commit:
+gh api repos/<owner>/<repo>/git/tags/<sha> --jq .object.sha
+```
 
 ## Host prerequisites
 

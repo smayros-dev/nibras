@@ -1,0 +1,35 @@
+# SP1.6 F4: keeps the SHA-pinned actions, the npm lockfile and the Dockerfile base images current.
+# Version updates only; security updates are enabled in the repository settings.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    # Majors of these are planned upgrades (their own sub-project), not Dependabot PRs.
+    ignore:
+      - dependency-name: next
+        update-types: [version-update:semver-major]
+      - dependency-name: '@nestjs/*'
+        update-types: [version-update:semver-major]
+      - dependency-name: prisma
+        update-types: [version-update:semver-major]
+      - dependency-name: '@prisma/client'
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: docker
+    directory: /infra/docker
+    schedule:
+      interval: weekly
+      day: monday
