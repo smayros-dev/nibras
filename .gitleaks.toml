@@ -1,0 +1,50 @@
+# gitleaks configuration (SP1.6 F10). Used by `.github/workflows/security.yml` (gitleaks-action)
+# and by the local pre-push check in docs/runbooks/local-dev.md ("Security scans").
+#
+# Every allow-list entry below carries its reason. Only dummy values may be allow-listed: each one
+# is listed in PLACEHOLDER_SECRETS (packages/contracts/src/env-placeholders.ts) or is a test-only
+# fixture, and the API and the worker refuse to start with a placeholder outside development.
+# A real secret is never allow-listed: rotate it, then purge it from history.
+
+title = "nibras gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dev, CI and test placeholder values (PLACEHOLDER_SECRETS; refused outside development)"
+paths = [
+  # Dummy values listed in PLACEHOLDER_SECRETS; refused outside development.
+  '''(^|/)\.env\.example$''',
+  # CI-only dummy values (job env), listed in PLACEHOLDER_SECRETS; refused outside development.
+  '''(^|/)\.github/workflows/ci\.yml$''',
+  # Tests of the placeholder refusal: dummy values listed in PLACEHOLDER_SECRETS plus well-formed
+  # fake staging secrets that exist only in this file.
+  '''(^|/)apps/api/src/config/env\.spec\.ts$''',
+  # API test fixtures (test-only-… values, listed in PLACEHOLDER_SECRETS).
+  '''(^|/)apps/api/test/.*''',
+  # API unit test signing key, used only to sign tokens inside the test.
+  '''(^|/)apps/api/src/auth/jwt\.service\.spec\.ts$''',
+  # The PLACEHOLDER_SECRETS list itself and its tests (same fake staging secrets as env.spec.ts).
+  '''(^|/)packages/contracts/src/env-placeholders\.ts$''',
+  '''(^|/)packages/contracts/src/env-placeholders\.test\.ts$''',
+]
+
+[[allowlists]]
+description = "Placeholder values quoted in plans and specs (docs only; every value is in PLACEHOLDER_SECRETS or a fake test fixture)"
+paths = ['''(^|/)docs/.*\.md$''']
+regexes = [
+  # .env.example
+  '''^dev-only-jwt-secret-change-me-0123456789abcdef$''',
+  '''^ZGV2LW9ubHktdG90cC1rZXktMzItYnl0ZXMtbG9uZyE=$''',
+  # ci.yml
+  '''^ci-only-jwt-secret-not-a-real-secret-0123456789$''',
+  '''^Y2ktb25seS10b3RwLWtleS0zMi1ieXRlcy1sb25nISE=$''',
+  # test fixtures
+  '''^test-only-jwt-secret-0123456789abcdef$''',
+  '''^dGVzdC1vbmx5LXRvdHAta2V5LTMyLWJ5dGVzLWxvbmc=$''',
+  # fake staging JWT secret of env.spec.ts (base64 of "Book, cats, tea and 32 random bytes")
+  '''^Qm9vaywgY2F0cywgdGVhIGFuZCAzMiByYW5kb20gYnl0ZXM=$''',
+]
+# Both conditions must hold: a docs file AND one of the known placeholder values.
+condition = "AND"

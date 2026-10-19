@@ -43,6 +43,7 @@ describe('GitHub workflows', () => {
   it('has workflows to check', () => {
     expect(files).toContain('ci.yml');
     expect(files).toContain('deploy-staging.yml');
+    expect(files).toContain('security.yml');
     expect(refs.length).toBeGreaterThan(0);
   });
 

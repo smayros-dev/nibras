@@ -31,6 +31,10 @@ RUN pnpm turbo run build --filter=@nibras/web
 
 # Runtime: only the standalone server (traced node_modules) and static assets.
 FROM ${NODE_IMAGE} AS runner
+# No package manager at runtime (SP1.6 F10): npm, npx, corepack and yarn ship with the base image,
+# are never used by the app and carry their own advisories (trivy image gate in ci.yml).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-v* \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
 ARG API_URL=http://api:3001
 # APP_ENV (deployment tier) is never unset in an image; compose overrides it (staging).
 ENV NODE_ENV=production \

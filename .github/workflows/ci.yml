@@ -238,6 +238,21 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
       - name: Verify image
         run: bash infra/docker/verify-image.sh local/nibras-${{ matrix.app }}:ci ${{ matrix.app }}
+      # SP1.6 F10: an image with a fixable HIGH/CRITICAL vulnerability never reaches GHCR.
+      # Accepted findings go to .trivyignore with a reason (runbook: local-dev.md, "Security scans").
+      - name: Scan image (trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          image-ref: local/nibras-${{ matrix.app }}:ci
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+          trivyignores: .trivyignore
+          # The vulnerability DB is restored by date with actions/cache (inside the action), kept
+          # outside the workspace so it never enters the docker build context of the push below.
+          cache: 'true'
+          cache-dir: ${{ runner.temp }}/trivy-cache
       - name: Build and push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:

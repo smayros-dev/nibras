@@ -212,18 +212,57 @@ rotation, unlocking a locked account, reading dev OTPs, audit actions, tenant is
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
 
-| Job             | Runner         | What it runs                                                                                                         |
-| --------------- | -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `check`         | ubuntu-latest  | lint, typecheck, `migrate:deploy` (nibras) + `db:migrate:test`, `pnpm test`, `pnpm build`, OpenAPI drift check       |
-| `windows-check` | windows-latest | lint, typecheck, tests of the DB-free packages (`@nibras/config`, `@nibras/contracts`, `@nibras/i18n`, `@nibras/ui`) |
-| `migrate-check` | ubuntu-latest  | `pnpm --filter @nibras/db migrate:check` (schema vs migrations drift)                                                |
-| `e2e`           | ubuntu-latest  | `pnpm build`, Playwright against the production build (see below); artefact `rtl-screens`                            |
-| `images`        | ubuntu-latest  | `main` pushes only: builds and pushes `ghcr.io/<owner>/nibras-{web,api,worker}:{sha,latest}`                         |
+| Job             | Runner         | What it runs                                                                                                                              |
+| --------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `check`         | ubuntu-latest  | lint, typecheck, `migrate:deploy` (nibras) + `db:migrate:test`, `pnpm test`, `pnpm build`, OpenAPI drift check                            |
+| `windows-check` | windows-latest | lint, typecheck, tests of the DB-free packages (`@nibras/config`, `@nibras/contracts`, `@nibras/i18n`, `@nibras/ui`)                      |
+| `migrate-check` | ubuntu-latest  | `pnpm --filter @nibras/db migrate:check` (schema vs migrations drift)                                                                     |
+| `e2e`           | ubuntu-latest  | `pnpm build`, Playwright against the production build (see below); artefact `rtl-screens`                                                 |
+| `images`        | ubuntu-latest  | `main` pushes only: builds, verifies (`verify-image.sh`), scans (trivy) and pushes `ghcr.io/<owner>/nibras-{web,api,worker}:{sha,latest}` |
 
 The Linux jobs use Postgres 17, Redis 7 and Mailpit service containers; `init.sql` is applied with
 `psql` after checkout. The Windows runner has no Docker services, so only packages that need neither
 Postgres nor Redis run their tests there (a turbo `--filter`, not a skip flag); this keeps every
 `package.json` script honest on Windows. When you add a DB-free package, add it to that filter.
+
+### Security scans
+
+`.github/workflows/security.yml` runs on every pull request, on pushes to `main` and weekly (Monday
+06:00 UTC); the `images` job of `ci.yml` adds the image scan. Every job blocks except where noted.
+
+| Job / step                | What blocks                                                                                        | Allow-list (always with a written reason)                                        |
+| ------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `audit`                   | `pnpm audit --prod --audit-level=high`; a second, non-blocking step reports moderate+ for all deps | `pnpm.auditConfig.ignoreGhsas` in `package.json` + a row in the table below      |
+| `dependency-review` (PRs) | a pull request that adds or bumps a dependency with a high or critical advisory                    | fix the version; the action's `allow-ghsas` only with the same table row         |
+| `codeql`                  | CodeQL default queries (javascript-typescript, no build) as code-scanning alerts                   | dismiss the alert in the Security tab with a reason (false positive / won't fix) |
+| `gitleaks`                | any secret in the commits scanned (the PR's commits; the push range; full history weekly)          | `.gitleaks.toml`: dummy values only (`PLACEHOLDER_SECRETS`), path or exact value |
+| `trivy-config`            | HIGH/CRITICAL misconfiguration in the Dockerfiles under `infra/`                                   | `.trivyignore` (the check ID from the report)                                    |
+| `actionlint`              | workflow syntax, expression and `run:` shellcheck errors in `.github/workflows/*.yml`              | fix it (no allow-list)                                                           |
+| `images` → trivy image    | a HIGH/CRITICAL vulnerability with a fix in an image, before it is pushed to GHCR                  | `.trivyignore` (CVE ID)                                                          |
+
+A real secret is never allow-listed: rotate it first, then remove it from history. Every new
+allow-list entry states why the finding does not apply and what removes it (an upgrade, a date).
+The runtime images carry no package manager (`npm`, `npx`, `corepack`, `yarn` are deleted in
+the `runner` stage): the base image's bundled npm is where trivy finds most HIGH advisories.
+
+Accepted advisories today:
+
+| Advisory                                    | Where                                                           | Why accepted                                                                                                                                           | Removed by       |
+| ------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| GHSA-ggr8-5vv4-36mx / CVE-2026-40345 (high) | `deepmerge-ts` 7.1.5 via `@nibras/db > prisma > @prisma/config` | every prisma 6.19.x pins it, the fix needs Prisma 7; Prisma merges only its own config objects, never untrusted input (`ignoreGhsas` + `.trivyignore`) | Prisma 7 upgrade |
+
+Run the same scanners locally before pushing (Docker; Git Bash on Windows needs
+`MSYS_NO_PATHCONV=1` and `$(pwd -W)`). This is a pre-push check, not a replacement for CI:
+
+```bash
+pnpm audit --prod --audit-level=high
+docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --config /repo/.gitleaks.toml --redact --no-banner
+docker run --rm -v "$PWD:/repo" -w /repo aquasec/trivy:0.75.0 config --severity HIGH,CRITICAL --exit-code 1 --ignorefile .trivyignore infra
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12
+```
+
+gitleaks must report `no leaks found` (the full history takes a minute or two). Remove the images
+afterwards (`docker rmi`) if disk is short.
 
 ## Container images
 
