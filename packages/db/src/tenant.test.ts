@@ -24,7 +24,9 @@ import { bindTenancy } from './tenant';
 // a STUDENT member of both; each workspace has one teacher profile and one teacher↔student
 // assignment; `u` has an account-level TERMS consent and one RECORDING consent per workspace;
 // `admin` is a SUPER_ADMIN. SP2: each workspace also has one invitation, invite link, guardian
-// link (student `u`) and invitation import, whose secret columns end in the workspace slug.
+// link (student `u`) and invitation import, whose secret columns end in the workspace slug. SP3:
+// each workspace also has one course (owner `other`) with one module, one PDF media asset, one PDF
+// lesson on it, an enrollment of `u` and `u`'s progress on that lesson.
 const url = process.env.DATABASE_URL_TEST;
 const TENANT_TABLES = [
   'membership',
@@ -34,6 +36,12 @@ const TENANT_TABLES = [
   'invite_link',
   'guardian_link',
   'invitation_import',
+  'course',
+  'module',
+  'lesson',
+  'media_asset',
+  'enrollment',
+  'lesson_progress',
 ] as const;
 
 let A: string;
@@ -47,6 +55,7 @@ let consentTerms: string;
 let consentA: string;
 let consentB: string;
 const invitationOf: Record<string, string> = {};
+const courseOf: Record<string, string> = {};
 const clients: PrismaClient[] = [];
 
 function rawAppUser(query = ''): PrismaClient {
@@ -137,6 +146,49 @@ async function seed() {
         totalRows: 0,
         validRows: 0,
       },
+    });
+    const course = await sys.course.create({
+      data: { workspaceId, ownerUserId: other.id, title: `Cours ${slug}`, language: 'fr' },
+    });
+    courseOf[workspaceId] = course.id;
+    const mod = await sys.module.create({
+      data: { workspaceId, courseId: course.id, title: 'Module 1', position: 1 },
+    });
+    const media = await sys.mediaAsset.create({
+      data: {
+        workspaceId,
+        ownerUserId: other.id,
+        kind: 'PDF',
+        provider: 'S3',
+        status: 'READY',
+        originalFilename: 'cours.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 10n,
+      },
+    });
+    const lesson = await sys.lesson.create({
+      data: {
+        workspaceId,
+        moduleId: mod.id,
+        title: 'Leçon 1',
+        type: 'PDF',
+        position: 1,
+        mediaAssetId: media.id,
+      },
+    });
+    await sys.enrollment.create({
+      data: {
+        workspaceId,
+        courseId: course.id,
+        studentUserId: u.id,
+        status: 'ACTIVE',
+        assignedByUserId: other.id,
+        source: 'MANUAL',
+        activatedAt: new Date(),
+      },
+    });
+    await sys.lessonProgress.create({
+      data: { workspaceId, lessonId: lesson.id, studentUserId: u.id },
     });
   }
   for (const workspaceId of [A, B]) {
@@ -727,6 +779,52 @@ describe.skipIf(!url)('tenant isolation', () => {
       await expect(
         crossTenantDb().membership.findMany({ where: { workspaceId: A } }),
       ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
+    });
+
+    it('crossTenantDb lists the enrollments and progress of a student by studentUserId, never by course', async () => {
+      const { crossTenantDb, db, tenantDb } = t();
+      await expect(db.course.findMany()).rejects.toBeInstanceOf(TenantContextMissingError);
+      await expect(db.enrollment.count()).rejects.toBeInstanceOf(TenantContextMissingError);
+      expect((await tenantDb(A).course.findMany()).map((c) => c.id)).toEqual([courseOf[A]]);
+      expect(await tenantDb(A).course.findFirst({ where: { id: courseOf[B] } })).toBeNull();
+      expect(
+        (await crossTenantDb().enrollment.findMany({ where: { studentUserId: u.id } }))
+          .map((e) => e.workspaceId)
+          .sort(),
+      ).toEqual([A, B].sort());
+      expect(await crossTenantDb().lessonProgress.count({ where: { studentUserId: u.id } })).toBe(
+        2,
+      );
+      expect(
+        await crossTenantDb().enrollment.findMany({ where: { studentUserId: other.id } }),
+      ).toEqual([]);
+      for (const where of [
+        { courseId: courseOf[A] },
+        { status: 'ACTIVE' },
+        { studentUserId: { not: u.id } },
+        { studentUserId: { in: [] } },
+      ]) {
+        await expect(
+          crossTenantDb().enrollment.findMany({ where } as never),
+        ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
+      }
+      await expect(
+        crossTenantDb().lessonProgress.findMany({ where: { status: 'COMPLETED' } }),
+      ).rejects.toThrow(/studentUserId/);
+      // A course is never resolved cross-tenant by anything but its id.
+      await expect(
+        crossTenantDb().course.findMany({ where: { ownerUserId: other.id } } as never),
+      ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
+      expect(await crossTenantDb().course.findUnique({ where: { id: courseOf[B] } })).toMatchObject(
+        { workspaceId: B },
+      );
+      // No include into a tenant relation from an enrollment.
+      await expect(
+        crossTenantDb().enrollment.findMany({
+          where: { studentUserId: u.id },
+          include: { course: true },
+        }),
+      ).rejects.toBeInstanceOf(CrossTenantOperationError);
     });
 
     it('crossTenantDb({ super_admin }) checks the actor, audits, and allows unfiltered reads only', async () => {

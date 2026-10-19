@@ -135,6 +135,82 @@ enum ImportStatus {
   FAILED
 }
 
+/// PRD §11.1 (`DELETED` is `Course.deletedAt`, never a stored status).
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CourseLevel {
+  PRIMAIRE
+  COLLEGE
+  LYCEE
+  SUPERIEUR
+  ADULTE
+  AUTRE
+}
+
+/// All seven PRD §11.1 types; SP3 creates VIDEO, PDF and TEXT only (service rule).
+enum LessonType {
+  VIDEO
+  PDF
+  TEXT
+  LINK
+  EMBED
+  QUIZ
+  ASSIGNMENT
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum EnrollmentSource {
+  MANUAL
+  INVITATION
+  INVITE_LINK
+}
+
+enum LessonProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MediaKind {
+  VIDEO
+  PDF
+  IMAGE
+  FILE
+  RECORDING
+}
+
+enum MediaStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+  DELETING
+}
+
+enum MediaProvider {
+  CLOUDFLARE_STREAM
+  MUX
+  S3
+}
+
+enum MediaFailureReason {
+  ABANDONED
+  TIMEOUT
+  PROVIDER_ERROR
+  INVALID_SIGNATURE
+  ENCRYPTED
+  QUOTA_EXCEEDED
+  SIZE_MISMATCH
+}
+
 // ─── Identity & tenancy (PRD §11.2) ─────────────────────────────────────────────
 
 model User {
@@ -145,7 +221,7 @@ model User {
   passwordHash       String?      @map("password_hash")
   firstName          String       @map("first_name")
   lastName           String       @map("last_name")
-  /// → MediaAsset (SP3); no FK until that table exists.
+  /// → MediaAsset (SP3), SET NULL when the asset is deleted.
   avatarMediaId      String?      @map("avatar_media_id") @db.Uuid
   locale             Locale       @default(fr)
   /// IANA zone.
@@ -183,9 +259,15 @@ model User {
   inviteLinksCreated   InviteLink[]
   studentGuardianLinks GuardianLink[]
   invitationImports    InvitationImport[]
+  avatar               MediaAsset?                @relation("UserAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
+  ownedCourses         Course[]
+  ownedMediaAssets     MediaAsset[]               @relation("MediaAssetOwner")
+  enrollments          Enrollment[]
+  lessonProgress       LessonProgress[]
 
   // PRD index (email) is the UNIQUE index above.
   @@index([status])
+  @@index([avatarMediaId])
   @@map("user")
 }
 
@@ -276,7 +358,7 @@ model Workspace {
   country                 String?         @db.Char(2)
   defaultTimezone         String          @map("default_timezone")
   defaultLocale           Locale          @map("default_locale")
-  /// → MediaAsset (SP3), P1; no FK until that table exists.
+  /// → MediaAsset (SP3), P1; SET NULL when the asset is deleted.
   logoMediaId             String?         @map("logo_media_id") @db.Uuid
   brandColor              String?         @map("brand_color")
   storageQuotaBytes       BigInt          @map("storage_quota_bytes")
@@ -298,9 +380,17 @@ model Workspace {
   inviteLinks               InviteLink[]
   guardianLinks             GuardianLink[]
   invitationImports         InvitationImport[]
+  logo                      MediaAsset?                @relation("WorkspaceLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  courses                   Course[]
+  modules                   Module[]
+  lessons                   Lesson[]
+  mediaAssets               MediaAsset[]               @relation("MediaAssetWorkspace")
+  enrollments               Enrollment[]
+  lessonProgress            LessonProgress[]
 
   @@index([ownerUserId])
   @@index([status])
+  @@index([logoMediaId])
   @@map("workspace")
 }
 
@@ -543,6 +633,246 @@ model InvitationImport {
   // FK index: the composite key above leads with workspace_id.
   @@index([createdByUserId])
   @@map("invitation_import")
+}
+
+// ─── Courses, content & media (PRD §11.3, §11.6, SP3) ───────────────────────────
+
+/// 🏢 A course (PRD §11.3). Soft-deleted through `deletedAt` (purged after 30 days); `version` is
+/// bumped by every mutation of the course, its modules and its lessons (D-P14 `If-Match`).
+model Course {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  workspaceId       String       @map("workspace_id") @db.Uuid
+  ownerUserId       String       @map("owner_user_id") @db.Uuid
+  /// ≤ 200 characters (service rule).
+  title             String
+  /// Rich text (ProseMirror JSON, `RichTextDocSchema`).
+  description       Json?
+  coverMediaId      String?      @map("cover_media_id") @db.Uuid
+  /// ≤ 60 characters (service rule).
+  category          String?
+  level             CourseLevel?
+  language          Locale
+  /// Override; NULL = derived from the lessons.
+  estimatedMinutes  Int?         @map("estimated_minutes")
+  sequentialLessons Boolean      @default(false) @map("sequential_lessons")
+  isCertifying      Boolean      @default(false) @map("is_certifying")
+  status            CourseStatus @default(DRAFT)
+  publishedAt       DateTime?    @map("published_at") @db.Timestamptz
+  archivedAt        DateTime?    @map("archived_at") @db.Timestamptz
+  deletedAt         DateTime?    @map("deleted_at") @db.Timestamptz
+  version           Int          @default(1)
+  /// Duplicated from (P1); no FK.
+  sourceCourseId    String?      @map("source_course_id") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner       User         @relation(fields: [ownerUserId], references: [id])
+  cover       MediaAsset?  @relation("CourseCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  modules     Module[]
+  enrollments Enrollment[]
+
+  @@index([workspaceId, ownerUserId, status])
+  @@index([workspaceId, status])
+  @@index([deletedAt])
+  // FK indexes: the composite keys above lead with workspace_id.
+  @@index([ownerUserId])
+  @@index([coverMediaId])
+  @@map("course")
+}
+
+/// 🏢 A module of a course. Positions are 1..n per course; the migration re-creates the unique
+/// constraint DEFERRABLE INITIALLY IMMEDIATE (spec D9: reorder under SET CONSTRAINTS … DEFERRED).
+model Module {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  courseId    String   @map("course_id") @db.Uuid
+  /// ≤ 200 characters (service rule).
+  title       String
+  description String?
+  position    Int
+  isOptional  Boolean  @default(false) @map("is_optional")
+  /// `{ type: 'NONE' }` | `{ type: 'PREVIOUS_MODULE_COMPLETED' }` at MVP (`UnlockRuleSchema`).
+  unlockRule  Json     @default("{\"type\":\"NONE\"}") @map("unlock_rule")
+  version     Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons   Lesson[]
+
+  @@unique([courseId, position], map: "module_course_position_key")
+  @@index([courseId])
+  @@map("module")
+}
+
+/// 🏢 A lesson of a module. The migration adds `lesson_content_by_type_check` (VIDEO/PDF → media,
+/// TEXT → content) and re-creates the position constraint DEFERRABLE (spec D9).
+model Lesson {
+  id               String     @id @default(uuid(7)) @db.Uuid
+  workspaceId      String     @map("workspace_id") @db.Uuid
+  moduleId         String     @map("module_id") @db.Uuid
+  /// ≤ 200 characters (service rule).
+  title            String
+  description      String?
+  type             LessonType
+  position         Int
+  isRequired       Boolean    @default(true) @map("is_required")
+  estimatedMinutes Int?       @map("estimated_minutes")
+  isPreview        Boolean    @default(false) @map("is_preview")
+  mediaAssetId     String?    @map("media_asset_id") @db.Uuid
+  allowDownload    Boolean    @default(false) @map("allow_download")
+  /// TEXT: rich text (ProseMirror JSON, `RichTextDocSchema`).
+  content          Json?
+  /// LINK / EMBED / QUIZ / ASSIGNMENT columns are P1: never written by SP3.
+  externalUrl      String?    @map("external_url")
+  embedUrl         String?    @map("embed_url")
+  quizId           String?    @map("quiz_id") @db.Uuid
+  assignmentId     String?    @map("assignment_id") @db.Uuid
+  version          Int        @default(1)
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  module     Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  /// NO ACTION (checked at the end of the statement): an asset in use cannot be deleted on its own,
+  /// yet a workspace deletion that cascades to both the lesson and the asset goes through.
+  mediaAsset MediaAsset?      @relation(fields: [mediaAssetId], references: [id], onDelete: NoAction)
+  progress   LessonProgress[]
+
+  @@unique([moduleId, position], map: "lesson_module_position_key")
+  @@index([moduleId])
+  @@index([mediaAssetId])
+  @@map("lesson")
+}
+
+/// 🏢 An uploaded or provider-hosted file (PRD §11.6). The migration adds the partial unique index
+/// (provider, provider_asset_id) WHERE provider_asset_id IS NOT NULL.
+model MediaAsset {
+  id                  String              @id @default(uuid(7)) @db.Uuid
+  workspaceId         String              @map("workspace_id") @db.Uuid
+  ownerUserId         String              @map("owner_user_id") @db.Uuid
+  kind                MediaKind
+  provider            MediaProvider
+  /// Stream uid (Cloudflare).
+  providerAssetId     String?             @map("provider_asset_id")
+  /// Object key (S3).
+  storageKey          String?             @map("storage_key")
+  /// S3 multipart upload id, cleared at complete.
+  uploadId            String?             @map("upload_id")
+  status              MediaStatus
+  failureReason       MediaFailureReason? @map("failure_reason")
+  /// ≤ 255 characters (service rule).
+  originalFilename    String              @map("original_filename")
+  mimeType            String              @map("mime_type")
+  /// Declared at upload, then the actual size.
+  sizeBytes           BigInt              @map("size_bytes")
+  checksumSha256      String?             @map("checksum_sha256")
+  durationS           Int?                @map("duration_s")
+  width               Int?
+  height              Int?
+  thumbnailUrl        String?             @map("thumbnail_url")
+  pageCount           Int?                @map("page_count")
+  uploadUrlExpiresAt  DateTime?           @map("upload_url_expires_at") @db.Timestamptz
+  processingStartedAt DateTime?           @map("processing_started_at") @db.Timestamptz
+  readyAt             DateTime?           @map("ready_at") @db.Timestamptz
+  deletedAt           DateTime?           @map("deleted_at") @db.Timestamptz
+  /// What was added to Workspace.storageUsedBytes (spec D17), so the decrement is exact.
+  countedBytes        BigInt              @default(0) @map("counted_bytes")
+  /// RECORDING (V2-c); no FK until the session table exists.
+  sessionId           String?             @map("session_id") @db.Uuid
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace        Workspace   @relation("MediaAssetWorkspace", fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner            User        @relation("MediaAssetOwner", fields: [ownerUserId], references: [id])
+  lessons          Lesson[]
+  coverOfCourses   Course[]    @relation("CourseCover")
+  avatarOfUsers    User[]      @relation("UserAvatar")
+  logoOfWorkspaces Workspace[] @relation("WorkspaceLogo")
+
+  @@index([workspaceId, status])
+  @@index([ownerUserId])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@map("media_asset")
+}
+
+/// 🏢 A student's access to a course (PRD §8.5.1). The migration adds
+/// `enrollment_progress_percent_check` (0–100).
+model Enrollment {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  workspaceId      String           @map("workspace_id") @db.Uuid
+  courseId         String           @map("course_id") @db.Uuid
+  studentUserId    String           @map("student_user_id") @db.Uuid
+  status           EnrollmentStatus
+  /// No FK (same as TeacherStudentAssignment.assignedByUserId).
+  assignedByUserId String           @map("assigned_by_user_id") @db.Uuid
+  source           EnrollmentSource
+  activatedAt      DateTime         @map("activated_at") @db.Timestamptz
+  revokedAt        DateTime?        @map("revoked_at") @db.Timestamptz
+  revokedReason    String?          @map("revoked_reason")
+  progressPercent  Int              @default(0) @map("progress_percent") @db.SmallInt
+  completedAt      DateTime?        @map("completed_at") @db.Timestamptz
+  lastActivityAt   DateTime?        @map("last_activity_at") @db.Timestamptz
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student   User      @relation(fields: [studentUserId], references: [id])
+
+  @@unique([courseId, studentUserId])
+  @@index([workspaceId, studentUserId])
+  @@index([courseId, status])
+  // FK index, and the cross-tenant `/me` lookup by studentUserId (spec D7).
+  @@index([studentUserId])
+  @@map("enrollment")
+}
+
+/// 🏢 Per-lesson progress, full PRD §11.3 shape (spec D6: SP4 adds segments and auto-completion
+/// without a migration).
+model LessonProgress {
+  id                String               @id @default(uuid(7)) @db.Uuid
+  workspaceId       String               @map("workspace_id") @db.Uuid
+  lessonId          String               @map("lesson_id") @db.Uuid
+  studentUserId     String               @map("student_user_id") @db.Uuid
+  status            LessonProgressStatus @default(NOT_STARTED)
+  lastPositionS     Int                  @default(0) @map("last_position_s")
+  watchedSegments   Json                 @default("[]") @map("watched_segments")
+  uniqueWatchedS    Int                  @default(0) @map("unique_watched_s")
+  openedAt          DateTime?            @map("opened_at") @db.Timestamptz
+  completedAt       DateTime?            @map("completed_at") @db.Timestamptz
+  completedManually Boolean              @default(false) @map("completed_manually")
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lesson    Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student   User      @relation(fields: [studentUserId], references: [id])
+
+  @@unique([lessonId, studentUserId])
+  @@index([workspaceId, studentUserId])
+  @@index([studentUserId, status])
+  @@map("lesson_progress")
+}
+
+/// Provider webhook receipt (not a tenant table). Idempotence by (provider, providerEventId);
+/// Cloudflare Stream's event id is sha256(raw body) (spec D11).
+model WebhookEvent {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  /// 'cloudflare_stream' | …
+  provider        String
+  providerEventId String    @map("provider_event_id")
+  payload         Json
+  signatureValid  Boolean   @map("signature_valid")
+  receivedAt      DateTime  @default(now()) @map("received_at") @db.Timestamptz
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz
+  error           String?
+
+  @@unique([provider, providerEventId])
+  @@index([receivedAt])
+  @@map("webhook_event")
 }
 
 // ─── Compliance & platform (PRD §11.7) ──────────────────────────────────────────
