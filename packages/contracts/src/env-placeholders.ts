@@ -19,6 +19,8 @@ export const PLACEHOLDER_SECRETS: ReadonlySet<string> = new Set([
   // test fixtures (base64 of 'test-only-totp-key-32-bytes-long')
   'test-only-jwt-secret-0123456789abcdef',
   'dGVzdC1vbmx5LXRvdHAta2V5LTMyLWJ5dGVzLWxvbmc=',
+  // MinIO root credentials (docker-compose.yml, .env.example, CI) used as S3_SECRET_KEY
+  'minioadmin',
 ]);
 
 const PLACEHOLDER_PATTERN = /^(dev|ci|test)-only|change-me/i;
@@ -55,7 +57,20 @@ export interface DeployableEnvInput {
   DATABASE_URL_SYSTEM?: string;
   COOKIE_SECURE?: boolean;
   WEB_ORIGIN?: string;
+  // SP3 media providers (API and worker).
+  S3_SECRET_KEY?: string;
+  CLOUDFLARE_STREAM_API_TOKEN?: string;
+  CLOUDFLARE_STREAM_WEBHOOK_SECRET?: string;
+  CLOUDFLARE_STREAM_SIGNING_KEY_PEM?: string;
 }
+
+/** SP3 provider secrets refused when they are placeholders, with how to obtain a real one. */
+const MEDIA_SECRETS = [
+  ['S3_SECRET_KEY', 'the object storage access key secret (OVH)'],
+  ['CLOUDFLARE_STREAM_API_TOKEN', 'a Cloudflare API token with Stream:Edit'],
+  ['CLOUDFLARE_STREAM_WEBHOOK_SECRET', 'the secret returned when registering the Stream webhook'],
+  ['CLOUDFLARE_STREAM_SIGNING_KEY_PEM', 'POST /accounts/{id}/stream/keys'],
+] as const;
 
 /**
  * Reports one issue per offending variable when `APP_ENV` is not `development`. `HIBP_ENABLED`
@@ -90,6 +105,10 @@ export function assertDeployableEnv(
         `${name} uses the development database password '${INIT_SQL_DB_PASSWORD}' (init.sql): set a real password (openssl rand -hex 24)`,
       );
     }
+  }
+  for (const [name, generate] of MEDIA_SECRETS) {
+    const value = e[name];
+    if (value !== undefined && isPlaceholderSecret(value)) placeholder(name, generate);
   }
   if (e.COOKIE_SECURE !== undefined && e.COOKIE_SECURE !== true) {
     issue('COOKIE_SECURE', `COOKIE_SECURE must be true when ${tier}`);

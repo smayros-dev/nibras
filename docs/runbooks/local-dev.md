@@ -178,6 +178,12 @@ the first worktree and `7` for the second, while the main checkout keeps the def
 run `pnpm db:migrate:test` in the worktree (Prisma creates the missing databases). Drop the
 `<prefix>_*_test` databases when the worktree is removed.
 
+**MinIO test buckets (SP3).** `@nibras/providers`, `@nibras/api` and `@nibras/worker` tests use the
+compose MinIO, each in its own bucket derived from `S3_BUCKET_TEST` (`nibras-test` →
+`nibras-providers-test`, `nibras-api-test`, `nibras-worker-test`), created on demand and emptied by
+the suites. A parallel worktree sets its own base too (e.g. `S3_BUCKET_TEST=nibras-t1-test` →
+`nibras-t1-api-test`, …). Without `S3_ENDPOINT` the providers' MinIO suite is skipped.
+
 ### Environment variables and turbo
 
 Turbo runs tasks in strict env mode: a task only sees the variables listed for it in `turbo.json`

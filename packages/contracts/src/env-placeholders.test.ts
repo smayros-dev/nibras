@@ -18,6 +18,8 @@ describe('isPlaceholderSecret', () => {
       'Y2ktb25seS10b3RwLWtleS0zMi1ieXRlcy1sb25nISE=',
       'test-only-jwt-secret-0123456789abcdef',
       Buffer.from('test-only-totp-key-32-bytes-long').toString('base64'),
+      // MinIO root credentials (docker-compose.yml, .env.example, CI)
+      'minioadmin',
     ]) {
       expect(PLACEHOLDER_SECRETS.has(value), value).toBe(true);
       expect(isPlaceholderSecret(value), value).toBe(true);
@@ -140,5 +142,28 @@ describe('assertDeployableEnv', () => {
         WEB_ORIGIN: placeholders.WEB_ORIGIN,
       }).map(([path]) => path),
     ).toEqual(['DATABASE_URL_SYSTEM', 'WEB_ORIGIN']);
+  });
+
+  it('refuses the MinIO and Cloudflare Stream placeholder secrets outside development (SP3)', () => {
+    const media = {
+      S3_SECRET_KEY: 'minioadmin',
+      CLOUDFLARE_STREAM_API_TOKEN: 'dev-only-cloudflare-token',
+      CLOUDFLARE_STREAM_WEBHOOK_SECRET: 'change-me',
+      CLOUDFLARE_STREAM_SIGNING_KEY_PEM: 'test-only-pem',
+    };
+    expect(collect({ ...deployable, ...media })).toEqual([
+      ['S3_SECRET_KEY', expect.stringMatching(/^S3_SECRET_KEY is a development placeholder/)],
+      ['CLOUDFLARE_STREAM_API_TOKEN', expect.stringMatching(/development placeholder/)],
+      ['CLOUDFLARE_STREAM_WEBHOOK_SECRET', expect.stringMatching(/development placeholder/)],
+      ['CLOUDFLARE_STREAM_SIGNING_KEY_PEM', expect.stringMatching(/development placeholder/)],
+    ]);
+    expect(collect({ ...deployable, ...media, APP_ENV: 'development' })).toEqual([]);
+    expect(
+      collect({
+        ...deployable,
+        S3_SECRET_KEY: 'Zm9vYmFyLXJhbmRvbS1vdmgtc2VjcmV0LWtleQ==',
+        CLOUDFLARE_STREAM_API_TOKEN: 'cf-Real-Token-123',
+      }),
+    ).toEqual([]);
   });
 });
