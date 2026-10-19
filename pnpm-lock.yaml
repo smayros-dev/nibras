@@ -385,8 +385,11 @@ importers:
   packages/db:
     dependencies:
       '@prisma/client':
-        specifier: ~6.19.3
+        specifier: 6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+      prisma:
+        specifier: 6.19.3
+        version: 6.19.3(typescript@5.9.3)
     devDependencies:
       '@nibras/config':
         specifier: workspace:*
@@ -406,9 +409,6 @@ importers:
       eslint:
         specifier: ^9.39.5
         version: 9.39.5(jiti@2.7.0)
-      prisma:
-        specifier: ~6.19.3
-        version: 6.19.3(typescript@5.9.3)
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@swc/core@1.16.13(@swc/helpers@0.5.23))(jiti@2.7.0)(postcss@8.5.29)(typescript@5.9.3)(yaml@2.9.1)

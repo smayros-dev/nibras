@@ -223,7 +223,23 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      # Build into the local daemon first and gate it (SP1.6 F11): a fat image, or one carrying
+      # sources or build tooling, never reaches GHCR. Same cache scope as the push build below,
+      # which is then a cache hit.
+      - name: Build (local)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/${{ matrix.app }}.Dockerfile
+          load: true
+          push: false
+          tags: local/nibras-${{ matrix.app }}:ci
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+      - name: Verify image
+        run: bash infra/docker/verify-image.sh local/nibras-${{ matrix.app }}:ci ${{ matrix.app }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: infra/docker/${{ matrix.app }}.Dockerfile

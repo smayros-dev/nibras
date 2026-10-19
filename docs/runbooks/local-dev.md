@@ -239,8 +239,33 @@ docker build -f infra/docker/worker.Dockerfile -t nibras-worker .
 docker build -f infra/docker/web.Dockerfile -t nibras-web .
 ```
 
-Each build adds roughly 1 GB (api, worker) or 300 MB (web) plus build cache to Docker's disk;
-`docker builder prune` reclaims the cache.
+The api and worker images carry production dependencies only (SP1.6 F11): after the build, the
+builder reinstalls `node_modules` with `pnpm install --prod`, regenerates the Prisma client and
+deletes sources, tests and tool configs (`tsconfig*`, `eslint.config.*`, `vitest.*`, `.turbo`). The
+Prisma CLI is a runtime dependency of `@nibras/db` (`nibras-entrypoint migrate`); the api image sets
+`CHECKPOINT_DISABLE=1` so it never writes an update-check cache in a read-only container.
+
+Sizes (local build, `docker images` disk usage / `docker image inspect` size):
+
+| Image  | Before SP1.6     | After SP1.6                                   |
+| ------ | ---------------- | --------------------------------------------- |
+| api    | 1.12 GB / 229 MB | 808 MB / 167 MB                               |
+| worker | 1.04 GB / 224 MB | 665 MB / 150 MB                               |
+| web    | 294 MB           | 300 MB / 70 MB (unchanged: standalone output) |
+
+`infra/docker/verify-image.sh <image> <api|worker|web>` is the gate CI runs on each image before
+pushing it to GHCR: uid 1001, no `typescript`/`vitest`/`eslint`/`@nestjs/cli`/`@swc/core` in any
+`node_modules`, no `src/` under `apps/` or `packages/`, `@nibras/db`/`contracts`/`providers` resolve
+from the app (api/worker), the Prisma CLI is present (api), `server.js` exists (web), and api/worker
+stay under 600 MB (`docker image inspect` size). Run it locally after a build (Git Bash on Windows:
+prefix with `MSYS_NO_PATHCONV=1`):
+
+```bash
+bash infra/docker/verify-image.sh nibras-api api
+```
+
+Each build adds roughly 700–800 MB (api, worker) or 300 MB (web) plus build cache to Docker's disk;
+`docker rmi <image>` and `docker builder prune` reclaim it.
 
 Running them against the local compose stack: `--network host` does not reach the Windows/macOS
 host on Docker Desktop, so publish the port and point the env at `host.docker.internal`:
@@ -254,5 +279,7 @@ docker run --rm -d --name nibras-worker -p 3002:3002 --env-file .env.docker nibr
 docker run --rm -d --name nibras-web -p 3000:3000 nibras-web
 ```
 
+Add `--read-only --tmpfs /tmp --cap-drop ALL` to any of these `docker run` commands to reproduce the
+staging hardening (`compose.staging.yml`); `migrate`, the api and the worker run unchanged that way.
 The api image never migrates on boot: `migrate` is an explicit argument. Staging deployment is
 described in [staging.md](staging.md).
