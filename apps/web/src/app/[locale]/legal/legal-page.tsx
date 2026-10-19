@@ -9,13 +9,20 @@ import { ThemeToggleClient } from '../../../components/theme-provider';
 import { Link } from '../../../i18n/navigation';
 import { routing } from '../../../i18n/routing';
 
-/** The three documents a user consents to; `key` is their `legal.*` namespace entry. */
-export type LegalDocument = 'terms' | 'privacy' | 'codeOfConduct';
+/**
+ * The three documents a user consents to, and the minors notice a guardian accepts (SP2); `key`
+ * is their `legal.*` namespace entry.
+ */
+export type LegalDocument = 'terms' | 'privacy' | 'codeOfConduct' | 'minors';
 
-const TITLE_KEYS: Record<LegalDocument, 'termsTitle' | 'privacyTitle' | 'cocTitle'> = {
+const TITLE_KEYS: Record<
+  LegalDocument,
+  'termsTitle' | 'privacyTitle' | 'cocTitle' | 'minorsTitle'
+> = {
   terms: 'termsTitle',
   privacy: 'privacyTitle',
   codeOfConduct: 'cocTitle',
+  minors: 'minorsTitle',
 };
 
 type Params = Promise<{ locale: string }>;

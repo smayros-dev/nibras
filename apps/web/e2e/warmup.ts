@@ -53,6 +53,9 @@ async function warmRoutes() {
     // SP2 public token pages (an unknown token / code renders the "unavailable" card).
     '/fr/invite/warmup',
     '/fr/join/WARMUP00',
+    '/fr/guardian-consent/warmup',
+    '/fr/guardian/warmup',
+    '/fr/legal/minors',
   ];
   for (const route of routes) {
     // Best effort: a reset while the dev server compiles must not abort globalSetup —

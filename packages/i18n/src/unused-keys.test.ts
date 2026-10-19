@@ -29,6 +29,8 @@ const DYNAMIC_KEYS: readonly string[] = [
   'abuse.status_', // t(`abuse.status_${status}`) — admin abuse reports
   'admin.workspaceStatus.', // t(`admin.workspaceStatus.${status}`) — admin workspaces
   'workspace.status_', // t(`workspace.status_${status}`) — workspace layout
+  'guardian.relationship_', // t(`guardian.relationship_${relationship}`) — guardian consent fields
+  'guardian.status_', // t(`guardian.status_${link.status}`) — guardian panel
   'validation.', // issuesToFieldErrors: t(`validation.${issue.code}`)
   'settings.nav.', // t(`settings.nav.${tab}`) — settings tabs
   'settings.consents.types.', // consentKey(type) — consents list

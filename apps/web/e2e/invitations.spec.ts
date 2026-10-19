@@ -1,8 +1,16 @@
-import { messages } from '@nibras/i18n';
-import { request as playwrightRequest, type APIRequestContext, type Page } from '@playwright/test';
-import { apiLogin, appUrl, expect, t, test, uiLogin, uniqueEmail } from './helpers';
+import type { Page } from '@playwright/test';
+import { appUrl, expect, t, test, uiLogin, uniqueEmail } from './helpers';
+import {
+  acceptConsentGate,
+  fill,
+  inviteStudent,
+  masked,
+  RAW_KEY,
+  seedTeacher,
+  yearsAgo,
+} from './helpers/invitations';
 import { extractLink, waitForEmail } from './helpers/mailpit';
-import { seedUser, type SeededUser } from './helpers/seed';
+import { seedUser } from './helpers/seed';
 
 /**
  * Plan SP2 Task 11: the public invitation and join pages (AC-INV-01/02/03 UI, Review Focus 6).
@@ -11,73 +19,7 @@ import { seedUser, type SeededUser } from './helpers/seed';
  * searched by the unique recipient address.
  */
 
-const BASE = 'http://localhost:3000';
 const PASSWORD = 'un mot de passe assez long';
-
-/** A raw `namespace.key` message id rendered instead of its translation (Review Focus 6). */
-const RAW_KEY = new RegExp(`\\b(${Object.keys(messages.fr).join('|')})\\.[A-Za-z_]+\\b`);
-
-/** `{name}` placeholders of a catalogue message filled in. */
-function fill(message: string, values: Record<string, string>): string {
-  return message.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? `{${key}}`);
-}
-
-/** `ahmed@example.com` → `a***@example.com` (`maskEmail`, `@nibras/contracts`). */
-function masked(email: string): string {
-  const at = email.lastIndexOf('@');
-  return `${email[0]}***${email.slice(at)}`;
-}
-
-/** A birth date `years` years ago (the birthday already passed), `YYYY-MM-DD`. */
-function yearsAgo(years: number): string {
-  const d = new Date();
-  d.setUTCFullYear(d.getUTCFullYear() - years);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
-interface Teacher {
-  user: SeededUser;
-  ctx: APIRequestContext;
-  wid: string;
-  workspaceName: string;
-}
-
-/** A verified teacher signed in on its own request context, with its personal workspace. */
-async function seedTeacher(): Promise<Teacher> {
-  const user = await seedUser({ verifiedTeacher: true });
-  const ctx = await playwrightRequest.newContext({ baseURL: BASE });
-  await apiLogin(ctx, user);
-  const res = await ctx.get('/api/v1/me/workspaces');
-  expect(res.status()).toBe(200);
-  const list = (await res.json()) as {
-    workspace: { id: string; name: string; type: string };
-  }[];
-  const personal = list.find((m) => m.workspace.type === 'PERSONAL');
-  if (!personal) throw new Error('the seeded teacher has no personal workspace');
-  return { user, ctx, wid: personal.workspace.id, workspaceName: personal.workspace.name };
-}
-
-/** Invites `email` as a STUDENT and returns the raw token of the emailed link. */
-async function inviteStudent(teacher: Teacher, email: string): Promise<string> {
-  const res = await teacher.ctx.post(`/api/v1/workspaces/${teacher.wid}/invitations`, {
-    data: { email, role: 'STUDENT' },
-  });
-  if (res.status() !== 201) throw new Error(`invite ${res.status()}: ${await res.text()}`);
-  const mail = await waitForEmail(email, '/invite/');
-  const link = extractLink(mail.html, '/invite/');
-  const token = link ? new URL(link).pathname.split('/').pop() : undefined;
-  if (!token) throw new Error('no invitation link in the email');
-  return token;
-}
-
-/** Accepts the pending-consent gate every e2e account meets (the e2e API bumps TERMS). */
-async function acceptConsentGate(page: Page, locale: string) {
-  const gate = page.getByRole('dialog', { name: t(locale, 'auth.consent.title') });
-  await expect(gate).toBeVisible({ timeout: 15_000 });
-  await gate.getByRole('button', { name: t(locale, 'auth.consent.accept') }).click();
-  await expect(gate).toBeHidden();
-}
 
 /** Fills the register fields shared by the invitation and join pages, then submits. */
 async function register(
