@@ -26,3 +26,18 @@ export {
   type S3Env,
 } from './storage/s3';
 export { InMemoryStorageProvider, type StoredObject } from './storage/in-memory';
+export * from './video/types';
+export {
+  probeMp4,
+  NotMp4Error,
+  MOOV_MAX_BYTES,
+  type Mp4Probe,
+  type RangeReader,
+} from './video/mp4-probe';
+export { S3VideoProvider, type S3VideoProviderOptions } from './video/s3-video';
+export {
+  CloudflareStreamProvider,
+  type CloudflareStreamOptions,
+  type SignJwt,
+} from './video/cloudflare-stream';
+export { FakeVideoProvider } from './video/fake';

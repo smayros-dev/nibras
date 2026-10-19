@@ -1,0 +1,21 @@
+{
+  "result": {
+    "uid": "ea95132c15732412d22c1476fa83f27a",
+    "thumbnail": "https://customer-f33zs165nr7gyfy4.cloudflarestream.com/ea95132c15732412d22c1476fa83f27a/thumbnails/thumbnail.jpg",
+    "readyToStream": false,
+    "status": {
+      "state": "error",
+      "pctComplete": "0.000000",
+      "errorReasonCode": "ERR_NON_VIDEO",
+      "errorReasonText": "The file was not recognized as a valid video file."
+    },
+    "meta": { "name": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c" },
+    "size": 1024,
+    "requireSignedURLs": true,
+    "input": { "width": -1, "height": -1 },
+    "duration": -1
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}
