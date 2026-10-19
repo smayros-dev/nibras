@@ -910,12 +910,16 @@ export interface components {
         };
         TwoFactorDisableDto: {
             otpCode: string;
+            password: string;
         };
         TwoFactorRecoveryDto: {
             challengeToken: string;
             recoveryCode: string;
             /** @default false */
             remember: boolean;
+        };
+        TwoFactorSetupDto: {
+            password: string;
         };
         TwoFactorVerifyDto: {
             challengeToken?: string;
@@ -1260,7 +1264,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwoFactorSetupDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

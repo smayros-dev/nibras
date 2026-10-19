@@ -100,6 +100,49 @@ describe('AuditService', () => {
     expect(data(0)?.after).toEqual({ firstName: 'B', email: 'new@example.com' });
   });
 
+  it('never stores reporter-identifying keys in before/after, at any depth (AC-SAFE-02)', async () => {
+    const { audit, data } = setup();
+    const id = '01900000-0000-7000-8000-0000000000cc';
+    await RequestContext.run(store(inWorkspace), () =>
+      audit.log({
+        action: 'abuse_report.created',
+        entityType: 'AbuseReport',
+        entityId: id,
+        before: { ReporterUserId: 'u1', status: 'OPEN' },
+        after: {
+          category: 'HARASSMENT',
+          reporterUserId: 'u1',
+          reporter: { id: 'u1' },
+          nested: { reporterUserId: 'u1' },
+        },
+      }),
+    );
+    expect(JSON.stringify(data(0)?.after)).not.toMatch(/u1|reporter/i);
+    expect(JSON.stringify(data(0)?.before)).not.toMatch(/u1|reporter/i);
+    expect(data(0)?.after).toEqual({ category: 'HARASSMENT', nested: {} });
+    expect(data(0)?.before).toEqual({ status: 'OPEN' });
+  });
+
+  it('hideActor drops the actor id, ip and user agent (the reporter stays undisclosed)', async () => {
+    const { audit, data } = setup();
+    await RequestContext.run(store(inWorkspace), () =>
+      audit.log({
+        action: 'abuse_report.created',
+        entityType: 'AbuseReport',
+        workspaceId: w,
+        hideActor: true,
+      }),
+    );
+    expect(data(0)).toMatchObject({
+      actorUserId: null,
+      actorRole: 'ANONYMOUS',
+      ip: null,
+      userAgent: null,
+      requestId: 'r1',
+      workspaceId: w,
+    });
+  });
+
   it('uses the workspace from the context and the platform role outside a workspace', async () => {
     const { audit, data } = setup();
     await RequestContext.run(store(inWorkspace), () =>

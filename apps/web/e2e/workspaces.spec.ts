@@ -203,7 +203,10 @@ test.describe('workspaces (plan Task 21)', () => {
 
     // The settings tab is read-only for him (no save button).
     await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}`);
-    await expect(page.getByText(t(locale, 'workspace.readOnly'))).toBeVisible();
+    // Scoped to <main>: while the production build streams the page, React's not-yet-swapped
+    // Suspense chunk (a hidden div outside <main>) briefly holds the same text, and an unscoped
+    // getByText fails on the strict-mode violation instead of retrying.
+    await expect(page.locator('#main').getByText(t(locale, 'workspace.readOnly'))).toBeVisible();
     await expect(
       page.getByRole('button', { name: t(locale, 'workspace.save'), exact: true }),
     ).toHaveCount(0);

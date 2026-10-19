@@ -72,9 +72,9 @@ jobs:
         image: axllent/mailpit:v1.31.4
         ports: ['1025:1025', '8025:8025']
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4 # version from package.json `packageManager`
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0 (pnpm version from package.json `packageManager`)
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -103,9 +103,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -127,9 +127,9 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -166,9 +166,9 @@ jobs:
         image: axllent/mailpit:v1.31.4
         ports: ['1025:1025', '8025:8025']
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -183,7 +183,7 @@ jobs:
       - name: App logs
         if: failure()
         run: tail -n 200 api.log worker.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: playwright-report
@@ -191,7 +191,7 @@ jobs:
           retention-days: 7
       # Full-page screenshots of every axe-audited page per project (fr/ar, desktop/mobile) for
       # the RTL recette (e2e/a11y.spec.ts), kept on success too.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: rtl-screens
@@ -213,17 +213,48 @@ jobs:
       matrix:
         app: [web, api, worker]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Image name (GHCR needs a lowercase owner)
         id: image
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/nibras-${{ matrix.app }}" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      # Build into the local daemon first and gate it (SP1.6 F11): a fat image, or one carrying
+      # sources or build tooling, never reaches GHCR. Same cache scope as the push build below,
+      # which is then a cache hit.
+      - name: Build (local)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: infra/docker/${{ matrix.app }}.Dockerfile
+          load: true
+          push: false
+          tags: local/nibras-${{ matrix.app }}:ci
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+      - name: Verify image
+        run: bash infra/docker/verify-image.sh local/nibras-${{ matrix.app }}:ci ${{ matrix.app }}
+      # SP1.6 F10: an image with a fixable HIGH/CRITICAL vulnerability never reaches GHCR.
+      # Accepted findings go to .trivyignore with a reason (runbook: local-dev.md, "Security scans").
+      - name: Scan image (trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          image-ref: local/nibras-${{ matrix.app }}:ci
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+          trivyignores: .trivyignore
+          # The vulnerability DB is restored by date with actions/cache (inside the action), kept
+          # outside the workspace so it never enters the docker build context of the push below.
+          cache: 'true'
+          cache-dir: ${{ runner.temp }}/trivy-cache
+      - name: Build and push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: infra/docker/${{ matrix.app }}.Dockerfile

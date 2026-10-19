@@ -6,6 +6,7 @@ import {
 } from '@nibras/contracts';
 import {
   systemPrisma,
+  type AbuseReport,
   uuidv7,
   type Locale,
   type Membership,
@@ -269,5 +270,44 @@ export async function grantConsents(
       ip: '127.0.0.1',
       userAgent: 'factory',
     })),
+  });
+}
+
+export interface CreateAbuseReportOptions {
+  /** Default `HARASSMENT`. */
+  category: AbuseReport['category'];
+  /** Default `OPEN`. */
+  status: AbuseReport['status'];
+  description: string;
+}
+
+/**
+ * An abuse report of `reporter` about the USER `entity` in `workspace` (or outside any workspace
+ * with `null`), with a minimal USER snapshot. Written directly: no audit row, no
+ * email, no job.
+ */
+export function createAbuseReport(
+  workspace: Pick<Workspace, 'id'> | null,
+  reporter: Pick<User, 'id'>,
+  entity: Pick<User, 'id' | 'firstName' | 'lastName'>,
+  o: Partial<CreateAbuseReportOptions> = {},
+): Promise<AbuseReport> {
+  return systemPrisma().abuseReport.create({
+    data: {
+      workspaceId: workspace?.id ?? null,
+      reporterUserId: reporter.id,
+      category: o.category ?? 'HARASSMENT',
+      description: o.description ?? 'Comportement inapproprié pendant la session.',
+      entityType: 'USER',
+      entityId: entity.id,
+      contextSnapshot: {
+        userId: entity.id,
+        firstName: entity.firstName,
+        lastName: entity.lastName,
+        membership: null,
+        capturedAt: new Date().toISOString(),
+      },
+      status: o.status ?? 'OPEN',
+    },
   });
 }

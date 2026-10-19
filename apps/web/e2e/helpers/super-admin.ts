@@ -34,8 +34,9 @@ export interface SeededSuperAdmin {
 
 /**
  * Registers a throwaway teacher, verifies the email, sets up TOTP (mandatory for SUPER_ADMIN),
- * promotes the account with the `create-super-admin` CLI (password kept) and re-accepts the
- * e2e-bumped TERMS version. Idempotent per email; each call makes a fresh account.
+ * promotes it with `create-super-admin --promote-existing` (verified email + its own password,
+ * password kept) and re-accepts the e2e-bumped TERMS version. Idempotent per email; each call
+ * makes a fresh account.
  */
 export async function seedSuperAdmin(): Promise<SeededSuperAdmin> {
   const cli = `${API_DIR}dist/cli/create-super-admin.js`;
@@ -66,7 +67,7 @@ export async function seedSuperAdmin(): Promise<SeededSuperAdmin> {
     const ver = await ctx.post('/api/v1/auth/verify-email', { data: { token } });
     if (ver.status() !== 200) throw new Error(`verify-email ${ver.status()}: ${await ver.text()}`);
 
-    const setup = await ctx.post('/api/v1/auth/2fa/setup');
+    const setup = await ctx.post('/api/v1/auth/2fa/setup', { data: { password } });
     if (setup.status() !== 200)
       throw new Error(`2fa/setup ${setup.status()}: ${await setup.text()}`);
     const { secret } = (await setup.json()) as { secret: string };
@@ -78,7 +79,7 @@ export async function seedSuperAdmin(): Promise<SeededSuperAdmin> {
 
     execFileSync(
       process.execPath,
-      [cli, 'create-super-admin', '--email', email, '--password', password],
+      [cli, 'create-super-admin', '--email', email, '--password', password, '--promote-existing'],
       { cwd: API_DIR, env: repoEnv(), stdio: 'pipe' },
     );
 

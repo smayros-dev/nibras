@@ -33,12 +33,11 @@
     "@nibras/i18n": "workspace:*",
     "intl-messageformat": "^10.7.18",
     "libphonenumber-js": "^1.13.15",
-    "nodemailer": "^7.0.13"
+    "nodemailer": "10.1.2"
   },
   "devDependencies": {
     "@nibras/config": "workspace:*",
     "@types/node": "^24.19.2",
-    "@types/nodemailer": "^7.0.12",
     "eslint": "^9.39.5",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3",

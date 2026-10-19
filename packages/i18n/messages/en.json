@@ -280,7 +280,11 @@
       "qrAlt": "QR code to scan with your authenticator app",
       "copy": "Copy codes",
       "copied": "Codes copied to the clipboard.",
-      "copyFailed": "Copying failed. Download the codes instead."
+      "copyFailed": "Copying failed. Download the codes instead.",
+      "password": "Current password",
+      "passwordContinue": "Continue",
+      "wrongPassword": "Incorrect password.",
+      "whyPassword": "For your security, confirm your password before turning on two-step verification."
     },
     "consent": {
       "title": "Updated terms",
@@ -335,8 +339,9 @@
       "twoFactorEnable": "Enable 2FA",
       "twoFactorDisable": "Disable 2FA",
       "twoFactorRequired": "Two-factor authentication is mandatory for your role and cannot be disabled.",
-      "disableHint": "Enter a code from your app to confirm disabling.",
+      "disableHint": "Enter your current password and a code from your app to confirm disabling.",
       "otpCode": "6-digit code",
+      "twoFactorDisablePassword": "Current password",
       "changePassword": "Change password",
       "currentPassword": "Current password",
       "newPassword": "New password",

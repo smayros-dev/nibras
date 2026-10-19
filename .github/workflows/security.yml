@@ -1,0 +1,125 @@
+name: Security
+
+# SP1.6 F10: repo-controlled, PR-blocking security scans. What blocks and how to allow-list a
+# finding (always with a written reason): docs/runbooks/local-dev.md, "Security scans".
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, Monday 06:00 UTC: new advisories against an unchanged lockfile, image config or history.
+    - cron: '0 6 * * 1'
+
+# Least privilege by default; jobs widen it only where an action needs more.
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  audit:
+    name: audit (pnpm audit, prod deps high+ blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0 (pnpm version from package.json `packageManager`)
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .node-version
+      # Reads pnpm-lock.yaml only (no install). Ignored advisories: package.json
+      # `pnpm.auditConfig.ignoreGhsas`, each with its reason in the runbook.
+      - name: pnpm audit --prod (high and critical, blocking)
+        run: pnpm audit --prod --audit-level=high
+      - name: pnpm audit (all dependencies, moderate and above, non-blocking)
+        run: |
+          if pnpm audit --audit-level=moderate > audit.txt 2>&1; then
+            echo "::notice::pnpm audit: no moderate or higher advisory in any dependency"
+          else
+            echo "::notice::pnpm audit (non-blocking, all dependencies): $(grep -E '^Severity:' audit.txt || tail -n 1 audit.txt)"
+          fi
+          cat audit.txt
+
+  dependency-review:
+    name: dependency-review (new dependencies, high+ blocking)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+
+  codeql:
+    name: codeql (javascript-typescript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          category: /language:javascript-typescript
+
+  gitleaks:
+    name: gitleaks (secrets in git history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Lists the pull request's commits (the scanned range); no PR comments (summary only).
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+      # github.com/smayros-dev/nibras is a personal-account repository: gitleaks-action needs no
+      # GITLEAKS_LICENSE there (owner Q3), only the job token.
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          # Same version as the local pre-push check (runbook); `[[allowlists]]` needs >= 8.25.
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+
+  trivy-config:
+    name: trivy-config (Dockerfiles and IaC under infra/, high+ blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          scan-type: config
+          scan-ref: infra
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          trivyignores: .trivyignore
+          # Outside the workspace (actions/cache inside the action restores it by date).
+          cache-dir: ${{ runner.temp }}/trivy-cache
+
+  actionlint:
+    name: actionlint (workflow syntax, expressions, shellcheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      # Image pinned by digest (docker:// references are outside the SHA-pin test); 1.7.12.
+      - uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        with:
+          args: -color

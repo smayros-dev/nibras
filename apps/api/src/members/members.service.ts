@@ -133,7 +133,7 @@ export class MembersService {
    * (last name, first name, user id).
    */
   async list(ctx: MemberCtx, q: MembersQuery): Promise<MembersPage> {
-    const cursor = q.cursor === undefined ? undefined : decodeCursor(q.cursor);
+    const cursor = q.cursor === undefined ? undefined : await this.cursorIn(ctx, q.cursor);
     const and: Prisma.MembershipWhereInput[] = [
       q.status ? { status: q.status } : { status: { notIn: ENDED } },
     ];
@@ -164,6 +164,21 @@ export class MembersService {
       items: items.map((m) => toSummary(m, ctx.scope)),
       nextCursor: rows.length > q.limit ? encodeCursor(items[items.length - 1]!) : null,
     };
+  }
+
+  /**
+   * A list cursor names a membership of this workspace (any status), like the audit-log and
+   * abuse-report cursors: a well-formed position taken from another workspace's listing → `422`
+   * (SP1.6 F8), never a page of this one positioned by a foreign member.
+   */
+  private async cursorIn(ctx: MemberCtx, raw: string): Promise<Cursor> {
+    const cursor = decodeCursor(raw);
+    const row = await tenantDb(ctx.workspaceId).membership.findFirst({
+      where: { userId: cursor[2] },
+      select: { id: true },
+    });
+    if (!row) throw validationFailed('cursor', 'Unknown cursor');
+    return cursor;
   }
 
   /** `GET /workspaces/{wid}/members/{uid}`: this workspace's membership of `uid`, any status. */
@@ -214,9 +229,15 @@ export class MembersService {
       if (role === current.role && canTeach === current.canTeach) {
         return { before, member: current };
       }
-      const member = await tx.membership.update({
-        where: { id: current.id },
+      // Conditional on the role and status read above: a membership promoted to OWNER (or
+      // removed) concurrently matches nothing → 404 (spec SP1.6 F7).
+      const { count } = await tx.membership.updateMany({
+        where: { id: current.id, role: current.role, status: current.status },
         data: { role, canTeach },
+      });
+      if (count !== 1) throw notFound();
+      const member = await tx.membership.findUniqueOrThrow({
+        where: { id: current.id },
         include: { user: { select: USER_FIELDS } },
       });
       return { before, member };
@@ -275,11 +296,13 @@ export class MembersService {
 
     const removedAt = new Date();
     const removalReason = reason ?? null;
+    // Conditional on the status and role read above (never OWNER, checked earlier): a membership
+    // promoted to OWNER by a concurrent transfer matches nothing (spec SP1.6 F7).
     const { count } = await db.membership.updateMany({
-      where: { id: target.id, status: target.status },
+      where: { id: target.id, status: target.status, role: target.role },
       data: { status: 'REMOVED', removedAt, removalReason },
     });
-    // Removed (or changed) concurrently.
+    // Removed, promoted or otherwise changed concurrently.
     if (count !== 1) throw notFound();
 
     await this.audit.log({

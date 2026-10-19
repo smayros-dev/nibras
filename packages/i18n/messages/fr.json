@@ -280,7 +280,11 @@
       "qrAlt": "QR code à scanner avec votre application d’authentification",
       "copy": "Copier les codes",
       "copied": "Codes copiés dans le presse-papiers.",
-      "copyFailed": "La copie a échoué. Téléchargez les codes à la place."
+      "copyFailed": "La copie a échoué. Téléchargez les codes à la place.",
+      "password": "Mot de passe actuel",
+      "passwordContinue": "Continuer",
+      "wrongPassword": "Mot de passe incorrect.",
+      "whyPassword": "Par sécurité, confirmez votre mot de passe avant d’activer la vérification en deux étapes."
     },
     "consent": {
       "title": "Conditions mises à jour",
@@ -335,8 +339,9 @@
       "twoFactorEnable": "Activer la 2FA",
       "twoFactorDisable": "Désactiver la 2FA",
       "twoFactorRequired": "La double authentification est obligatoire pour votre rôle et ne peut pas être désactivée.",
-      "disableHint": "Entrez un code de votre application pour confirmer la désactivation.",
+      "disableHint": "Entrez votre mot de passe actuel et un code de votre application pour confirmer la désactivation.",
       "otpCode": "Code à 6 chiffres",
+      "twoFactorDisablePassword": "Mot de passe actuel",
       "changePassword": "Changer de mot de passe",
       "currentPassword": "Mot de passe actuel",
       "newPassword": "Nouveau mot de passe",

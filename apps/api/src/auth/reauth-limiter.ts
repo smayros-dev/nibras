@@ -3,8 +3,8 @@ import { REDIS } from '../redis/redis.module';
 import { hitWindow, rateLimited, type RateRedis } from './rate-window';
 
 /**
- * Wrong current passwords allowed per user per window before `429` (`PATCH /me/password` and
- * `POST /me/email-change` share the count).
+ * Wrong current passwords allowed per user per window before `429` (`PATCH /me/password`,
+ * `POST /me/email-change`, `POST /auth/2fa/setup` and `POST /auth/2fa/disable` share the count).
  */
 export const REAUTH_MAX_FAILURES = 5;
 export const REAUTH_WINDOW_S = 15 * 60;

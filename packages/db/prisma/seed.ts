@@ -290,6 +290,12 @@ async function main(): Promise<void> {
     { email: 'noussa@example.test', role: 'STUDENT' },
     { email: 'tarek@example.test', role: 'STUDENT', status: 'SUSPENDED_NO_CONSENT' },
   ];
+  // One OWNER per workspace (`membership_owner_per_workspace_key`): if ownership was transferred
+  // since the last seed, demote that OWNER before Amine is made OWNER again.
+  await prisma.membership.updateMany({
+    where: { workspaceId: org.id, role: 'OWNER', userId: { not: amineId } },
+    data: { role: 'ADMIN' },
+  });
   for (const m of orgMembers) {
     const userId = ids.get(m.email)!;
     const status = m.status ?? 'ACTIVE';

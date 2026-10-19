@@ -2,9 +2,13 @@ import { CONSENT_VERSIONS, REQUIRED_CONSENTS } from '@nibras/contracts';
 import { db, resetDatabase, systemPrisma } from '@nibras/db';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FakePwnedClient } from '../auth/crypto/hibp';
-import { verifyPassword } from '../auth/crypto/password';
+import { hashPassword, verifyPassword } from '../auth/crypto/password';
 import { PasswordPolicy } from '../auth/crypto/password-policy';
-import { createSuperAdmin, parseCreateSuperAdminArgs } from './create-super-admin';
+import {
+  createSuperAdmin,
+  parseCreateSuperAdminArgs,
+  PromotionRefusedError,
+} from './create-super-admin';
 
 const PASSWORD = 'a long and unusual admin passphrase';
 const policy = new PasswordPolicy(new FakePwnedClient());
@@ -52,33 +56,109 @@ describe('createSuperAdmin (first-admin bootstrap CLI)', () => {
     expect(JSON.stringify(audit)).not.toContain('argon2');
   });
 
-  it('running twice promotes rather than duplicating; an existing user is promoted', async () => {
-    const input = { email: 'root@example.com', password: PASSWORD };
-    const first = await createSuperAdmin(db, input, policy);
-    const second = await createSuperAdmin(db, input, policy);
-    expect(second).toEqual({ userId: first.userId, created: false });
+  it('refuses an existing account without --promote-existing, even when verified', async () => {
+    const first = await createSuperAdmin(
+      db,
+      { email: 'root@example.com', password: PASSWORD },
+      policy,
+    );
+    const refused = createSuperAdmin(db, { email: 'root@example.com', password: PASSWORD }, policy);
+    await expect(refused).rejects.toThrow(/--promote-existing/);
+    await expect(refused).rejects.toBeInstanceOf(PromotionRefusedError);
+    expect(
+      await systemPrisma().auditLog.count({ where: { action: 'user.super_admin_granted' } }),
+    ).toBe(1);
+    // Idempotent re-run with the flag: audited again, nothing else changes.
+    await expect(
+      createSuperAdmin(
+        db,
+        { email: 'root@example.com', password: PASSWORD, promoteExisting: true },
+        policy,
+      ),
+    ).resolves.toEqual({ userId: first.userId, created: false });
     expect(await systemPrisma().user.count()).toBe(1);
     expect(await systemPrisma().consent.count({ where: { userId: first.userId } })).toBe(
       REQUIRED_CONSENTS.length,
     );
+    expect(
+      await systemPrisma().auditLog.count({ where: { action: 'user.super_admin_granted' } }),
+    ).toBe(2);
+  });
 
-    const existing = await systemPrisma().user.create({
-      data: { email: 'teacher@example.com', firstName: 'T', lastName: 'U', passwordHash: 'x' },
+  it('pre-registered account: unverified email → refused and left unverified; verified + wrong password → refused; verified + right password + flag → promoted, password kept', async () => {
+    const hash = await hashPassword(PASSWORD);
+    const u = await systemPrisma().user.create({
+      data: { email: 'teacher@example.com', firstName: 'T', lastName: 'U', passwordHash: hash },
     });
+    await expect(
+      createSuperAdmin(
+        db,
+        { email: 'teacher@example.com', password: PASSWORD, promoteExisting: true },
+        policy,
+      ),
+    ).rejects.toThrow(/not verified/);
+    expect(
+      (await systemPrisma().user.findUniqueOrThrow({ where: { id: u.id } })).emailVerifiedAt,
+    ).toBeNull();
+    await systemPrisma().user.update({
+      where: { id: u.id },
+      data: { emailVerifiedAt: new Date() },
+    });
+    await expect(
+      createSuperAdmin(
+        db,
+        {
+          email: 'teacher@example.com',
+          password: 'another long passphrase',
+          promoteExisting: true,
+        },
+        policy,
+      ),
+    ).rejects.toThrow(/does not match/);
+    expect(
+      (await systemPrisma().user.findUniqueOrThrow({ where: { id: u.id } })).platformRole,
+    ).toBe('NONE');
+    // Right password but no flag: refused with the hint.
+    await expect(
+      createSuperAdmin(db, { email: 'teacher@example.com', password: PASSWORD }, policy),
+    ).rejects.toThrow(/--promote-existing/);
     const promoted = await createSuperAdmin(
       db,
-      { email: 'teacher@example.com', password: PASSWORD },
+      { email: 'teacher@example.com', password: PASSWORD, promoteExisting: true },
       policy,
     );
-    expect(promoted).toEqual({ userId: existing.id, created: false });
-    const after = await systemPrisma().user.findUniqueOrThrow({ where: { id: existing.id } });
-    expect(after).toMatchObject({
+    expect(promoted).toEqual({ userId: u.id, created: false });
+    expect(await systemPrisma().user.findUniqueOrThrow({ where: { id: u.id } })).toMatchObject({
       platformRole: 'SUPER_ADMIN',
-      emailVerifiedAt: expect.any(Date),
-      // The existing password is kept: promotion never rewrites credentials.
-      passwordHash: 'x',
+      passwordHash: hash,
       firstName: 'T',
     });
+    expect(
+      await systemPrisma().auditLog.findFirst({
+        where: { action: 'user.super_admin_granted', entityId: u.id },
+      }),
+    ).toMatchObject({ after: { created: false } });
+    expect(
+      await systemPrisma().auditLog.count({ where: { action: 'user.super_admin_granted' } }),
+    ).toBe(1);
+  });
+
+  it('refuses to promote a verified account that has no password', async () => {
+    await systemPrisma().user.create({
+      data: {
+        email: 'nopw@example.com',
+        firstName: 'N',
+        lastName: 'P',
+        emailVerifiedAt: new Date(),
+      },
+    });
+    await expect(
+      createSuperAdmin(
+        db,
+        { email: 'nopw@example.com', password: PASSWORD, promoteExisting: true },
+        policy,
+      ),
+    ).rejects.toThrow(/no password/);
   });
 
   it('applies the password policy on creation and refuses a non-active account', async () => {
@@ -96,7 +176,11 @@ describe('createSuperAdmin (first-admin bootstrap CLI)', () => {
       data: { email: 'gone@example.com', firstName: 'G', lastName: 'O', status: 'SUSPENDED' },
     });
     await expect(
-      createSuperAdmin(db, { email: 'gone@example.com', password: PASSWORD }, policy),
+      createSuperAdmin(
+        db,
+        { email: 'gone@example.com', password: PASSWORD, promoteExisting: true },
+        policy,
+      ),
     ).rejects.toThrow(/SUSPENDED/);
   });
 
@@ -119,5 +203,29 @@ describe('createSuperAdmin (first-admin bootstrap CLI)', () => {
     expect(() =>
       parseCreateSuperAdminArgs(['create-super-admin', '--email', 'a', '--password', 'b', '--x']),
     ).toThrow(/--x/);
+  });
+
+  it('parses --promote-existing and --password-stdin', () => {
+    expect(
+      parseCreateSuperAdminArgs(
+        ['create-super-admin', '--email', 'a@b.c', '--password-stdin', '--promote-existing'],
+        'from stdin\n',
+      ),
+    ).toEqual({ email: 'a@b.c', password: 'from stdin', promoteExisting: true });
+    expect(
+      parseCreateSuperAdminArgs(
+        ['create-super-admin', '--email', 'a@b.c', '--password-stdin'],
+        'crlf\r\n',
+      ),
+    ).toEqual({ email: 'a@b.c', password: 'crlf' });
+    expect(() =>
+      parseCreateSuperAdminArgs(
+        ['create-super-admin', '--email', 'a@b.c', '--password', 'x', '--password-stdin'],
+        'y',
+      ),
+    ).toThrow(/--password-stdin/);
+    expect(() =>
+      parseCreateSuperAdminArgs(['create-super-admin', '--email', 'a@b.c', '--password-stdin']),
+    ).toThrow(/--password-stdin/);
   });
 });

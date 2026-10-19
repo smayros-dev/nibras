@@ -1,16 +1,22 @@
 import { HttpStatus, Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import {
   ABUSE_CLOSED_STATUSES,
+  ABUSE_NOTIFY_ATTEMPTS,
+  ABUSE_REPORT_CREATED_JOB,
   ABUSE_UNDER_REVIEW_STATUSES,
   MINOR_SAFETY_REMINDER_DELAY_MS,
   MINOR_SAFETY_REMINDER_JOB,
   QUEUES,
+  abuseReportNotifyJobId,
   minorSafetyReminderJobId,
   type AbuseEntityType,
+  type AbuseReportCreatedJob,
   type AbuseReport as AbuseReportView,
   type AbuseReportCreated,
   type AbuseReportsPage,
   type AbuseReportsQuery,
+  type AdminAbuseReport as AdminAbuseReportView,
+  type AdminAbuseReportsPage,
   type AdminAbuseReportsQuery,
   type CreateAbuseReportInput,
   type MinorSafetyReminderJob,
@@ -18,22 +24,12 @@ import {
   type MyAbuseReportsQuery,
   type UpdateAbuseReportInput,
 } from '@nibras/contracts';
-import {
-  tenantDb,
-  type AbuseReport,
-  type GuardedClient,
-  type Locale,
-  type Prisma,
-  type User,
-} from '@nibras/db';
-import type { EmailParams, EmailProvider } from '@nibras/providers';
+import { tenantDb, type AbuseReport, type GuardedClient, type Prisma, type User } from '@nibras/db';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
 import type { AuthUser } from '../common/request-context';
-import { env } from '../config/env';
 import { DB } from '../db/db.module';
-import { EMAIL_PROVIDER } from '../providers/providers.module';
 import { QueueService } from '../queue/queue.service';
 import { validationFailed } from '../workspaces/workspaces.service';
 import { SnapshotRegistry, entityTypeUnsupported } from './snapshot.registry';
@@ -43,40 +39,29 @@ const UNDER_REVIEW = [...ABUSE_UNDER_REVIEW_STATUSES];
 const CLOSED: readonly string[] = ABUSE_CLOSED_STATUSES;
 
 /** Who handles a report: an organisation's staff on its own queue, or the super-admin. */
-export type HandlerScope =
-  { kind: 'workspace'; workspaceId: string; userId: string } | { kind: 'admin'; userId: string };
+export type WorkspaceScope = { kind: 'workspace'; workspaceId: string; userId: string };
+export type AdminScope = { kind: 'admin'; userId: string };
+export type HandlerScope = WorkspaceScope | AdminScope;
 
 export type CreateAbuseReportCommand = CreateAbuseReportInput & { workspaceId: string | null };
 
-type Recipient = Pick<User, 'id' | 'email' | 'locale'>;
-type AbuseEmail =
-  | { templateKey: 'abuse.report_received'; params: EmailParams<'abuse.report_received'> }
-  | { templateKey: 'abuse.new_report'; params: EmailParams<'abuse.new_report'> };
 type ReportRow = AbuseReport & { reporter: Pick<User, 'id' | 'firstName' | 'lastName'> };
 
 const REPORTER = { select: { id: true, firstName: true, lastName: true } } as const;
-const RECIPIENT = { id: true, email: true, locale: true } as const;
 
 function notFound(): ApiError {
   return new ApiError(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Not found');
 }
 
-function origin(): string {
-  return env.WEB_ORIGIN.replace(/\/+$/, '');
-}
-
-/** The report in the super-admin console. */
-export function adminReportLink(locale: Locale, id: string): string {
-  return `${origin()}/${locale}/admin/abuse-reports/${id}`;
-}
-
-/** The report in the organisation's own queue. */
-function workspaceReportLink(locale: Locale, workspaceId: string, id: string): string {
-  return `${origin()}/${locale}/app/w/${workspaceId}/abuse-reports/${id}`;
-}
-
-function toView(r: ReportRow): AbuseReportView {
-  return {
+/**
+ * The report for its handlers. The reporter is added for the super-admin only (AC-SAFE-02, owner
+ * Q1): the organisation view has no `reporter` key at all.
+ */
+function toView(r: ReportRow, scope: AdminScope): AdminAbuseReportView;
+function toView(r: ReportRow, scope: WorkspaceScope): AbuseReportView;
+function toView(r: ReportRow, scope: HandlerScope): AbuseReportView | AdminAbuseReportView;
+function toView(r: ReportRow, scope: HandlerScope): AbuseReportView | AdminAbuseReportView {
+  const view: AbuseReportView = {
     id: r.id,
     workspaceId: r.workspaceId,
     category: r.category,
@@ -86,16 +71,20 @@ function toView(r: ReportRow): AbuseReportView {
     entityId: r.entityId,
     contextSnapshot: (r.contextSnapshot ?? {}) as Record<string, unknown>,
     attachments: r.attachments,
-    reporter: {
-      userId: r.reporter.id,
-      firstName: r.reporter.firstName,
-      lastName: r.reporter.lastName,
-    },
     assignedToUserId: r.assignedToUserId,
     resolution: r.resolution,
     resolvedAt: r.resolvedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
+  };
+  if (scope.kind !== 'admin') return view;
+  return {
+    ...view,
+    reporter: {
+      userId: r.reporter.id,
+      firstName: r.reporter.firstName,
+      lastName: r.reporter.lastName,
+    },
   };
 }
 
@@ -114,7 +103,6 @@ export class AbuseReportsService implements OnModuleInit {
     private readonly snapshots: SnapshotRegistry,
     private readonly audit: AuditService,
     private readonly queue: QueueService,
-    @Inject(EMAIL_PROVIDER) private readonly email: EmailProvider,
     private readonly logger: PinoLogger,
   ) {
     logger.setContext(AbuseReportsService.name);
@@ -162,10 +150,9 @@ export class AbuseReportsService implements OnModuleInit {
    * A new `OPEN` report with the entity's frozen snapshot. Outside a workspace only `USER` may be
    * reported (`422 ENTITY_TYPE_UNSUPPORTED`); reporting oneself → `422 VALIDATION_FAILED`. Once
    * the row is stored: audit `abuse_report.created`, then (best effort, failures only logged)
-   * the acknowledgement to the reporter, `abuse.new_report` to the handlers (organisation:
-   * ACTIVE OWNER/ADMIN, plus every super-admin for `MINOR_SAFETY`; personal workspace or none:
-   * super-admins only; never the reported user nor the reporter), and for `MINOR_SAFETY` the
-   * 24 h reminder job.
+   * the `abuse.report_created` job on `notifications` — the worker sends the acknowledgement to
+   * the reporter and `abuse.new_report` to the handlers, with retries (F12) — and for
+   * `MINOR_SAFETY` the 24 h reminder job.
    */
   async create(reporter: AuthUser, input: CreateAbuseReportCommand): Promise<AbuseReportCreated> {
     const { workspaceId } = input;
@@ -180,7 +167,7 @@ export class AbuseReportsService implements OnModuleInit {
         ? null
         : await this.db.workspace.findUnique({
             where: { id: workspaceId },
-            select: { id: true, type: true },
+            select: { id: true },
           });
     if (workspaceId !== null && !workspace) throw notFound();
     const contextSnapshot = await this.snapshots.snapshot(
@@ -202,25 +189,23 @@ export class AbuseReportsService implements OnModuleInit {
         status: 'OPEN',
       },
     });
+    // The workspace's OWNER/ADMIN read this row: it never names the reporter, neither in `after`
+    // nor as its actor (AC-SAFE-02, owner Q1). The reporter is on the report itself.
     await this.audit.log({
       action: 'abuse_report.created',
       entityType: 'AbuseReport',
       entityId: report.id,
       ...(workspaceId !== null && { workspaceId }),
+      hideActor: true,
       after: {
         category: report.category,
         status: report.status,
         entityType: report.entityType,
         entityId: report.entityId,
-        reporterUserId: report.reporterUserId,
       },
     });
 
-    await this.send(reporter, {
-      templateKey: 'abuse.report_received',
-      params: { firstName: reporter.firstName },
-    });
-    await this.notifyHandlers(report, workspace?.type === 'ORGANIZATION');
+    await this.enqueueNotifications(report.id);
     if (report.category === 'MINOR_SAFETY') await this.scheduleReminder(report.id);
     return { id: report.id, status: report.status };
   }
@@ -253,11 +238,16 @@ export class AbuseReportsService implements OnModuleInit {
     };
   }
 
-  /** A handler's queue: the organisation's reports, or every report for the super-admin. */
+  /**
+   * A handler's queue: the organisation's reports (no reporter), or every report with its
+   * reporter for the super-admin.
+   */
+  async list(scope: AdminScope, q: AdminAbuseReportsQuery): Promise<AdminAbuseReportsPage>;
+  async list(scope: WorkspaceScope, q: AbuseReportsQuery): Promise<AbuseReportsPage>;
   async list(
     scope: HandlerScope,
     q: AbuseReportsQuery & Partial<Pick<AdminAbuseReportsQuery, 'workspaceId'>>,
-  ): Promise<AbuseReportsPage> {
+  ): Promise<AbuseReportsPage | AdminAbuseReportsPage> {
     const where: Prisma.AbuseReportWhereInput = {
       ...(q.status !== undefined && { status: q.status }),
       ...(q.category !== undefined && { category: q.category }),
@@ -270,14 +260,16 @@ export class AbuseReportsService implements OnModuleInit {
     });
     const items = rows.slice(0, q.limit);
     return {
-      items: items.map(toView),
+      items: items.map((r) => toView(r, scope)),
       nextCursor: rows.length > q.limit ? items[items.length - 1]!.id : null,
     };
   }
 
-  /** One report of the handler's queue; outside it → `404`. */
-  async get(scope: HandlerScope, id: string): Promise<AbuseReportView> {
-    return toView(await this.find(scope, id));
+  /** One report of the handler's queue; outside it → `404`. The reporter: super-admin only. */
+  async get(scope: AdminScope, id: string): Promise<AdminAbuseReportView>;
+  async get(scope: WorkspaceScope, id: string): Promise<AbuseReportView>;
+  async get(scope: HandlerScope, id: string): Promise<AbuseReportView | AdminAbuseReportView> {
+    return toView(await this.find(scope, id), scope);
   }
 
   /**
@@ -288,10 +280,20 @@ export class AbuseReportsService implements OnModuleInit {
    * when something changed.
    */
   async update(
+    scope: AdminScope,
+    id: string,
+    input: UpdateAbuseReportInput,
+  ): Promise<AdminAbuseReportView>;
+  async update(
+    scope: WorkspaceScope,
+    id: string,
+    input: UpdateAbuseReportInput,
+  ): Promise<AbuseReportView>;
+  async update(
     scope: HandlerScope,
     id: string,
     input: UpdateAbuseReportInput,
-  ): Promise<AbuseReportView> {
+  ): Promise<AbuseReportView | AdminAbuseReportView> {
     const current = await this.find(scope, id);
     if (input.assignedToUserId) await this.assertAssignable(scope, current, input.assignedToUserId);
 
@@ -311,7 +313,7 @@ export class AbuseReportsService implements OnModuleInit {
       before.assignedToUserId === after.assignedToUserId &&
       before.resolution === after.resolution
     ) {
-      return toView(current);
+      return toView(current, scope);
     }
     const updated = await this.db.abuseReport.update({
       where: { id: current.id },
@@ -326,7 +328,7 @@ export class AbuseReportsService implements OnModuleInit {
       before,
       after,
     });
-    return toView(updated);
+    return toView(updated, scope);
   }
 
   /** AC-SAFE-03 hook (SP8 `409 MESSAGE_UNDER_REVIEW`): a report on the entity is OPEN/IN_REVIEW. */
@@ -403,55 +405,23 @@ export class AbuseReportsService implements OnModuleInit {
   }
 
   /**
-   * `abuse.new_report` to the report's handlers (deduplicated; admin link wins for super-admins;
-   * never the reporter nor the reported user). The super-admins are added when the workspace is
-   * not an organisation, for `MINOR_SAFETY`, when the reported USER is one of the organisation's
-   * handlers (ACTIVE OWNER/ADMIN: he must not be the one instructing it), and whenever no
-   * organisation handler is left after the exclusions.
+   * The acknowledgement and the handlers' emails, sent by the worker (`abuse.report_created`, one
+   * job per report, retried; F12). A failed enqueue is logged: the report exists and the
+   * super-admin queue lists it.
    */
-  private async notifyHandlers(report: AbuseReport, organization: boolean): Promise<void> {
-    const excluded = new Set([report.reporterUserId]);
-    if (report.entityType === 'USER') excluded.add(report.entityId);
-    const recipients = new Map<string, { to: Recipient; link: string }>();
-    let escalate = !organization || report.category === 'MINOR_SAFETY';
-
-    if (organization && report.workspaceId !== null) {
-      const workspaceId = report.workspaceId;
-      const staff = await tenantDb(workspaceId).membership.findMany({
-        where: { status: 'ACTIVE', role: { in: ['OWNER', 'ADMIN'] } },
-        select: { user: { select: { ...RECIPIENT, status: true } } },
+  private async enqueueNotifications(reportId: string): Promise<void> {
+    const data: AbuseReportCreatedJob = { reportId };
+    try {
+      await this.queue.add(QUEUES.notifications, ABUSE_REPORT_CREATED_JOB, data, {
+        jobId: abuseReportNotifyJobId(reportId),
+        attempts: ABUSE_NOTIFY_ATTEMPTS,
       });
-      if (report.entityType === 'USER' && staff.some(({ user }) => user.id === report.entityId)) {
-        escalate = true;
-      }
-      for (const { user } of staff) {
-        if (user.status !== 'ACTIVE' || excluded.has(user.id)) continue;
-        recipients.set(user.id, {
-          to: { id: user.id, email: user.email, locale: user.locale },
-          link: workspaceReportLink(user.locale, workspaceId, report.id),
-        });
-      }
-      if (recipients.size === 0) escalate = true;
+    } catch (err) {
+      this.logger.error(
+        { reportId, err: { type: err instanceof Error ? err.name : typeof err } },
+        'abuse report notifications not enqueued',
+      );
     }
-    if (escalate) {
-      const admins = await this.db.user.findMany({
-        where: { platformRole: 'SUPER_ADMIN', status: 'ACTIVE' },
-        select: RECIPIENT,
-      });
-      for (const user of admins) {
-        recipients.set(user.id, { to: user, link: adminReportLink(user.locale, report.id) });
-      }
-    }
-    // Concurrently: the request must not grow linearly with the number of handlers/super-admins.
-    // `send` never rejects (failures are logged per recipient), so one failure blocks no other.
-    // Long term these belong on the BullMQ notifications queue, outside the request.
-    await Promise.allSettled(
-      [...recipients]
-        .filter(([id]) => !excluded.has(id))
-        .map(([, { to, link }]) =>
-          this.send(to, { templateKey: 'abuse.new_report', params: { link } }),
-        ),
-    );
   }
 
   /** The 24 h MINOR_SAFETY reminder (AC-SAFE-05); one job per report (`jobId`). */
@@ -466,22 +436,6 @@ export class AbuseReportsService implements OnModuleInit {
       this.logger.error(
         { reportId, err: { type: err instanceof Error ? err.name : typeof err } },
         'minor-safety reminder not scheduled',
-      );
-    }
-  }
-
-  /** Best effort: the report is stored, a failed email is logged (ids only) and never surfaces. */
-  private async send(to: Recipient, mail: AbuseEmail): Promise<void> {
-    try {
-      await this.email.send({ to: to.email, locale: to.locale, ...mail });
-    } catch (err) {
-      this.logger.error(
-        {
-          userId: to.id,
-          templateKey: mail.templateKey,
-          err: { type: err instanceof Error ? err.name : typeof err },
-        },
-        'abuse report email not sent',
       );
     }
   }

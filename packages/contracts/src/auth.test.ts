@@ -12,6 +12,8 @@ import {
   LoginSchema,
   RegisterTeacherSchema,
   TimezoneSchema,
+  TwoFactorDisableSchema,
+  TwoFactorSetupSchema,
   VerifyEmailSchema,
 } from './auth';
 
@@ -190,5 +192,21 @@ describe('password reset, password change and email change schemas', () => {
       expect(EmailChangeConfirmResponseSchema.safeParse({ pending }).success).toBe(true);
     }
     expect(EmailChangeConfirmResponseSchema.safeParse({ pending: 'BOTH' }).success).toBe(false);
+  });
+});
+
+describe('2FA step-up schemas', () => {
+  it('setup and disable require a bounded, non-empty current password', () => {
+    expect(TwoFactorSetupSchema.safeParse({ password: 'x' }).success).toBe(true);
+    expect(TwoFactorSetupSchema.safeParse({}).success).toBe(false);
+    expect(TwoFactorSetupSchema.safeParse({ password: '' }).success).toBe(false);
+    expect(TwoFactorSetupSchema.safeParse({ password: 'a'.repeat(257) }).success).toBe(false);
+    expect(TwoFactorDisableSchema.safeParse({ otpCode: '123456', password: 'x' }).success).toBe(
+      true,
+    );
+    expect(TwoFactorDisableSchema.safeParse({ otpCode: '123456' }).success).toBe(false);
+    expect(TwoFactorDisableSchema.safeParse({ otpCode: '123456', password: '' }).success).toBe(
+      false,
+    );
   });
 });

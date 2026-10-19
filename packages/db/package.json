@@ -37,7 +37,8 @@
     "seed": "dotenv -e ../../.env -- node prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "~6.19.3"
+    "@prisma/client": "6.19.3",
+    "prisma": "6.19.3"
   },
   "devDependencies": {
     "@nibras/config": "workspace:*",
@@ -46,7 +47,6 @@
     "argon2": "0.44.0",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.5",
-    "prisma": "~6.19.3",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3",
     "vitest": "^3.2.7"

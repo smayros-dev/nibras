@@ -1,7 +1,7 @@
 'use client';
 
 import { ABUSE_REPORT_STATUSES } from '@nibras/contracts/web';
-import type { AbuseReport, AbuseReportStatus } from '@nibras/contracts';
+import type { AbuseReportStatus, AdminAbuseReport } from '@nibras/contracts';
 import { formatDate } from '@nibras/i18n';
 import {
   Alert,
@@ -46,10 +46,10 @@ export function AdminAbuseReportDetail({ id }: { id: string }) {
 
   const report = useAbortableQuery(
     [id],
-    async (signal): Promise<AbuseReport> => {
+    async (signal): Promise<AdminAbuseReport> => {
       let result;
       try {
-        result = asApiResult<AbuseReport>(
+        result = asApiResult<AdminAbuseReport>(
           await api.GET('/admin/abuse-reports/{id}', { params: { path: { id } }, signal }),
         );
       } catch {

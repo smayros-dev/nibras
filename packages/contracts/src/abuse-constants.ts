@@ -41,6 +41,17 @@ export interface MinorSafetyReminderJob {
   reportId: string;
 }
 
+/** Job name of a new report's notifications (acknowledgement + handlers) on `QUEUES.notifications`. */
+export const ABUSE_REPORT_CREATED_JOB = 'abuse.report_created';
+/** BullMQ job id of a report's notifications (one per report: idempotent enqueueing). */
+export const abuseReportNotifyJobId = (reportId: string): string => `abuse:${reportId}:notify`;
+/** Attempts of `abuse.report_created`: each retry only emails the recipients not reached yet. */
+export const ABUSE_NOTIFY_ATTEMPTS = 5;
+/** Payload of `abuse.report_created`: ids only (the worker loads the report). */
+export interface AbuseReportCreatedJob {
+  reportId: string;
+}
+
 export const ABUSE_DESCRIPTION_MIN = 10;
 export const ABUSE_DESCRIPTION_MAX = 4000;
 export const ABUSE_ATTACHMENTS_MAX = 10;

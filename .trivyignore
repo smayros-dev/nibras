@@ -1,0 +1,11 @@
+# Accepted trivy findings (SP1.6 F10), read by `trivy config` (security.yml) and `trivy image`
+# (ci.yml, images job). One ID per line, each preceded by its reason and the condition that removes
+# it. Never add an entry without a reason; review the list when Dependabot bumps the owner package.
+# Process: docs/runbooks/local-dev.md, "Security scans".
+
+# deepmerge-ts < 8 (GHSA-ggr8-5vv4-36mx, high), api and worker images: reached through
+# @nibras/db > prisma > @prisma/config (the Prisma CLI is a runtime dependency for `migrate`).
+# Every prisma 6.19.x pins deepmerge-ts 7.1.5; the fix needs Prisma 7 (major, planned follow-up).
+# Prisma merges only its own config objects with it, never untrusted input. Same advisory as
+# `pnpm.auditConfig.ignoreGhsas` in package.json. Remove with the Prisma 7 upgrade.
+CVE-2026-40345

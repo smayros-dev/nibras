@@ -4,26 +4,31 @@ import type { TwoFactorRecoveryCodes, TwoFactorSetupResponse } from '@nibras/con
 import { Alert, Button, Checkbox, Field, Input, useSubmit, useToast } from '@nibras/ui';
 import { Copy, Download } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import QRCode from 'qrcode';
-import { AuthCard, AuthLoading } from '../../../../../components/auth-card';
+import { AuthCard } from '../../../../../components/auth-card';
 import { useRouter } from '../../../../../i18n/navigation';
 import { apiErrorMessage, issuesToFieldErrors } from '../../../../../lib/api-error';
 import { api, asApiResult } from '../../../../../lib/api';
 import { useErrorFocus } from '../../../../../lib/use-error-focus';
 
-type Phase = 'loading' | 'scan' | 'codes' | 'failed';
+type Phase = 'password' | 'scan' | 'codes';
+
+const isInvalidCredentials = (body: unknown) =>
+  (body as { code?: string } | null)?.code === 'INVALID_CREDENTIALS';
 
 /**
- * Mandatory 2FA enrolment (AC-AUTH-05): scan the QR, confirm a code, then the single-use
- * recovery codes are shown once — download or copy, acknowledge, continue.
+ * 2FA enrolment (AC-AUTH-05, also reached from the security settings): confirm the current
+ * password (step-up, SP1.6 F5), scan the QR, confirm a code, then the single-use recovery codes
+ * are shown once — download or copy, acknowledge, continue.
  */
 export default function TwoFactorSetupPage() {
   const t = useTranslations();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [phase, setPhase] = useState<Phase>('loading');
+  const [phase, setPhase] = useState<Phase>('password');
+  const [password, setPassword] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [secret, setSecret] = useState('');
   const [code, setCode] = useState('');
@@ -32,31 +37,33 @@ export default function TwoFactorSetupPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
-  const started = useRef(false);
 
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    void (async () => {
-      try {
-        const { data, error } = asApiResult<TwoFactorSetupResponse>(
-          await api.POST('/auth/2fa/setup'),
-        );
-        if (error || !data) {
-          setFormError(apiErrorMessage(t, error));
-          setPhase('failed');
+  const start = useSubmit(async () => {
+    setFieldErrors({});
+    setFormError(null);
+    try {
+      const { data, error } = asApiResult<TwoFactorSetupResponse>(
+        await api.POST('/auth/2fa/setup', { body: { password } }),
+      );
+      if (error || !data) {
+        if (isInvalidCredentials(error)) {
+          setFieldErrors({ password: t('auth.setup.wrongPassword') });
           return;
         }
-        const dataUrl = await QRCode.toDataURL(data.otpauthUrl, { margin: 1, width: 240 });
-        setQrDataUrl(dataUrl);
-        setSecret(data.secret);
-        setPhase('scan');
-      } catch {
-        setFormError(t('errors.INTERNAL_ERROR'));
-        setPhase('failed');
+        const mapped = issuesToFieldErrors(t, error);
+        if (Object.keys(mapped).length > 0) setFieldErrors(mapped);
+        else setFormError(apiErrorMessage(t, error));
+        return;
       }
-    })();
-  }, [t]);
+      const dataUrl = await QRCode.toDataURL(data.otpauthUrl, { margin: 1, width: 240 });
+      setQrDataUrl(dataUrl);
+      setSecret(data.secret);
+      setPassword('');
+      setPhase('scan');
+    } catch {
+      setFormError(t('errors.INTERNAL_ERROR'));
+    }
+  });
 
   const confirm = useSubmit(async () => {
     setFieldErrors({});
@@ -102,14 +109,43 @@ export default function TwoFactorSetupPage() {
     }
   }
 
-  if (phase === 'loading') {
-    return <AuthLoading title={t('auth.setup.title')} label={t('common.loading')} />;
-  }
-
-  if (phase === 'failed') {
+  if (phase === 'password') {
     return (
-      <AuthCard title={t('auth.setup.title')}>
-        <Alert variant="danger">{formError}</Alert>
+      <AuthCard title={t('auth.setup.title')} description={t('auth.setup.whyPassword')}>
+        {formError ? (
+          <Alert ref={alertRef} tabIndex={-1} variant="danger">
+            {formError}
+          </Alert>
+        ) : null}
+        <form
+          method="post"
+          ref={formRef}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void start.submit();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <Field htmlFor="password" label={t('auth.setup.password')} error={fieldErrors.password}>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </Field>
+          <Button
+            type="submit"
+            variant="primary"
+            loading={start.busy}
+            disabled={password.length === 0}
+          >
+            {t('auth.setup.passwordContinue')}
+          </Button>
+        </form>
       </AuthCard>
     );
   }

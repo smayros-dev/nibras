@@ -15,6 +15,19 @@ const valid = {
   TOTP_ENCRYPTION_KEY: Buffer.from('test-only-totp-key-32-bytes-long').toString('base64'),
 };
 
+/** A well-formed staging env: real-looking secrets, no init.sql password, https, secure cookies. */
+const staging = {
+  ...valid,
+  APP_ENV: 'staging',
+  NODE_ENV: 'production',
+  COOKIE_SECURE: 'true',
+  WEB_ORIGIN: 'https://staging.example.com',
+  DATABASE_URL: 'postgresql://app_user:s3cr3t-random@postgres:5432/nibras',
+  DATABASE_URL_SYSTEM: 'postgresql://app_system:other-random@postgres:5432/nibras',
+  JWT_SECRET: 'Qm9vaywgY2F0cywgdGVhIGFuZCAzMiByYW5kb20gYnl0ZXM=',
+  TOTP_ENCRYPTION_KEY: Buffer.alloc(32, 0x5a).toString('base64'),
+};
+
 describe('EnvSchema', () => {
   it('parses a valid environment and defaults PORT to 3001', () => {
     const env = EnvSchema.parse(valid);
@@ -26,6 +39,18 @@ describe('EnvSchema', () => {
     const env = EnvSchema.parse({ ...valid, PORT: '4000', OTEL_EXPORTER_OTLP_ENDPOINT: '' });
     expect(env.PORT).toBe(4000);
     expect(env.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+  });
+
+  it('parses without DATABASE_URL_SYSTEM (never set on the api service, SP1.6 F3)', () => {
+    const { DATABASE_URL_SYSTEM: _omit, ...rest } = valid;
+    expect(EnvSchema.parse(rest).DATABASE_URL_SYSTEM).toBeUndefined();
+    // Staging/production too: the BYPASSRLS URL is only checked when present.
+    const { DATABASE_URL_SYSTEM: _omitStaging, ...stagingRest } = staging;
+    expect(EnvSchema.parse(stagingRest).APP_ENV).toBe('staging');
+    // When set (tests, CLI), it must still be a URL.
+    expect(() => EnvSchema.parse({ ...valid, DATABASE_URL_SYSTEM: 'not a url' })).toThrow(
+      /DATABASE_URL_SYSTEM/,
+    );
   });
 
   it('defaults TRUST_PROXY_HOPS to 1 and coerces it', () => {
@@ -71,12 +96,21 @@ describe('EnvSchema', () => {
 
   it('accepts a TOTP_ENCRYPTION_KEY that is canonical base64 of exactly 32 bytes', () => {
     expect(EnvSchema.parse(valid).TOTP_ENCRYPTION_KEY).toBe(valid.TOTP_ENCRYPTION_KEY);
-    // The .env.example and CI keys.
+  });
+
+  it('accepts the .env.example and CI TOTP keys in development only', () => {
     for (const key of [
       'ZGV2LW9ubHktdG90cC1rZXktMzItYnl0ZXMtbG9uZyE=',
       'Y2ktb25seS10b3RwLWtleS0zMi1ieXRlcy1sb25nISE=',
     ]) {
       expect(EnvSchema.parse({ ...valid, TOTP_ENCRYPTION_KEY: key }).TOTP_ENCRYPTION_KEY).toBe(key);
+      expect(
+        EnvSchema.parse({ ...valid, APP_ENV: 'development', TOTP_ENCRYPTION_KEY: key })
+          .TOTP_ENCRYPTION_KEY,
+      ).toBe(key);
+      expect(() =>
+        EnvSchema.parse({ ...valid, APP_ENV: 'staging', TOTP_ENCRYPTION_KEY: key }),
+      ).toThrow(/TOTP_ENCRYPTION_KEY/);
     }
   });
 
@@ -120,14 +154,14 @@ describe('EnvSchema', () => {
     ).toThrow(/SMS_PROVIDER/);
     // Staging images run NODE_ENV=production: the tier, not NODE_ENV, decides.
     expect(
-      EnvSchema.parse({ ...valid, APP_ENV: 'staging', NODE_ENV: 'production' }).SMS_PROVIDER,
+      EnvSchema.parse({ ...staging, APP_ENV: 'staging', NODE_ENV: 'production' }).SMS_PROVIDER,
     ).toBe('console');
     expect(EnvSchema.parse({ ...valid, NODE_ENV: 'production' }).SMS_PROVIDER).toBe('console');
   });
 
   it('defaults APP_ENV to development and rejects unknown tiers', () => {
     expect(EnvSchema.parse(valid).APP_ENV).toBe('development');
-    expect(EnvSchema.parse({ ...valid, APP_ENV: 'staging' }).APP_ENV).toBe('staging');
+    expect(EnvSchema.parse({ ...staging, APP_ENV: 'staging' }).APP_ENV).toBe('staging');
     for (const bad of ['prod', 'test', '']) {
       expect(() => EnvSchema.parse({ ...valid, APP_ENV: bad })).toThrow(/APP_ENV/);
     }
@@ -151,5 +185,77 @@ describe('EnvSchema', () => {
       EnvSchema.parse({ ...valid, NODE_ENV: 'test', COOKIE_SECURE: 'true' }).COOKIE_SECURE,
     ).toBe(true);
     expect(EnvSchema.parse({ ...valid, COOKIE_SECURE: 'false' }).COOKIE_SECURE).toBe(false);
+  });
+
+  describe('deployable environments (APP_ENV staging|production)', () => {
+    /** First path segment of every issue (production also refuses SMS_PROVIDER=console). */
+    const issuePaths = (input: Record<string, unknown>) => {
+      const parsed = EnvSchema.safeParse(input);
+      return parsed.success ? [] : parsed.error.issues.map((i) => String(i.path[0]));
+    };
+
+    it('accepts a well-formed staging env', () => {
+      expect(EnvSchema.parse(staging).APP_ENV).toBe('staging');
+      // Production: only the (still undecided) SMS provider is refused.
+      expect(issuePaths({ ...staging, APP_ENV: 'production' })).toEqual(['SMS_PROVIDER']);
+    });
+
+    it.each([
+      ['JWT_SECRET', 'dev-only-jwt-secret-change-me-0123456789abcdef'],
+      ['JWT_SECRET', 'ci-only-jwt-secret-not-a-real-secret-0123456789'],
+      ['JWT_SECRET', 'test-only-jwt-secret-0123456789abcdef'],
+      ['JWT_SECRET', 'x'.repeat(48)],
+      ['TOTP_ENCRYPTION_KEY', 'ZGV2LW9ubHktdG90cC1rZXktMzItYnl0ZXMtbG9uZyE='],
+      ['TOTP_ENCRYPTION_KEY', 'Y2ktb25seS10b3RwLWtleS0zMi1ieXRlcy1sb25nISE='],
+      ['TOTP_ENCRYPTION_KEY', Buffer.from('test-only-totp-key-32-bytes-long').toString('base64')],
+      ['DATABASE_URL', 'postgresql://app_user:app@postgres:5432/nibras'],
+      ['DATABASE_URL_SYSTEM', 'postgresql://app_system:app@postgres:5432/nibras'],
+      ['COOKIE_SECURE', 'false'],
+      ['WEB_ORIGIN', 'http://staging.example.com'],
+    ])('rejects %s=%s on staging and production, accepts it in development', (key, value) => {
+      expect(() => EnvSchema.parse({ ...staging, [key]: value })).toThrow(new RegExp(key));
+      expect(issuePaths({ ...staging, [key]: value })).toEqual([key]);
+      expect(issuePaths({ ...staging, APP_ENV: 'production', [key]: value })).toEqual([
+        'SMS_PROVIDER',
+        key,
+      ]);
+      expect(() => EnvSchema.parse({ ...valid, [key]: value })).not.toThrow();
+      expect(() =>
+        EnvSchema.parse({ ...staging, APP_ENV: 'development', [key]: value }),
+      ).not.toThrow();
+    });
+
+    it('reports every offending variable at once (the startup error lists them all)', () => {
+      expect(
+        issuePaths({
+          ...valid,
+          APP_ENV: 'staging',
+          JWT_SECRET: 'dev-only-jwt-secret-change-me-0123456789abcdef',
+          TOTP_ENCRYPTION_KEY: 'ZGV2LW9ubHktdG90cC1rZXktMzItYnl0ZXMtbG9uZyE=',
+        }),
+      ).toEqual([
+        'JWT_SECRET',
+        'TOTP_ENCRYPTION_KEY',
+        'DATABASE_URL',
+        'DATABASE_URL_SYSTEM',
+        'COOKIE_SECURE',
+        'WEB_ORIGIN',
+      ]);
+    });
+
+    it('HIBP_ENABLED stays a free choice in production and staging (owner Q2)', () => {
+      // Production refuses SMS_PROVIDER=console (the only provider today), never HIBP_ENABLED.
+      expect(issuePaths({ ...staging, APP_ENV: 'production', HIBP_ENABLED: 'false' })).toEqual([
+        'SMS_PROVIDER',
+      ]);
+      expect(EnvSchema.parse({ ...staging, HIBP_ENABLED: 'false' }).HIBP_ENABLED).toBe(false);
+    });
+
+    it('a staging env without COOKIE_SECURE defaults to true under NODE_ENV=production and passes', () => {
+      const { COOKIE_SECURE: _omit, ...rest } = staging;
+      expect(EnvSchema.parse(rest).COOKIE_SECURE).toBe(true);
+      // ...but not under another NODE_ENV: the default is false and staging refuses it.
+      expect(issuePaths({ ...rest, NODE_ENV: 'test' })).toEqual(['COOKIE_SECURE']);
+    });
   });
 });

@@ -1,7 +1,7 @@
 'use client';
 
 import { ABUSE_CATEGORIES, ABUSE_REPORT_STATUSES } from '@nibras/contracts/web';
-import type { AbuseCategory, AbuseReportsPage, AbuseReportStatus } from '@nibras/contracts';
+import type { AbuseCategory, AbuseReportStatus, AdminAbuseReportsPage } from '@nibras/contracts';
 import { formatDate } from '@nibras/i18n';
 import {
   Alert,
@@ -41,7 +41,7 @@ export function AdminAbuseReportsPanel() {
   const reports = useAbortableQuery([reportStatus, category, wsFilter], async (signal) => {
     let result;
     try {
-      result = asApiResult<AbuseReportsPage>(
+      result = asApiResult<AdminAbuseReportsPage>(
         await api.GET('/admin/abuse-reports', {
           params: {
             query: {

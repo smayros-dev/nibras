@@ -5,10 +5,18 @@ import type { EmailMessage, EmailProvider, EmailTemplateKey, SentEmail } from '.
 /** Test double: renders like the real provider (so missing params still fail) and keeps the result. */
 export class InMemoryEmailProvider implements EmailProvider {
   readonly sent: SentEmail[] = [];
+  private readonly failing = new Set<string>();
+
+  /** Failure injection: every send to `to` rejects (nothing recorded) until `clear()`. */
+  failFor(to: string): void {
+    this.failing.add(to);
+  }
 
   async send<K extends EmailTemplateKey>(
     msg: EmailMessage<K>,
   ): Promise<{ providerMessageId: string }> {
+    if (this.failing.has(msg.to))
+      throw new Error(`InMemoryEmailProvider: send to ${msg.to} failed`);
     const rendered = renderEmail(msg.templateKey, msg.locale, msg.params);
     const providerMessageId = `mem-${randomUUID()}`;
     this.sent.push({ ...msg, ...rendered, providerMessageId } as SentEmail);
@@ -28,5 +36,6 @@ export class InMemoryEmailProvider implements EmailProvider {
 
   clear(): void {
     this.sent.length = 0;
+    this.failing.clear();
   }
 }

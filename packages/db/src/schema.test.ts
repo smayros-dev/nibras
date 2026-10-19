@@ -194,6 +194,47 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('identity schema', () => {
     await expect(db.consent.create({ data: terms })).resolves.toBeDefined();
   });
 
+  it('one OWNER membership per workspace (partial unique index), any status', async () => {
+    const db = systemPrisma();
+    const a = await newUser('owner-a@example.com');
+    const b = await newUser('owner-b@example.com');
+    const w = await newWorkspace(a.id, 'org-owner1', 'ORGANIZATION');
+    const w2 = await newWorkspace(a.id, 'org-owner2', 'ORGANIZATION');
+    const owner = (workspaceId: string, userId: string, status: 'ACTIVE' | 'REMOVED' = 'ACTIVE') =>
+      db.membership.create({ data: { workspaceId, userId, role: 'OWNER', status } });
+
+    const first = await owner(w.id, a.id);
+    await expect(owner(w.id, b.id)).rejects.toMatchObject({
+      ...P2002,
+      meta: { target: ['workspace_id'] },
+    });
+    // Other roles are not constrained; another workspace has its own OWNER.
+    await expect(
+      db.membership.create({
+        data: { workspaceId: w.id, userId: b.id, role: 'ADMIN', status: 'ACTIVE' },
+      }),
+    ).resolves.toBeDefined();
+    await expect(owner(w2.id, b.id)).resolves.toBeDefined();
+    // Promoting the ADMIN while A is still OWNER fails too.
+    await expect(
+      db.membership.update({
+        where: { workspaceId_userId: { workspaceId: w.id, userId: b.id } },
+        data: { role: 'OWNER' },
+      }),
+    ).rejects.toMatchObject(P2002);
+    // A REMOVED OWNER still counts.
+    await db.membership.update({ where: { id: first.id }, data: { status: 'REMOVED' } });
+    await expect(
+      db.membership.update({
+        where: { workspaceId_userId: { workspaceId: w.id, userId: b.id } },
+        data: { role: 'OWNER' },
+      }),
+    ).rejects.toMatchObject(P2002);
+    const constraint = await db.$queryRaw<{ indexdef: string }[]>`
+      SELECT indexdef FROM pg_indexes WHERE indexname = 'membership_owner_per_workspace_key'`;
+    expect(constraint).toHaveLength(1);
+  });
+
   it('one assignment per (workspace, teacher, student) and one teacher profile per (workspace, user)', async () => {
     const db = systemPrisma();
     const teacher = await newUser('t@example.com');

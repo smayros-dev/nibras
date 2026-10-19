@@ -472,11 +472,14 @@ export function withTenantTx<T>(workspaceId: string, fn: (tx: TenantTx) => Promi
 }
 
 /**
- * Forwards Prisma `warn`/`error` events of the `app_user` base client and of `systemPrisma()`
- * (`$on` is unavailable on `$extends` results). The API's logger module is the only caller.
+ * Forwards Prisma `warn`/`error` events of the `app_user` base client and, when
+ * `DATABASE_URL_SYSTEM` is set, of `systemPrisma()` (`$on` is unavailable on `$extends` results).
+ * The API's logger module is the only caller; the deployed api has no `DATABASE_URL_SYSTEM`
+ * (SP1.6 F3), so the BYPASSRLS client is never created there.
  */
 export function onPrismaLog(handler: PrismaLogHandler): void {
-  for (const client of [appClient(), systemPrisma()]) {
+  const clients = [appClient(), ...(process.env.DATABASE_URL_SYSTEM ? [systemPrisma()] : [])];
+  for (const client of clients) {
     const c = client as unknown as PrismaClient<Prisma.PrismaClientOptions, 'warn' | 'error'>;
     for (const level of ['warn', 'error'] as const) {
       c.$on(level, (e: Prisma.LogEvent) =>

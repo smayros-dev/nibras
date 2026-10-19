@@ -146,6 +146,15 @@ export const RecoveryCodeSchema = z.string().trim().toLowerCase().min(1).max(32)
 /** The login challenge of a `TWO_FACTOR_REQUIRED` login. */
 const ChallengeTokenSchema = z.string().min(1).max(2048);
 
+/**
+ * `POST /auth/2fa/setup`: the current password (step-up, SP1.6 F5). Wrong → `401
+ * INVALID_CREDENTIALS`; more than 5 wrong in 15 min (shared with password and email change) →
+ * `429 RATE_LIMITED`.
+ */
+export const TwoFactorSetupSchema = z.object({ password: z.string().min(1).max(256) });
+
+export type TwoFactorSetupInput = z.infer<typeof TwoFactorSetupSchema>;
+
 /** `200` of `POST /auth/2fa/setup`: the seed to scan or type (2FA stays off until confirmed). */
 export const TwoFactorSetupResponseSchema = z.object({
   secret: z.string(),
@@ -182,8 +191,14 @@ export const TwoFactorRecoverySchema = z.object({
 
 export type TwoFactorRecoveryInput = z.infer<typeof TwoFactorRecoverySchema>;
 
-/** `POST /auth/2fa/disable`: `204`; `403 TWO_FACTOR_MANDATORY` when the role requires 2FA. */
-export const TwoFactorDisableSchema = z.object({ otpCode: OtpCodeSchema });
+/**
+ * `POST /auth/2fa/disable`: a current code and the current password (step-up, same limits as
+ * setup); `204`; `403 TWO_FACTOR_MANDATORY` when the role requires 2FA (checked first).
+ */
+export const TwoFactorDisableSchema = z.object({
+  otpCode: OtpCodeSchema,
+  password: z.string().min(1).max(256),
+});
 
 export type TwoFactorDisableInput = z.infer<typeof TwoFactorDisableSchema>;
 

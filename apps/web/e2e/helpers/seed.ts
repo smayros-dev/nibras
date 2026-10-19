@@ -95,7 +95,7 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
     let secret: string | undefined;
     let recoveryCodes: string[] | undefined;
     if (totp) {
-      const setup = await ctx.post('/api/v1/auth/2fa/setup');
+      const setup = await ctx.post('/api/v1/auth/2fa/setup', { data: { password } });
       if (setup.status() !== 200)
         throw new Error(`2fa/setup ${setup.status()}: ${await setup.text()}`);
       const body = (await setup.json()) as { secret: string };

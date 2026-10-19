@@ -36,14 +36,19 @@ jobs:
           STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
           STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
           STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          # SHA256 host-key fingerprint (SP1.6 F4): without it the job never deploys, it skips
+          # with a notice (owner Q4) — see docs/runbooks/staging.md.
+          STAGING_SSH_FINGERPRINT: ${{ secrets.STAGING_SSH_FINGERPRINT }}
         run: |
-          if [ -n "$STAGING_SSH_HOST" ] && [ -n "$STAGING_SSH_USER" ] && [ -n "$STAGING_SSH_KEY" ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::STAGING_SSH_HOST/USER/KEY not set: staging deploy skipped."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          fi
-      - uses: actions/checkout@v5
+          ready=true
+          for name in STAGING_SSH_HOST STAGING_SSH_USER STAGING_SSH_KEY STAGING_SSH_FINGERPRINT; do
+            if [ -z "${!name}" ]; then
+              echo "::notice::$name not set: staging deploy skipped."
+              ready=false
+            fi
+          done
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         if: steps.secrets.outputs.ready == 'true'
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
@@ -52,15 +57,16 @@ jobs:
         id: owner
         run: echo "name=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
       # Ships the compose file and the Postgres init script; `.env.staging` stays on the host.
-      - uses: appleboy/scp-action@v1
+      - uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         if: steps.secrets.outputs.ready == 'true'
         with:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          fingerprint: ${{ secrets.STAGING_SSH_FINGERPRINT }}
           source: infra/compose.staging.yml,infra/docker/postgres/init-staging.sh
           target: ${{ env.STAGING_DIR }}
-      - uses: appleboy/ssh-action@v1
+      - uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         if: steps.secrets.outputs.ready == 'true'
         env:
           NIBRAS_IMAGE_OWNER: ${{ steps.owner.outputs.name }}
@@ -71,6 +77,7 @@ jobs:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          fingerprint: ${{ secrets.STAGING_SSH_FINGERPRINT }}
           envs: NIBRAS_IMAGE_OWNER,NIBRAS_IMAGE_TAG,GHCR_USER,GHCR_TOKEN,STAGING_DIR
           script: |
             set -eu

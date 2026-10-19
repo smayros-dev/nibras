@@ -3,7 +3,8 @@
 How to run the platform on a developer machine (Windows 11 + Git Bash or PowerShell, macOS, Linux).
 This page covers what SP0 (monorepo & infrastructure) delivers; later plans append to it.
 Frontend conventions (tokens, components, nav, i18n guards, first-load budget, CSP, PWA,
-rebranding) are in [frontend.md](frontend.md).
+rebranding) are in [frontend.md](frontend.md). The security rules (secrets, scanners, images,
+GitHub settings) are summarised in [security.md](security.md).
 
 ## Prerequisites
 
@@ -212,18 +213,57 @@ rotation, unlocking a locked account, reading dev OTPs, audit actions, tenant is
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
 
-| Job             | Runner         | What it runs                                                                                                         |
-| --------------- | -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `check`         | ubuntu-latest  | lint, typecheck, `migrate:deploy` (nibras) + `db:migrate:test`, `pnpm test`, `pnpm build`, OpenAPI drift check       |
-| `windows-check` | windows-latest | lint, typecheck, tests of the DB-free packages (`@nibras/config`, `@nibras/contracts`, `@nibras/i18n`, `@nibras/ui`) |
-| `migrate-check` | ubuntu-latest  | `pnpm --filter @nibras/db migrate:check` (schema vs migrations drift)                                                |
-| `e2e`           | ubuntu-latest  | `pnpm build`, Playwright against the production build (see below); artefact `rtl-screens`                            |
-| `images`        | ubuntu-latest  | `main` pushes only: builds and pushes `ghcr.io/<owner>/nibras-{web,api,worker}:{sha,latest}`                         |
+| Job             | Runner         | What it runs                                                                                                                              |
+| --------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `check`         | ubuntu-latest  | lint, typecheck, `migrate:deploy` (nibras) + `db:migrate:test`, `pnpm test`, `pnpm build`, OpenAPI drift check                            |
+| `windows-check` | windows-latest | lint, typecheck, tests of the DB-free packages (`@nibras/config`, `@nibras/contracts`, `@nibras/i18n`, `@nibras/ui`)                      |
+| `migrate-check` | ubuntu-latest  | `pnpm --filter @nibras/db migrate:check` (schema vs migrations drift)                                                                     |
+| `e2e`           | ubuntu-latest  | `pnpm build`, Playwright against the production build (see below); artefact `rtl-screens`                                                 |
+| `images`        | ubuntu-latest  | `main` pushes only: builds, verifies (`verify-image.sh`), scans (trivy) and pushes `ghcr.io/<owner>/nibras-{web,api,worker}:{sha,latest}` |
 
 The Linux jobs use Postgres 17, Redis 7 and Mailpit service containers; `init.sql` is applied with
 `psql` after checkout. The Windows runner has no Docker services, so only packages that need neither
 Postgres nor Redis run their tests there (a turbo `--filter`, not a skip flag); this keeps every
 `package.json` script honest on Windows. When you add a DB-free package, add it to that filter.
+
+### Security scans
+
+`.github/workflows/security.yml` runs on every pull request, on pushes to `main` and weekly (Monday
+06:00 UTC); the `images` job of `ci.yml` adds the image scan. Every job blocks except where noted.
+
+| Job / step                | What blocks                                                                                        | Allow-list (always with a written reason)                                        |
+| ------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `audit`                   | `pnpm audit --prod --audit-level=high`; a second, non-blocking step reports moderate+ for all deps | `pnpm.auditConfig.ignoreGhsas` in `package.json` + a row in the table below      |
+| `dependency-review` (PRs) | a pull request that adds or bumps a dependency with a high or critical advisory                    | fix the version; the action's `allow-ghsas` only with the same table row         |
+| `codeql`                  | CodeQL default queries (javascript-typescript, no build) as code-scanning alerts                   | dismiss the alert in the Security tab with a reason (false positive / won't fix) |
+| `gitleaks`                | any secret in the commits scanned (the PR's commits; the push range; full history weekly)          | `.gitleaks.toml`: dummy values only (`PLACEHOLDER_SECRETS`), path or exact value |
+| `trivy-config`            | HIGH/CRITICAL misconfiguration in the Dockerfiles under `infra/`                                   | `.trivyignore` (the check ID from the report)                                    |
+| `actionlint`              | workflow syntax, expression and `run:` shellcheck errors in `.github/workflows/*.yml`              | fix it (no allow-list)                                                           |
+| `images` → trivy image    | a HIGH/CRITICAL vulnerability with a fix in an image, before it is pushed to GHCR                  | `.trivyignore` (CVE ID)                                                          |
+
+A real secret is never allow-listed: rotate it first, then remove it from history. Every new
+allow-list entry states why the finding does not apply and what removes it (an upgrade, a date).
+The runtime images carry no package manager (`npm`, `npx`, `corepack`, `yarn` are deleted in
+the `runner` stage): the base image's bundled npm is where trivy finds most HIGH advisories.
+
+Accepted advisories today:
+
+| Advisory                                    | Where                                                           | Why accepted                                                                                                                                           | Removed by       |
+| ------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| GHSA-ggr8-5vv4-36mx / CVE-2026-40345 (high) | `deepmerge-ts` 7.1.5 via `@nibras/db > prisma > @prisma/config` | every prisma 6.19.x pins it, the fix needs Prisma 7; Prisma merges only its own config objects, never untrusted input (`ignoreGhsas` + `.trivyignore`) | Prisma 7 upgrade |
+
+Run the same scanners locally before pushing (Docker; Git Bash on Windows needs
+`MSYS_NO_PATHCONV=1` and `$(pwd -W)`). This is a pre-push check, not a replacement for CI:
+
+```bash
+pnpm audit --prod --audit-level=high
+docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --config /repo/.gitleaks.toml --redact --no-banner
+docker run --rm -v "$PWD:/repo" -w /repo aquasec/trivy:0.75.0 config --severity HIGH,CRITICAL --exit-code 1 --ignorefile .trivyignore infra
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12
+```
+
+gitleaks must report `no leaks found` (the full history takes a minute or two). Remove the images
+afterwards (`docker rmi`) if disk is short.
 
 ## Container images
 
@@ -239,8 +279,33 @@ docker build -f infra/docker/worker.Dockerfile -t nibras-worker .
 docker build -f infra/docker/web.Dockerfile -t nibras-web .
 ```
 
-Each build adds roughly 1 GB (api, worker) or 300 MB (web) plus build cache to Docker's disk;
-`docker builder prune` reclaims the cache.
+The api and worker images carry production dependencies only (SP1.6 F11): after the build, the
+builder reinstalls `node_modules` with `pnpm install --prod`, regenerates the Prisma client and
+deletes sources, tests and tool configs (`tsconfig*`, `eslint.config.*`, `vitest.*`, `.turbo`). The
+Prisma CLI is a runtime dependency of `@nibras/db` (`nibras-entrypoint migrate`); the api image sets
+`CHECKPOINT_DISABLE=1` so it never writes an update-check cache in a read-only container.
+
+Sizes (local build, `docker images` disk usage / `docker image inspect` size):
+
+| Image  | Before SP1.6     | After SP1.6                                   |
+| ------ | ---------------- | --------------------------------------------- |
+| api    | 1.12 GB / 229 MB | 808 MB / 167 MB                               |
+| worker | 1.04 GB / 224 MB | 665 MB / 150 MB                               |
+| web    | 294 MB           | 300 MB / 70 MB (unchanged: standalone output) |
+
+`infra/docker/verify-image.sh <image> <api|worker|web>` is the gate CI runs on each image before
+pushing it to GHCR: uid 1001, no `typescript`/`vitest`/`eslint`/`@nestjs/cli`/`@swc/core` in any
+`node_modules`, no `src/` under `apps/` or `packages/`, `@nibras/db`/`contracts`/`providers` resolve
+from the app (api/worker), the Prisma CLI is present (api), `server.js` exists (web), and api/worker
+stay under 600 MB (`docker image inspect` size). Run it locally after a build (Git Bash on Windows:
+prefix with `MSYS_NO_PATHCONV=1`):
+
+```bash
+bash infra/docker/verify-image.sh nibras-api api
+```
+
+Each build adds roughly 700–800 MB (api, worker) or 300 MB (web) plus build cache to Docker's disk;
+`docker rmi <image>` and `docker builder prune` reclaim it.
 
 Running them against the local compose stack: `--network host` does not reach the Windows/macOS
 host on Docker Desktop, so publish the port and point the env at `host.docker.internal`:
@@ -254,5 +319,7 @@ docker run --rm -d --name nibras-worker -p 3002:3002 --env-file .env.docker nibr
 docker run --rm -d --name nibras-web -p 3000:3000 nibras-web
 ```
 
+Add `--read-only --tmpfs /tmp --cap-drop ALL` to any of these `docker run` commands to reproduce the
+staging hardening (`compose.staging.yml`); `migrate`, the api and the worker run unchanged that way.
 The api image never migrates on boot: `migrate` is an explicit argument. Staging deployment is
 described in [staging.md](staging.md).
