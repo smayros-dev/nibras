@@ -3,7 +3,7 @@ import { request as playwrightRequest } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { TEST_CONSENT_TERMS_VERSION, postRegister, postTransient, uniqueEmail } from '../helpers';
-import { extractLink, waitForEmail } from './mailpit';
+import { extractLink, extractOtpCode, waitForEmail } from './mailpit';
 import { totpCode } from './totp';
 
 /** Same-origin base: the seed's cookies are the browser's (Next rewrites to the API). */
@@ -34,6 +34,11 @@ export interface SeedOptions {
   organizationName?: string;
   /** Profile timezone (default `Africa/Tunis`); the timezone-banner test seeds a fixed one. */
   timezone?: string;
+  /**
+   * Complete the teacher verification (D-O6: phone OTP from the dev email + code of conduct), so
+   * the account may send invitations (SP2). Needs `acceptConsents` (the default).
+   */
+  verifiedTeacher?: boolean;
 }
 
 /**
@@ -48,6 +53,7 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
     organization = false,
     organizationName = 'École Test',
     timezone = 'Africa/Tunis',
+    verifiedTeacher = false,
   } = opts;
   const ctx = await playwrightRequest.newContext({ baseURL: BASE });
   try {
@@ -90,6 +96,25 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
         if (res.status() !== 201)
           throw new Error(`consent ${type} ${res.status()}: ${await res.text()}`);
       }
+    }
+
+    if (verifiedTeacher) {
+      const otp = await ctx.post('/api/v1/me/phone/request-otp', {
+        data: { phoneE164: '+21620123456' },
+      });
+      if (otp.status() !== 202) throw new Error(`request-otp ${otp.status()}: ${await otp.text()}`);
+      // The dev OTP email (`emails.phone.otp_dev`, fr: the account's locale).
+      const otpMail = await waitForEmail(email, 'code de vérification');
+      const phone = await ctx.post('/api/v1/me/phone/verify-otp', {
+        data: { otpCode: extractOtpCode(otpMail.text) },
+      });
+      if (phone.status() !== 200)
+        throw new Error(`verify-otp ${phone.status()}: ${await phone.text()}`);
+      const coc = await postTransient(ctx, '/api/v1/me/consents/CODE_OF_CONDUCT', {
+        version: CONSENT_VERSIONS.CODE_OF_CONDUCT,
+      });
+      if (coc.status() !== 201)
+        throw new Error(`code of conduct ${coc.status()}: ${await coc.text()}`);
     }
 
     let secret: string | undefined;

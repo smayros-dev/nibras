@@ -34,6 +34,7 @@ import { useEffect, useState } from 'react';
 import { ReportAbuseButton } from './report-abuse-button';
 import { apiErrorMessage } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
+import { membershipStatusBadge } from '../lib/membership-status';
 import { useAbortableQuery } from '../lib/paged-fetch';
 import { useReturnFocus } from '../lib/use-return-focus';
 
@@ -48,13 +49,6 @@ const ROLE_BADGE: Record<MembershipRole, BadgeVariant> = {
   STUDENT: 'neutral',
   GUARDIAN: 'neutral',
 };
-
-function statusBadge(status: MembershipStatus): BadgeVariant {
-  if (status === 'ACTIVE') return 'success';
-  if (status.startsWith('PENDING')) return 'warning';
-  if (status.startsWith('SUSPENDED')) return 'danger';
-  return 'neutral';
-}
 
 const fullName = (m: Pick<MemberSummary, 'firstName' | 'lastName'>) =>
   `${m.firstName} ${m.lastName}`;
@@ -306,7 +300,7 @@ export function MembersPanel({
                       {m.canTeach ? t('members.yes') : t('members.no')}
                     </Table.Td>
                     <Table.Td label={columns.status}>
-                      <Badge variant={statusBadge(m.status)}>
+                      <Badge variant={membershipStatusBadge(m.status).variant}>
                         {t(`members.status_${m.status}`)}
                       </Badge>
                     </Table.Td>

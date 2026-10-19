@@ -4,6 +4,7 @@ import {
   Activity,
   Building2,
   Flag,
+  Hourglass,
   LayoutDashboard,
   ScrollText,
   Settings,
@@ -78,8 +79,27 @@ export function buildNavModel({ t, user, workspaces, locale }: NavModelInput): N
   ];
 
   // One section per workspace, shown only inside it (`/app/w/{wid}`).
-  for (const { workspace } of workspaces) {
+  for (const { workspace, status } of workspaces) {
     const base = `/app/w/${workspace.id}`;
+    if (status !== 'ACTIVE') {
+      // Not active yet (guardian consent, approval) or suspended: the workspace layout shows the
+      // waiting panel on every sub-route, so the section links that page only (SP2 design §8).
+      sections.push({
+        id: `workspace-${workspace.id}`,
+        label: workspace.name,
+        visibleUnder: `/${locale}${base}`,
+        items: [
+          make({
+            id: `workspace-${workspace.id}-pending`,
+            href: base,
+            label: t('pending.navItem'),
+            icon: Hourglass,
+            exact: true,
+          }),
+        ],
+      });
+      continue;
+    }
     sections.push({
       id: `workspace-${workspace.id}`,
       label: workspace.name,

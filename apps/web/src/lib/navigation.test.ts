@@ -7,6 +7,7 @@ const t = (key: string) => key;
 const w1 = {
   workspace: { id: 'w1', name: 'Espace de Mohamed', slug: 'm', type: 'PERSONAL', status: 'ACTIVE' },
   role: 'OWNER',
+  status: 'ACTIVE',
 } as MyWorkspace;
 
 /** Every route `buildNavModel` may link to (locale-less), mirroring `src/app/[locale]`. */
@@ -41,6 +42,25 @@ function currentAt(sections: NavSection[], pathname: string, locale = 'fr') {
 }
 
 describe('buildNavModel', () => {
+  it('a membership that is not active gets only its waiting page (SP2)', () => {
+    const pending = {
+      ...w1,
+      workspace: { ...w1.workspace, id: 'w2', name: 'École Atlas' },
+      role: 'STUDENT',
+      status: 'PENDING_GUARDIAN_CONSENT',
+    } as MyWorkspace;
+    const sections = model({ workspaces: [w1, pending] });
+    const section = sections.find((s) => s.id === 'workspace-w2')!;
+    expect(section.label).toBe('École Atlas');
+    expect(section.visibleUnder).toBe('/fr/app/w/w2');
+    expect(section.items.map((i) => [i.id, i.href, i.label])).toEqual([
+      ['workspace-w2-pending', '/fr/app/w/w2', 'pending.navItem'],
+    ]);
+    expect(currentAt(sections, '/app/w/w2')).toBe('workspace-w2-pending');
+    // The active workspace keeps its full section.
+    expect(sections.find((s) => s.id === 'workspace-w1')!.items).toHaveLength(3);
+  });
+
   it('links only existing routes, the workspace section shown only inside it', () => {
     const sections = model();
     expect(sections.map((s) => s.id)).toEqual(['main', 'workspace-w1']);
