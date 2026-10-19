@@ -11,6 +11,7 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
 import { RateLimitGuard, RateLimitModule } from './common/rate-limit.module';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
+import { CoursesModule } from './courses/courses.module';
 import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
 import { GuardianModule } from './guardian/guardian.module';
@@ -54,6 +55,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     GuardianModule,
     AbuseReportsModule,
     AdminModule,
+    CoursesModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
     TenancyModule,
     RateLimitModule,

@@ -71,6 +71,15 @@ export type AuditAction =
   | 'guardian.email_changed'
   | 'invitations.import_started'
   | 'invitations.import_completed'
+  // SP3 (courses, content & media, spec §7).
+  | 'course.created'
+  | 'course.updated'
+  | 'course.published'
+  | 'course.unpublished'
+  | 'course.archived'
+  | 'course.restored'
+  | 'course.deleted'
+  | 'course.reassigned'
   | typeof CROSS_TENANT_AUDIT_ACTION;
 
 export interface AuditEntry {

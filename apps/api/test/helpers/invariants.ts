@@ -60,3 +60,61 @@ export async function expectMinorInvariant(db: PrismaClient, wid: string): Promi
     );
   }
 }
+
+const contiguous = (positions: number[]): number[] => positions.map((_, i) => i + 1);
+
+/**
+ * The structure invariant (SP3): the modules of `courseId` sit at positions 1..n, the lessons of
+ * each module at 1..n, every version is ≥ 1, and every module, lesson and referenced media asset
+ * (lesson media, course cover) belongs to the course's workspace (Review Focus 5).
+ */
+export async function expectStructureInvariant(db: PrismaClient, courseId: string): Promise<void> {
+  const course = await db.course.findUniqueOrThrow({
+    where: { id: courseId },
+    select: { workspaceId: true, version: true, cover: { select: { workspaceId: true } } },
+  });
+  const wid = course.workspaceId;
+  expect(course.version, `course ${courseId}: version ≥ 1`).toBeGreaterThanOrEqual(1);
+  if (course.cover) {
+    expect(course.cover.workspaceId, `course ${courseId}: cover of another workspace`).toBe(wid);
+  }
+  const modules = await db.module.findMany({
+    where: { courseId },
+    orderBy: { position: 'asc' },
+    select: {
+      id: true,
+      workspaceId: true,
+      position: true,
+      version: true,
+      lessons: {
+        orderBy: { position: 'asc' },
+        select: {
+          id: true,
+          workspaceId: true,
+          position: true,
+          version: true,
+          mediaAsset: { select: { workspaceId: true } },
+        },
+      },
+    },
+  });
+  const modulePositions = modules.map((m) => m.position);
+  expect(modulePositions, `course ${courseId}: module positions`).toEqual(
+    contiguous(modulePositions),
+  );
+  for (const m of modules) {
+    expect(m.workspaceId, `module ${m.id}: workspace`).toBe(wid);
+    expect(m.version, `module ${m.id}: version ≥ 1`).toBeGreaterThanOrEqual(1);
+    const lessonPositions = m.lessons.map((l) => l.position);
+    expect(lessonPositions, `module ${m.id}: lesson positions`).toEqual(
+      contiguous(lessonPositions),
+    );
+    for (const l of m.lessons) {
+      expect(l.workspaceId, `lesson ${l.id}: workspace`).toBe(wid);
+      expect(l.version, `lesson ${l.id}: version ≥ 1`).toBeGreaterThanOrEqual(1);
+      if (l.mediaAsset) {
+        expect(l.mediaAsset.workspaceId, `lesson ${l.id}: media of another workspace`).toBe(wid);
+      }
+    }
+  }
+}

@@ -1,9 +1,11 @@
 import {
   systemPrisma,
   type AbuseReport,
+  type Course,
   type GuardianLink,
   type Invitation,
   type InviteLink,
+  type MediaAsset,
   type TeacherStudentAssignment,
   type User,
   type Workspace,
@@ -13,8 +15,10 @@ import type { RouteInfo } from '../../src/openapi/export';
 import {
   assign,
   createAbuseReport,
+  createCourse,
   createInvitation,
   createInviteLink,
+  createMediaAsset,
   createOrganization,
   createStudent,
   createUser,
@@ -38,6 +42,7 @@ export interface Tenant {
   /**
    * ACTIVE OWNER, 2FA on, verified teacher (phone + CODE_OF_CONDUCT, SP2): the
    * `@RequireVerifiedTeacher()` routes reach their service, so the path / body is what is probed.
+   * SP3: `canTeach`, so `course.create` (an ADMIN-column cell that needs it) reaches the service.
    */
   owner: User;
   /** ACTIVE ADMIN, 2FA on. */
@@ -59,6 +64,10 @@ export interface Tenant {
   /** SP2: a minor STUDENT in `PENDING_GUARDIAN_CONSENT`, his guardian link sent (`PENDING`). */
   consentStudent: User;
   consentLink: GuardianLink;
+  /** SP3: a DRAFT course (version 1) owned by `teacher`, without cover. */
+  course: Course;
+  /** SP3: a READY IMAGE uploaded by `owner` (a valid cover inside this workspace only). */
+  coverImage: MediaAsset;
 }
 
 export interface TenantPair {
@@ -87,6 +96,11 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     students: [student],
     name: `Organisation ${tag}`,
   });
+  // SP3: the organisation OWNER also teaches (course.create needs canTeach).
+  await systemPrisma().membership.updateMany({
+    where: { workspaceId: workspace.id, userId: owner.id },
+    data: { canTeach: true },
+  });
   const assignment = await assign(workspace, teacher, student, owner);
   const report = await createAbuseReport(workspace, student, teacher);
   const audit = await systemAudit(workspace, owner);
@@ -104,6 +118,8 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     invitedBy: owner,
     user: { firstName: `Minor${tag}` },
   });
+  const course = await createCourse(workspace, teacher, { title: `Cours ${tag}` });
+  const coverImage = await createMediaAsset(workspace, owner, { kind: 'IMAGE' });
   return {
     workspace,
     owner,
@@ -118,6 +134,8 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     pendingStudent,
     consentStudent: consent.user,
     consentLink: consent.guardianLink!,
+    course,
+    coverImage,
   };
 }
 
@@ -160,6 +178,8 @@ export function foreignIds(p: TenantPair): string[] {
     b.pendingStudent.id,
     b.consentStudent.id,
     b.consentLink.id,
+    b.course.id,
+    b.coverImage.id,
   ];
 }
 
@@ -183,6 +203,8 @@ const PARAMS: Record<string, (t: Tenant) => string> = {
   'members/:uid/reject': (t) => t.pendingStudent.id,
   // A consent-waiting minor whose guardian link was sent: B's one could be re-sent inside B.
   'students/:uid/guardian': (t) => t.consentStudent.id,
+  // SP3: a course (DRAFT, version 1) of the tenant.
+  ':cid': (t) => t.course.id,
 };
 
 /** B's id for each path param: an ACTIVE OWNER of A calling with it gets `404 NOT_FOUND`. */
@@ -266,6 +288,8 @@ export const FOREIGN_QUERIES: Record<string, (p: TenantPair) => Record<string, s
   'GET /api/v1/workspaces/:wid/members': (p) => ({ cursor: membersCursor(p.b.student) }),
   // SP2: an invitation id of this workspace (`invitations.service.ts`).
   'GET /api/v1/workspaces/:wid/invitations': (p) => ({ cursor: p.b.invitation.id }),
+  // SP3: a course id of this workspace (`courses.service.ts`, Prisma cursor).
+  'GET /api/v1/workspaces/:wid/courses': (p) => ({ cursor: p.b.course.id }),
   // Not here: `GET …/assignments` pages with `id > cursor` inside `tenantDb(wid)`; a foreign id
   // only positions the scan over A's rows (nothing of B is read or revealed), so it stays `200`.
 };
@@ -280,12 +304,17 @@ function membersCursor(user: Pick<User, 'id' | 'firstName' | 'lastName'>): strin
 /**
  * Write routes whose body carries ids, with a body naming B's rows. `params` says which tenant's
  * ids fill the path: `'local'` when the route must reach A's own row so the **body** is what is
- * probed, `'foreign'` when the path itself is the foreign id. The call must never be `2xx` and
- * must leave no row referencing B's ids.
+ * probed, `'foreign'` when the path itself is the foreign id. `headers` are sent with the probe
+ * (SP3: `If-Match` with the fixture's version, so a versioned route reaches its body check). The
+ * call must never be `2xx` and must leave no row referencing B's ids.
  */
 export const FOREIGN_BODIES: Record<
   string,
-  { params: 'local' | 'foreign'; body: (p: TenantPair) => unknown }
+  {
+    params: 'local' | 'foreign';
+    body: (p: TenantPair) => unknown;
+    headers?: Record<string, string>;
+  }
 > = {
   'POST /api/v1/workspaces/:wid/assignments': {
     params: 'local',
@@ -335,6 +364,22 @@ export const FOREIGN_BODIES: Record<
     params: 'foreign',
     body: () => ({ label: 'X' }),
   },
+  // SP3: a course of A with B's image as its cover (Review Focus 5).
+  'POST /api/v1/workspaces/:wid/courses': {
+    params: 'local',
+    body: (p) => ({ title: 'Sonde', coverMediaId: p.b.coverImage.id }),
+  },
+  // A's course (version 1, so the If-Match passes) given B's image as its cover.
+  'PATCH /api/v1/workspaces/:wid/courses/:cid': {
+    params: 'local',
+    body: (p) => ({ coverMediaId: p.b.coverImage.id }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // A's course handed to B's teacher.
+  'POST /api/v1/workspaces/:wid/courses/:cid/reassign': {
+    params: 'local',
+    body: (p) => ({ ownerUserId: p.b.teacher.id }),
+  },
 };
 
 /**
@@ -362,6 +407,12 @@ export const BODYLESS_WRITE_ROUTES: Set<string> = new Set<string>([
   'POST /api/v1/workspaces/:wid/members/:uid/reject',
   // No body; the consent-waiting minor is the path's `:uid` (his guardian gets a new link).
   'POST /api/v1/workspaces/:wid/students/:uid/guardian/resend-consent',
+  // SP3. No body; status transitions and the soft delete of the path's course (`:cid`).
+  'POST /api/v1/workspaces/:wid/courses/:cid/publish',
+  'POST /api/v1/workspaces/:wid/courses/:cid/unpublish',
+  'POST /api/v1/workspaces/:wid/courses/:cid/archive',
+  'POST /api/v1/workspaces/:wid/courses/:cid/restore',
+  'DELETE /api/v1/workspaces/:wid/courses/:cid',
 ]);
 
 /** A key that never appears, at any depth, in an organisation-facing abuse-report response. */

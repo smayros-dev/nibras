@@ -108,6 +108,17 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         // SP2 T7: the teacher's guardian consent resend (the student's own resend lives under
         // /me/workspaces/:wid and is not a tenant route, D12).
         'POST /api/v1/workspaces/:wid/students/:uid/guardian/resend-consent',
+        // SP3 T5: courses.
+        'GET /api/v1/workspaces/:wid/courses',
+        'POST /api/v1/workspaces/:wid/courses',
+        'GET /api/v1/workspaces/:wid/courses/:cid',
+        'PATCH /api/v1/workspaces/:wid/courses/:cid',
+        'DELETE /api/v1/workspaces/:wid/courses/:cid',
+        'POST /api/v1/workspaces/:wid/courses/:cid/publish',
+        'POST /api/v1/workspaces/:wid/courses/:cid/unpublish',
+        'POST /api/v1/workspaces/:wid/courses/:cid/archive',
+        'POST /api/v1/workspaces/:wid/courses/:cid/restore',
+        'POST /api/v1/workspaces/:wid/courses/:cid/reassign',
       ]),
     );
   });
@@ -172,8 +183,9 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     route: RouteInfo,
     path: string,
     body: unknown = {},
+    headers: Record<string, string> = {},
   ) => {
-    const req = agent[route.method.toLowerCase() as 'get'](path);
+    const req = agent[route.method.toLowerCase() as 'get'](path).set(headers);
     return WRITE.has(route.method) ? req.send(body as object) : req;
   };
 
@@ -256,6 +268,7 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       memberships: await ctx.db.membership.count(),
       invitations: await ctx.db.invitation.count(),
       inviteLinks: await ctx.db.inviteLink.count(),
+      courses: await ctx.db.course.count(),
     });
     const before = await counts();
 
@@ -275,7 +288,7 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       expect(BODYLESS_WRITE_ROUTES.has(label), `${label}: also listed as bodyless`).toBe(false);
       const table = probe.params === 'local' ? LOCAL_PARAMS : FOREIGN_PARAMS;
       const path = urlFor(route, p.a.workspace.id, table, p);
-      const res = await send(owner, route, path, probe.body(p));
+      const res = await send(owner, route, path, probe.body(p), probe.headers);
       // Refused, and refused on purpose: a 5xx is a crash, not an isolation guarantee.
       expect(res.status, describeRes(label, res)).toBeGreaterThanOrEqual(400);
       expect(res.status, describeRes(label, res)).toBeLessThan(500);
@@ -312,6 +325,17 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     expect(
       await ctx.db.inviteLink.count({ where: { workspaceId: wid, teacherUserId: { in: bIds } } }),
     ).toBe(0);
+    // SP3: no course of A has B's image as cover or B's teacher as owner; A's course is untouched.
+    expect(
+      await ctx.db.course.count({
+        where: {
+          workspaceId: wid,
+          OR: [{ coverMediaId: { in: bIds } }, { ownerUserId: { in: bIds } }],
+        },
+      }),
+    ).toBe(0);
+    const aCourse = await ctx.db.course.findUniqueOrThrow({ where: { id: p.a.course.id } });
+    expect(aCourse).toMatchObject({ ownerUserId: p.a.teacher.id, coverMediaId: null, version: 1 });
     // Nothing moved on either side: A keeps its owner, B's admin stays an ADMIN of B.
     expect((await ctx.db.workspace.findUniqueOrThrow({ where: { id: wid } })).ownerUserId).toBe(
       p.a.owner.id,
