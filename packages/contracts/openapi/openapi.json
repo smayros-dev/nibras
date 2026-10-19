@@ -470,6 +470,78 @@
         ],
         "type": "object"
       },
+      "GuardianDecisionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptNotice": {
+            "type": "boolean"
+          },
+          "decision": {
+            "enum": [
+              "GRANT",
+              "REFUSE"
+            ],
+            "type": "string"
+          },
+          "guardianFirstName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "guardianLastName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "relationship": {
+            "enum": [
+              "PARENT",
+              "LEGAL_GUARDIAN",
+              "OTHER"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "guardianFirstName",
+          "guardianLastName",
+          "relationship"
+        ],
+        "type": "object"
+      },
+      "GuardianRegrantDto": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptNotice": {
+            "type": "boolean"
+          },
+          "guardianFirstName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "guardianLastName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "relationship": {
+            "enum": [
+              "PARENT",
+              "LEGAL_GUARDIAN",
+              "OTHER"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "guardianFirstName",
+          "guardianLastName",
+          "relationship"
+        ],
+        "type": "object"
+      },
       "LoginDto": {
         "properties": {
           "email": {
@@ -1692,6 +1764,139 @@
         ]
       }
     },
+    "/guardian-consent/{token}": {
+      "get": {
+        "operationId": "GuardianController_preview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Guardian"
+        ]
+      },
+      "post": {
+        "operationId": "GuardianController_decide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuardianDecisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Guardian"
+        ]
+      }
+    },
+    "/guardian/{token}": {
+      "get": {
+        "operationId": "GuardianController_view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Guardian"
+        ]
+      }
+    },
+    "/guardian/{token}/grant": {
+      "post": {
+        "operationId": "GuardianController_regrant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuardianRegrantDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Guardian"
+        ]
+      }
+    },
+    "/guardian/{token}/revoke": {
+      "post": {
+        "operationId": "GuardianController_revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Guardian"
+        ]
+      }
+    },
     "/health/live": {
       "get": {
         "operationId": "HealthController_live",
@@ -2285,6 +2490,29 @@
         },
         "tags": [
           "Me"
+        ]
+      }
+    },
+    "/me/workspaces/{wid}/guardian/resend-consent": {
+      "post": {
+        "operationId": "MeGuardianController_resend",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MeGuardian"
         ]
       }
     },
@@ -3469,6 +3697,37 @@
         },
         "tags": [
           "Workspaces"
+        ]
+      }
+    },
+    "/workspaces/{wid}/students/{uid}/guardian/resend-consent": {
+      "post": {
+        "operationId": "StudentGuardianController_resend",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StudentGuardian"
         ]
       }
     },

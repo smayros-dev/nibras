@@ -84,8 +84,25 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         'DELETE /api/v1/workspaces/:wid/invite-links/:id',
         'POST /api/v1/workspaces/:wid/members/:uid/approve',
         'POST /api/v1/workspaces/:wid/members/:uid/reject',
+        // SP2 T7: the teacher's guardian consent resend (the student's own resend lives under
+        // /me/workspaces/:wid and is not a tenant route, D12).
+        'POST /api/v1/workspaces/:wid/students/:uid/guardian/resend-consent',
       ]),
     );
+  });
+
+  it('the /me guardian resend and the public guardian routes are not tenant routes (D12)', () => {
+    const all = listRoutes(ctx.app).map((r) => `${r.method} ${r.path}`);
+    expect(all).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^POST (\/api\/v1)?\/me\/workspaces\/:wid\/guardian\/resend-consent$/,
+        ),
+      ]),
+    );
+    expect(
+      routes.map((r) => r.path).filter((p) => /guardian-consent|\/guardian\/:token|\/me\//.test(p)),
+    ).toEqual([]);
   });
 
   it('every tenant route → 404 for an active TEACHER of another organisation (+ audit)', async () => {

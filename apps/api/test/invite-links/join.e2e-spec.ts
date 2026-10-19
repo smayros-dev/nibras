@@ -435,4 +435,26 @@ describe('public join by group code (AC-INV-08; Review Focus 2, 3)', () => {
     expect(res.body.workspace.id).toBe(a.workspace.id);
     expect(await membership(b, student)).toBeNull();
   });
+  it('a REJECTED student cannot re-join by group code: 409 ALREADY_MEMBER, the link is not used, the row stays REJECTED', async () => {
+    const { teacher, workspace } = await personal();
+    const { link, code } = await createInviteLink({ workspace, createdBy: teacher });
+    const student = await createUser({ birthDate: adultBirthDate() });
+    const m = await db.membership.create({
+      data: {
+        workspaceId: workspace.id,
+        userId: student.id,
+        role: 'STUDENT',
+        status: 'REJECTED',
+        removedAt: new Date(),
+        removalReason: 'REJECTED',
+      },
+    });
+    const res = await (await agent(student)).post(accept(code)).send({ mode: 'JOIN' }).expect(409);
+    expect(res.body.code).toBe('ALREADY_MEMBER');
+    expect((await db.inviteLink.findUniqueOrThrow({ where: { id: link.id } })).usesCount).toBe(0);
+    expect(await db.membership.findUniqueOrThrow({ where: { id: m.id } })).toMatchObject({
+      status: 'REJECTED',
+      removalReason: 'REJECTED',
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   generateOpaqueToken,
   GUARDIAN_CONSENT_RESEND_WINDOW_S,
@@ -11,6 +11,7 @@ import type { EmailProvider } from '@nibras/providers';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { rateLimited } from '../auth/rate-window';
+import { ApiError } from '../common/api-error';
 import { env } from '../config/env';
 import { formatMailDate } from '../invitations/invitation-mailer.service';
 import { EMAIL_PROVIDER } from '../providers/providers.module';
@@ -28,6 +29,24 @@ export interface ArmedGuardianRequest {
 }
 
 type Person = Pick<User, 'firstName' | 'lastName'>;
+
+/** Whether a consent request may be sent again for `link` (see `GuardianRequestService.resend`). */
+function assertResendable(link: Pick<GuardianLink, 'status' | 'consentSentAt'>): void {
+  if (link.status === 'ACTIVE') {
+    throw new ApiError(
+      HttpStatus.CONFLICT,
+      'CONSENT_ALREADY_DECIDED',
+      'The guardian already consented',
+    );
+  }
+  if (link.status === 'PENDING' && link.consentSentAt === null) {
+    throw new ApiError(
+      HttpStatus.CONFLICT,
+      'MEMBERSHIP_NOT_PENDING',
+      'No consent request was started for this membership',
+    );
+  }
+}
 
 const fullName = (p: Person): string => `${p.firstName} ${p.lastName}`.trim();
 
@@ -81,12 +100,19 @@ export class GuardianRequestService {
   }
 
   /**
-   * A new consent link for a pending request: `429 RATE_LIMITED` (`details.retryAfterS`) while
-   * the last send is younger than `GUARDIAN_CONSENT_RESEND_WINDOW_S`; else a new token (the
-   * previous link stops working), `consentExpiresAt = now + 14 d`, `consentSentAt = now`,
-   * `consentResentCount + 1` — one conditional update, so two concurrent resends arm one link.
+   * A new consent link for a request that was sent and is not granted: the link must be
+   * `PENDING` (sent at least once), `REFUSED` or `REVOKED` — an `ACTIVE` link → `409
+   * CONSENT_ALREADY_DECIDED`; a `PENDING` link never sent (the guardian email recorded before an
+   * approval, T6: no token, no expiry) → `409 MEMBERSHIP_NOT_PENDING`, nothing armed. Then `429
+   * RATE_LIMITED` (`details.retryAfterS`) while the last send is younger than
+   * `GUARDIAN_CONSENT_RESEND_WINDOW_S`; else `status PENDING`, `decidedAt` cleared, a new token
+   * (the previous link stops working), `consentExpiresAt = now + 14 d`, `consentSentAt = now`,
+   * `consentResentCount + 1` — one conditional update, so two concurrent resends arm one link and
+   * a grant committed in between is never overwritten. The guardian page token and the consent
+   * history are kept.
    */
   async resend(tx: TenantTx, link: GuardianLink): Promise<ArmedGuardianRequest> {
+    assertResendable(link);
     const now = new Date();
     const windowStart = new Date(now.getTime() - GUARDIAN_CONSENT_RESEND_WINDOW_S * 1000);
     const cooldown = (sentAt: Date | null) => {
@@ -100,9 +126,16 @@ export class GuardianRequestService {
     const { count } = await tx.guardianLink.updateMany({
       where: {
         id: link.id,
-        OR: [{ consentSentAt: null }, { consentSentAt: { lte: windowStart } }],
+        status: { in: ['PENDING', 'REFUSED', 'REVOKED'] },
+        OR: [
+          { consentSentAt: { lte: windowStart } },
+          // Never sent: only a decided link (a never-sent PENDING one is not started, T6).
+          { consentSentAt: null, status: { in: ['REFUSED', 'REVOKED'] } },
+        ],
       },
       data: {
+        status: 'PENDING',
+        decidedAt: null,
         consentTokenHash: hash,
         consentExpiresAt: new Date(now.getTime() + GUARDIAN_CONSENT_TTL_MS),
         consentSentAt: now,
@@ -110,6 +143,9 @@ export class GuardianRequestService {
       },
     });
     if (count !== 1) {
+      // A concurrent resend (cooldown) or decision (status) committed first.
+      const current = await tx.guardianLink.findFirstOrThrow({ where: { id: link.id } });
+      assertResendable(current);
       throw rateLimited(GUARDIAN_CONSENT_RESEND_WINDOW_S, 'Consent request already sent');
     }
     return { link: await tx.guardianLink.findFirstOrThrow({ where: { id: link.id } }), raw };

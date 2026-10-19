@@ -148,6 +148,40 @@ describe('buildPinoOptions', () => {
     ).toBe(`/api/v1/workspaces/${id}`);
   });
 
+  it('masks guardian consent and guardian page tokens (SP2 T7 public routes)', () => {
+    const opts = httpOptions(buildPinoOptions(env));
+    const serialize = (opts.serializers as { req: (req: unknown) => Record<string, unknown> }).req;
+    const raw = 'ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543210-_abcde';
+    for (const [url, splat, masked] of [
+      [
+        `/api/v1/guardian-consent/${raw}`,
+        ['guardian-consent', raw],
+        '/api/v1/guardian-consent/[REDACTED]',
+      ],
+      [`/api/v1/guardian/${raw}`, ['guardian', raw], '/api/v1/guardian/[REDACTED]'],
+      [
+        `/api/v1/guardian/${raw}/revoke`,
+        ['guardian', raw, 'revoke'],
+        '/api/v1/guardian/[REDACTED]/revoke',
+      ],
+      [
+        `/api/v1/guardian/${raw}/grant?a=b`,
+        ['guardian', raw, 'grant'],
+        '/api/v1/guardian/[REDACTED]/grant',
+      ],
+    ] as const) {
+      const out = serialize({
+        id: 'r',
+        method: 'POST',
+        url,
+        params: { token: raw, splat },
+        headers: {},
+      });
+      expect(out.url).toBe(masked);
+      expect(JSON.stringify(out)).not.toContain(raw);
+    }
+  });
+
   it('masks group invite codes carried in the /join/{code} path (SP2 group links)', () => {
     const opts = httpOptions(buildPinoOptions(env));
     const serialize = (opts.serializers as { req: (req: unknown) => Record<string, unknown> }).req;

@@ -324,4 +324,42 @@ describe('tenancy: WorkspaceContextGuard and PermissionGuard (AC-WS-01, AC-WS-03
       .expect(({ body }) => expect(body.code).toBe('NOT_FOUND'));
     expect(await forbiddenAudits(superAdmin.id, A.workspace.id)).toHaveLength(1);
   });
+
+  it('POST /me/workspaces/:wid/guardian/resend-consent is not a tenant route: no GUARDIAN_CONSENT_REQUIRED for the waiting minor, no forbidden_workspace audit for a stranger (D12)', async () => {
+    const teacher = await createUser();
+    const workspace = await createPersonalWorkspace(teacher);
+    const kid = await createUser({ birthDate: '2015-06-01' });
+    await db.membership.create({
+      data: {
+        workspaceId: workspace.id,
+        userId: kid.id,
+        role: 'STUDENT',
+        status: 'PENDING_GUARDIAN_CONSENT',
+      },
+    });
+    await db.guardianLink.create({
+      data: {
+        workspaceId: workspace.id,
+        studentUserId: kid.id,
+        guardianEmail: 'parent@example.com',
+        status: 'PENDING',
+        consentSentAt: new Date(Date.now() - 3_600_000),
+      },
+    });
+    const url = `/api/v1/me/workspaces/${workspace.id}/guardian/resend-consent`;
+    const k = as(http, (await loginAs(ctx, kid)).cookie);
+    // The tenant routes refuse him; the /me route answers.
+    await k
+      .get(`/api/v1/workspaces/${workspace.id}`)
+      .expect(403)
+      .expect(({ body }) => expect(body.code).toBe('GUARDIAN_CONSENT_REQUIRED'));
+    await k.post(url).expect(200);
+
+    const stranger = await createUser();
+    await as(http, (await loginAs(ctx, stranger)).cookie)
+      .post(url)
+      .expect(404)
+      .expect(({ body }) => expect(body.code).toBe('NOT_FOUND'));
+    expect(await db.auditLog.count({ where: { action: 'auth.forbidden_workspace' } })).toBe(0);
+  });
 });

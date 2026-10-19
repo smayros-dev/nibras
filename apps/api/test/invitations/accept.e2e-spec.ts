@@ -654,6 +654,58 @@ describe('public invitation acceptance (AC-INV-02, 03, 09, 13; AC-WS-08)', () =>
     await expectMinorInvariant(db, workspace.id);
   });
 
+  it('a REJECTED student accepting a new email invitation is reactivated like a REMOVED one (same row, removal fields cleared); a minor goes through the consent cycle', async () => {
+    const { teacher, workspace } = await personal();
+    const reject = (id: string) =>
+      db.membership.update({
+        where: { id },
+        data: { status: 'REJECTED', removedAt: new Date(), removalReason: 'REJECTED' },
+      });
+
+    const adult = await createStudent({ workspace, status: 'PENDING_APPROVAL' });
+    await reject(adult.membership.id);
+    const { token } = await createInvitation({
+      workspace,
+      invitedBy: teacher,
+      email: adult.user.email,
+    });
+    const res = await (
+      await agent(adult.user)
+    )
+      .post(accept(token))
+      .send({ mode: 'JOIN' })
+      .expect(201);
+    expect(res.body.membershipStatus).toBe('ACTIVE');
+    const row = await db.membership.findUniqueOrThrow({ where: { id: adult.membership.id } });
+    expect(row).toMatchObject({
+      status: 'ACTIVE',
+      removedAt: null,
+      removalReason: null,
+      invitedByUserId: teacher.id,
+    });
+    expect(row.joinedAt).not.toBeNull();
+    const added = await db.auditLog.findFirstOrThrow({ where: { action: 'member.added' } });
+    expect(added.after).toMatchObject({ reactivated: true, status: 'ACTIVE' });
+
+    const kid = await createStudent({ workspace, minor: true, status: 'PENDING_APPROVAL' });
+    await reject(kid.membership.id);
+    const inv = await createInvitation({ workspace, invitedBy: teacher, email: kid.user.email });
+    const kidRes = await (
+      await agent(kid.user)
+    )
+      .post(accept(inv.token))
+      .send({ mode: 'JOIN', guardianEmail: 'parent@example.com' })
+      .expect(201);
+    expect(kidRes.body.membershipStatus).toBe('PENDING_GUARDIAN_CONSENT');
+    expect(
+      await db.membership.findUniqueOrThrow({ where: { id: kid.membership.id } }),
+    ).toMatchObject({ status: 'PENDING_GUARDIAN_CONSENT', removedAt: null, removalReason: null });
+    expect(
+      ctx.email.findByTemplate('guardian.consent_requested', 'parent@example.com'),
+    ).toHaveLength(1);
+    await expectMinorInvariant(db, workspace.id);
+  });
+
   it('a refused guardian link of this workspace is re-armed (PENDING, new token, new expiry) on a new acceptance', async () => {
     const { teacher, workspace } = await personal();
     const kid = await createUser({ birthDate: minorBirthDate() });

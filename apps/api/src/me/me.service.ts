@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { toMeUser } from '../auth/me-user';
 import { requiresTwoFactor } from '../auth/two-factor.policy';
 import { DB } from '../db/db.module';
+import { guardianInfo } from '../guardian/guardian.service';
 import { ConsentService } from './consent.service';
 
 type ProfileKey = keyof UpdateMeInput;
@@ -77,7 +78,9 @@ export class MeService {
   /**
    * Every membership of the user that is not over (REMOVED / REJECTED), across workspaces, by
    * workspace name. Read through `crossTenantDb()` with a top-level `userId` filter: only the
-   * caller's own rows (Review Focus 1).
+   * caller's own rows (Review Focus 1). A `STUDENT` membership carries its guardian link of that
+   * workspace (`guardian`: masked email, status, consent expiry; `null` without one — adults),
+   * read with a `studentUserId` filter (the caller's own links); other roles have `null`.
    */
   async workspaces(userId: string): Promise<MyWorkspace[]> {
     const rows = await crossTenantDb().membership.findMany({
@@ -90,12 +93,23 @@ export class MeService {
       },
       orderBy: [{ workspace: { name: 'asc' } }, { workspaceId: 'asc' }],
     });
-    return rows.map((m) => ({
-      workspace: m.workspace,
-      role: m.role,
-      canTeach: m.canTeach,
-      status: m.status as MyWorkspace['status'],
-    }));
+    const links = rows.some((m) => m.role === 'STUDENT')
+      ? await crossTenantDb().guardianLink.findMany({
+          where: { studentUserId: userId },
+          select: { workspaceId: true, guardianEmail: true, status: true, consentExpiresAt: true },
+        })
+      : [];
+    const linkOf = new Map(links.map((l) => [l.workspaceId, l]));
+    return rows.map((m) => {
+      const link = m.role === 'STUDENT' ? linkOf.get(m.workspace.id) : undefined;
+      return {
+        workspace: m.workspace,
+        role: m.role,
+        canTeach: m.canTeach,
+        status: m.status as MyWorkspace['status'],
+        guardian: link ? guardianInfo(link) : null,
+      };
+    });
   }
 
   private async serialise(user: User): Promise<MeUser> {

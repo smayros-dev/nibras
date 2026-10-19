@@ -13,6 +13,7 @@ import { RequestIdMiddleware } from './common/request-id.middleware';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
 import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
+import { GuardianModule } from './guardian/guardian.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { InviteLinksModule } from './invite-links/invite-links.module';
 import { ConsentModule } from './me/consent.module';
@@ -50,6 +51,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     MembersModule,
     InvitationsModule,
     InviteLinksModule,
+    GuardianModule,
     AbuseReportsModule,
     AdminModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.

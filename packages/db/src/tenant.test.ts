@@ -695,6 +695,30 @@ describe.skipIf(!url)('tenant isolation', () => {
       await expect(
         crossTenantDb().inviteLink.findMany({ where: { code: { contains: 'CODE' } } }),
       ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
+      // GuardianLink.studentUserId is the data subject's id: a user-scoped filter like userId
+      // (string, equals, non-empty in), on GuardianLink only.
+      expect(
+        (await crossTenantDb().guardianLink.findMany({ where: { studentUserId: u.id } }))
+          .map((l) => l.workspaceId)
+          .sort(),
+      ).toEqual([A, B].sort());
+      expect(
+        await crossTenantDb().guardianLink.count({ where: { studentUserId: { equals: u.id } } }),
+      ).toBe(2);
+      expect(
+        await crossTenantDb().guardianLink.count({ where: { studentUserId: { in: [u.id] } } }),
+      ).toBe(2);
+      for (const studentUserId of [{ not: u.id }, { in: [] }, { contains: 'x' }]) {
+        await expect(
+          crossTenantDb().guardianLink.findMany({ where: { studentUserId } as never }),
+        ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
+      }
+      await expect(
+        crossTenantDb().guardianLink.findMany({ where: { status: 'ACTIVE' } }),
+      ).rejects.toThrow(/studentUserId/);
+      await expect(
+        crossTenantDb().membership.findMany({ where: { studentUserId: u.id } as never }),
+      ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
       // A model without lookup keys accepts only userId / id, and the message says so.
       await expect(
         crossTenantDb().invitationImport.findMany({ where: { workspaceId: B } }),

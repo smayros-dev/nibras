@@ -38,6 +38,22 @@ export const GuardianRegrantSchema = z
 
 export type GuardianRegrantInput = z.infer<typeof GuardianRegrantSchema>;
 
+/**
+ * Public `POST /guardian-consent/{token}` answer: a grant carries the long-lived guardian page
+ * (`/{locale}/guardian/{token}`: sessions, revoke), also emailed to the guardian; a refusal none.
+ */
+export const GuardianDecisionResultSchema = z.object({
+  decision: z.enum(['GRANT', 'REFUSE']),
+  guardianPageUrl: z.string().optional(),
+});
+
+export type GuardianDecisionResult = z.infer<typeof GuardianDecisionResultSchema>;
+
+/** Public `POST /guardian/{token}/grant` answer: the new guardian page (the previous one is dead). */
+export const GuardianRegrantResultSchema = z.object({ guardianPageUrl: z.string() });
+
+export type GuardianRegrantResult = z.infer<typeof GuardianRegrantResultSchema>;
+
 /** Public `GET /guardian-consent/{token}`: a pending request (a decided one is `409`). */
 export const GuardianConsentPreviewSchema = z.object({
   student: PersonNameSchema,

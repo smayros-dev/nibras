@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { GuardianDecisionSchema, GuardianRegrantSchema } from './guardian';
+import {
+  GuardianDecisionResultSchema,
+  GuardianDecisionSchema,
+  GuardianRegrantResultSchema,
+  GuardianRegrantSchema,
+} from './guardian';
 
 const BASE = { guardianFirstName: 'Fatma', guardianLastName: 'Trabelsi', relationship: 'PARENT' };
 
@@ -23,5 +28,17 @@ describe('guardian schemas', () => {
     expect(
       GuardianRegrantSchema.safeParse({ ...BASE, acceptNotice: true, decision: 'GRANT' }).success,
     ).toBe(false);
+  });
+
+  it('decision results: a grant may carry the guardian page url, a re-grant always does', () => {
+    expect(GuardianDecisionResultSchema.safeParse({ decision: 'REFUSE' }).success).toBe(true);
+    expect(
+      GuardianDecisionResultSchema.safeParse({
+        decision: 'GRANT',
+        guardianPageUrl: 'https://x/fr/guardian/t',
+      }).success,
+    ).toBe(true);
+    expect(GuardianDecisionResultSchema.safeParse({ decision: 'MAYBE' }).success).toBe(false);
+    expect(GuardianRegrantResultSchema.safeParse({}).success).toBe(false);
   });
 });

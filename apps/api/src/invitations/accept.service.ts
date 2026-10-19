@@ -480,6 +480,8 @@ export class AcceptService {
             role: invitation.role,
             status,
             invitedByUserId: invitation.invitedByUserId,
+            // An explicit email invitation brings a rejected student back (SP2 T7 decision).
+            reactivateRejected: true,
           },
           tx,
         );

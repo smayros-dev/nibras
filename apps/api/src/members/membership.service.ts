@@ -18,6 +18,12 @@ export interface AddMemberInput {
   /** ADMIN who also teaches. Default `false`. */
   canTeach?: boolean;
   invitedByUserId?: string;
+  /**
+   * A `REJECTED` membership (refused from the approval queue) is reactivated like a `REMOVED`
+   * one. Only an explicit email invitation sets it (owner decision, SP2 T7): a rejected student
+   * re-joining by group code still gets `409 ALREADY_MEMBER`.
+   */
+  reactivateRejected?: boolean;
 }
 
 /** `addMember` in a caller's transaction: `audit()` writes `member.added`, after the commit. */
@@ -39,14 +45,16 @@ export class MembershipService {
   constructor(private readonly audit: AuditService) {}
 
   /**
-   * - a live membership (any status but `REMOVED`) → `409 ALREADY_MEMBER`;
-   * - a `REMOVED` one is reactivated: same row (PRD §10.4), new role/status/`canTeach`/inviter,
-   *   `joinedAt` = now when ACTIVE, `removedAt`/`removalReason` cleared;
+   * - a live membership (any status but `REMOVED`, or `REJECTED` with `reactivateRejected`) →
+   *   `409 ALREADY_MEMBER`;
+   * - a `REMOVED` one (or a `REJECTED` one with `reactivateRejected`) is reactivated: same row
+   *   (PRD §10.4), new role/status/`canTeach`/inviter, `joinedAt` = now when ACTIVE,
+   *   `removedAt`/`removalReason` cleared;
    * - otherwise a new row (`joinedAt` = now when ACTIVE);
    * - in a PERSONAL workspace a `STUDENT` also gets the `TeacherStudentAssignment(owner →
    *   student)` (§11.2), unless it already exists (kept from before a removal).
-   * The reactivation is a conditional update (`status = 'REMOVED'`): of two concurrent calls on
-   * one REMOVED row, the second waits for the first's row lock, matches nothing and gets `409
+   * The reactivation is a conditional update (on the reactivatable statuses): of two concurrent
+   * calls on one ended row, the second waits for the first's row lock, matches nothing and gets `409
    * ALREADY_MEMBER`.
    *
    * Audit `member.added` (written by `AuditService` on its own connection, so only once the
@@ -115,10 +123,13 @@ export class MembershipService {
     let membership: Membership;
     let reactivated = false;
     if (existing) {
-      if (existing.status !== 'REMOVED') throw alreadyMember();
+      const reactivatable: MembershipStatus[] = input.reactivateRejected
+        ? ['REMOVED', 'REJECTED']
+        : ['REMOVED'];
+      if (!reactivatable.includes(existing.status)) throw alreadyMember();
       // Conditional: a concurrent reactivation committed first → nothing matches.
       const { count } = await tx.membership.updateMany({
-        where: { id: existing.id, status: 'REMOVED' },
+        where: { id: existing.id, status: { in: reactivatable } },
         data: { ...fields, removedAt: null, removalReason: null },
       });
       if (count === 0) throw alreadyMember();

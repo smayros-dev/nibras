@@ -85,6 +85,23 @@ export const CROSS_TENANT_LOOKUP_KEYS = {
   GuardianLink: ['consentTokenHash', 'sessionsViewTokenHash'],
 } as const satisfies Partial<Record<TenantModel, readonly string[]>>;
 
+/**
+ * Extra user-scoped filter keys per model, accepted exactly like `userId`: the column holds the
+ * data subject's own id (not a secret), so a caller filtering on it reads that user's rows only.
+ * `GuardianLink.studentUserId`: the student reads his guardian links across workspaces
+ * (`/me/workspaces`).
+ */
+const USER_SCOPED_KEYS: Partial<Record<TenantModel, readonly string[]>> = {
+  GuardianLink: ['studentUserId'],
+};
+
+function userKeys(model: string): readonly string[] {
+  return [
+    ...BASE_FILTER_KEYS,
+    ...((USER_SCOPED_KEYS as Partial<Record<string, readonly string[]>>)[model] ?? []),
+  ];
+}
+
 function lookupKeys(model: string): readonly string[] {
   return (CROSS_TENANT_LOOKUP_KEYS as Partial<Record<string, readonly string[]>>)[model] ?? [];
 }
@@ -234,14 +251,14 @@ function scopeArgs(
 }
 
 /**
- * The "always filtered" rule of `crossTenantDb()`: a top-level `userId`/`id` equality (`'x'`,
- * `{ equals: 'x' }` or a non-empty `{ in: [...] }`), or a plain non-empty string on one of the
- * model's `CROSS_TENANT_LOOKUP_KEYS`.
+ * The "always filtered" rule of `crossTenantDb()`: a top-level `userId`/`id` equality (or one on
+ * the model's `USER_SCOPED_KEYS`; `'x'`, `{ equals: 'x' }` or a non-empty `{ in: [...] }`), or a
+ * plain non-empty string on one of the model's `CROSS_TENANT_LOOKUP_KEYS`.
  */
 function hasCrossTenantFilter(model: string, args: unknown): boolean {
   const where = isObject(args) ? args.where : undefined;
   if (!isObject(where)) return false;
-  const byUserOrId = BASE_FILTER_KEYS.some((key) => {
+  const byUserOrId = userKeys(model).some((key) => {
     const v = where[key];
     if (typeof v === 'string') return true;
     if (!isObject(v) || Object.keys(v).length !== 1) return false;
@@ -376,7 +393,7 @@ function crossTenant(base: PrismaClient, superAdmin: SuperAdminCrossTenant | und
           if (!superAdmin) {
             if (!hasCrossTenantFilter(model, args)) {
               throw new CrossTenantFilterMissingError(model, operation, [
-                ...BASE_FILTER_KEYS,
+                ...userKeys(model),
                 ...lookupKeys(model),
               ]);
             }
