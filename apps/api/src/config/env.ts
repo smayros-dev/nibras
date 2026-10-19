@@ -26,8 +26,11 @@ const EnvObject = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   /** `app_user` role: RLS enforced (PRD §13.3). */
   DATABASE_URL: z.url(),
-  /** `app_system` role: BYPASSRLS, never used for request handling. */
-  DATABASE_URL_SYSTEM: z.url(),
+  /**
+   * `app_system` role: BYPASSRLS, never used for request handling. Tests and the CLI only
+   * (`systemPrisma()`); never set on the api service (SP1.6 F3, `infra/compose.staging.yml`).
+   */
+  DATABASE_URL_SYSTEM: z.url().optional(),
   // `URL.canParse` first: zod still runs refinements after `z.url()` fails, and `new URL` throws.
   REDIS_URL: z
     .url()

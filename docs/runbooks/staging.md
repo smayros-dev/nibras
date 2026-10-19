@@ -46,11 +46,16 @@ no extra secret is needed for that. If the GHCR packages are public, `GHCR_READ_
 
 ### `.env.staging`
 
+The file is used **for compose interpolation only** (`docker compose --env-file .env.staging`): no
+container reads it whole. Each service receives only the variables listed for it in
+`compose.staging.yml` (table below), so the published `web` container holds no secret, the `api`
+never sees the BYPASSRLS `DATABASE_URL_SYSTEM`, and the `worker` never sees the auth secrets (SP1.6
+F3). A variable set here but not in the table reaches no container.
+
 Start from `.env.example`; hosts are the compose service names, every password is a fresh random
 value (`openssl rand -hex 24`):
 
 ```dotenv
-NODE_ENV=production
 LOG_LEVEL=info
 NIBRAS_IMAGE_OWNER=<github owner, lowercase>
 
@@ -77,11 +82,49 @@ TOTP_ENCRYPTION_KEY=<openssl rand -base64 32>
 HIBP_ENABLED=true
 COOKIE_SECURE=true
 
+# MinIO root credentials (no app service receives S3_* yet).
 S3_ENDPOINT=http://minio:9000
 S3_ACCESS_KEY=<random>
 S3_SECRET_KEY=<random>
 S3_BUCKET=nibras-staging
 ```
+
+**Which service receives what.** Kept in step with `compose.staging.yml` by
+`packages/config/infra/compose-staging.test.ts` (every `${VAR}` of the compose file must have a row
+here naming exactly the services that use it):
+
+| Variable                      | Used by                   | Required / default                                         |
+| ----------------------------- | ------------------------- | ---------------------------------------------------------- |
+| `NIBRAS_IMAGE_OWNER`          | api, migrate, web, worker | required (image path only, not passed into the containers) |
+| `NIBRAS_IMAGE_TAG`            | api, migrate, web, worker | default `latest` (the deploy job sets the commit SHA)      |
+| `POSTGRES_PASSWORD`           | postgres                  | required                                                   |
+| `APP_SYSTEM_DB_PASSWORD`      | postgres                  | required (init script, first boot only)                    |
+| `APP_USER_DB_PASSWORD`        | postgres                  | required (init script, first boot only)                    |
+| `S3_ACCESS_KEY`               | minio                     | required (MinIO root user)                                 |
+| `S3_SECRET_KEY`               | minio                     | required (MinIO root password)                             |
+| `DATABASE_URL_SYSTEM`         | migrate, worker           | required (`app_system`, BYPASSRLS)                         |
+| `DATABASE_URL`                | api                       | required (`app_user`, RLS enforced)                        |
+| `REDIS_URL`                   | api, worker               | required                                                   |
+| `WEB_ORIGIN`                  | api, worker               | required                                                   |
+| `SMTP_URL`                    | api, worker               | required                                                   |
+| `EMAIL_FROM`                  | api, worker               | required                                                   |
+| `JWT_SECRET`                  | api                       | required                                                   |
+| `TOTP_ENCRYPTION_KEY`         | api                       | required                                                   |
+| `SMS_PROVIDER`                | api                       | default `console`                                          |
+| `HIBP_ENABLED`                | api                       | default `true`                                             |
+| `COOKIE_SECURE`               | api                       | default `true`                                             |
+| `RATE_LIMIT_USER`             | api                       | default `600`                                              |
+| `RATE_LIMIT_ANON`             | api                       | default `60`                                               |
+| `TRUST_PROXY_HOPS`            | api                       | default `1` (see "Client IP behind the proxies")           |
+| `LOG_LEVEL`                   | api, worker               | default `info`                                             |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | api                       | default empty (tracing off)                                |
+| `API_URL`                     | web                       | default `http://api:3001`                                  |
+| `WEB_BIND`                    | web                       | default `127.0.0.1` (host port binding, not passed in)     |
+
+A required variable that is missing or empty stops `docker compose` before any container starts
+(`required variable JWT_SECRET is missing a value: set JWT_SECRET in .env.staging`).
+`NODE_ENV=production`, `APP_ENV=staging` and the listen ports (api `PORT=3001`, web `PORT=3000`,
+worker `WORKER_PORT=3002`) are fixed in `compose.staging.yml`, not read from this file.
 
 The API validates these at startup and refuses to boot when one is missing or malformed:
 `TOTP_ENCRYPTION_KEY` must be canonical base64 of exactly 32 bytes and `REDIS_URL` must use
@@ -95,8 +138,9 @@ worker also refuse to start (exit 1, the error names every offending variable) w
   (API only; the worker has neither);
 - `JWT_SECRET` uses fewer than 3 character classes (lowercase, uppercase, digit, other) — use
   `openssl rand -base64 48`, not `-hex`;
-- `DATABASE_URL` (API) or `DATABASE_URL_SYSTEM` (API and worker) uses the password `app` of the
-  local `init.sql`;
+- `DATABASE_URL` (API) or `DATABASE_URL_SYSTEM` (worker; the API checks it only when set — it is
+  optional there and never given to the api service) uses the password `app` of the local
+  `init.sql`;
 - `COOKIE_SECURE` is not `true` (API; when omitted it defaults to `true` because the images run
   `NODE_ENV=production`);
 - `WEB_ORIGIN` is not an `https:` URL (API and worker).
@@ -110,9 +154,12 @@ it would enable the e2e TERMS override), so staging may use
 `SMS_PROVIDER=console` (the log provider: nothing is sent). `APP_ENV=production` refuses `console`: production needs a real SMS provider, which is
 still an owner decision.
 
-`PORT` and `WORKER_PORT` are left out on purpose: every app service reads this one file, so
-`compose.staging.yml` pins them per service (api `3001`, web `3000`, worker `3002`) and any value
-set here is ignored.
+**Read-only containers.** `migrate`, `api`, `worker` and `web` run with `read_only: true`,
+`cap_drop: [ALL]`, `no-new-privileges` and `init: true` (an init process reaps zombies and forwards
+signals). `/tmp` is a tmpfs in each (wiped on restart), and the web also gets a tmpfs on
+`/app/apps/web/.next/cache` (Next's runtime fetch/image cache). An `EROFS: read-only file system`
+in the logs means a new write path: add a tmpfs for it in `compose.staging.yml`, never drop
+`read_only`. Postgres, Redis and MinIO are unchanged (they write to their volumes).
 
 `API_URL` is also baked into the web image's `/api/*` rewrite at build time (default
 `http://api:3001`, matching the compose service name).
@@ -196,7 +243,11 @@ cd /opt/nibras/infra
 docker compose --env-file .env.staging -f compose.staging.yml run --rm migrate
 ```
 
-Same thing with plain Docker: `docker run --rm --env-file .env.staging --network nibras-staging_default ghcr.io/<owner>/nibras-api:<tag> migrate`.
+Same thing with plain Docker (only `DATABASE_URL_SYSTEM` goes into the container, never the whole file):
+
+```bash
+DATABASE_URL_SYSTEM="$(sed -n 's/^DATABASE_URL_SYSTEM=//p' .env.staging)"   docker run --rm --read-only --tmpfs /tmp -e DATABASE_URL_SYSTEM   --network nibras-staging_default ghcr.io/<owner>/nibras-api:<tag> migrate
+```
 
 ## Rollback
 

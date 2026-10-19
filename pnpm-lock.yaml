@@ -323,6 +323,9 @@ importers:
       '@next/eslint-plugin-next':
         specifier: ^16.4.0
         version: 16.4.0(eslint@9.39.5(jiti@2.7.0))
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
       eslint:
         specifier: ^9.39.5
         version: 9.39.5(jiti@2.7.0)
@@ -341,6 +344,9 @@ importers:
       vitest:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@24.19.2)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(lightningcss@1.32.0)(terser@5.51.2)(yaml@2.9.1)
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
 
   packages/contracts:
     dependencies:
