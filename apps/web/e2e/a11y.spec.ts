@@ -14,6 +14,7 @@ import {
   tokenFromEmail,
 } from './helpers/invitations';
 import { waitForEmail } from './helpers/mailpit';
+import { SAMPLE_PDF, seedClassroom, seedCourse, uploadFixture } from './helpers/media';
 import { joinByInvitation, seedUser } from './helpers/seed';
 
 /**
@@ -34,7 +35,12 @@ async function audit(page: Page, testInfo: TestInfo, name: string, modal?: Locat
     path: `test-results/screens/${testInfo.project.name}/${name}.png`,
     fullPage: true,
   });
-  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  // The media watermark (SP3, D-O8) is deliberately translucent, aria-hidden decoration over the
+  // media: incidental text, exempt from WCAG 1.4.3 contrast.
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa'])
+    .exclude('[data-testid="watermark"]')
+    .analyze();
   const blocking = violations
     .filter((v) => BLOCKING.includes(v.impact ?? ''))
     .map((v) => ({
@@ -150,6 +156,68 @@ not-an-email
       await guardian.dispose();
       await minor.dispose();
       await teacher.ctx.dispose();
+    }
+  });
+
+  test('SP3 pages: courses list and course structure (teacher); my courses, course outline, PDF and text lessons (student)', async ({
+    page,
+    browser,
+    uiLocale: locale,
+  }, testInfo) => {
+    test.setTimeout(180_000);
+    const room = await seedClassroom();
+    const studentContext = await browser.newContext({ ...testInfo.project.use });
+    try {
+      const { teacher, student } = room;
+      const pdf = await uploadFixture(teacher.ctx, teacher.wid, 'PDF', SAMPLE_PDF());
+      const course = await seedCourse(teacher.ctx, teacher.wid, {
+        title: 'Mathématiques — accessibilité',
+        modules: [
+          {
+            title: 'Module 1',
+            lessons: [
+              { type: 'PDF', title: 'Le polycopié', mediaId: pdf, allowDownload: true },
+              { type: 'TEXT', title: 'La leçon écrite' },
+            ],
+          },
+          { title: 'Module 2', afterPrevious: true, lessons: [{ type: 'TEXT', title: 'Suite' }] },
+        ],
+        students: [student.userId],
+      });
+      const [pdfLesson, textLesson] = course.modules[0]!.lessons as [
+        { id: string; title: string },
+        { id: string; title: string },
+      ];
+
+      await uiLogin(page, locale, teacher.user);
+      await page.goto(`/${locale}/app/w/${teacher.wid}/courses`);
+      await expect(page.getByRole('table')).toBeVisible();
+      await audit(page, testInfo, 'courses');
+      await page.goto(`/${locale}/app/w/${teacher.wid}/courses/${course.id}`);
+      await expect(
+        page.getByRole('list', { name: t(locale, 'structure.modulesList') }),
+      ).toBeVisible();
+      await audit(page, testInfo, 'course-structure');
+
+      const learner = await studentContext.newPage();
+      await uiLogin(learner, locale, student);
+      await learner.goto(`/${locale}/app/courses`);
+      await expect(learner.getByRole('link', { name: /accessibilité/ }).first()).toBeVisible();
+      await audit(learner, testInfo, 'my-courses');
+      await learner.goto(`/${locale}/app/courses/${course.id}`);
+      await expect(
+        learner.getByRole('heading', { name: t(locale, 'learn.outline') }),
+      ).toBeVisible();
+      await audit(learner, testInfo, 'course-outline');
+      await learner.goto(`/${locale}/app/courses/${course.id}/lessons/${pdfLesson.id}`);
+      await expect(learner.getByTestId('pdf-page')).toHaveCount(2, { timeout: 20_000 });
+      await audit(learner, testInfo, 'lesson-pdf');
+      await learner.goto(`/${locale}/app/courses/${course.id}/lessons/${textLesson.id}`);
+      await expect(learner.getByText('Contenu de La leçon écrite')).toBeVisible();
+      await audit(learner, testInfo, 'lesson-text');
+    } finally {
+      await studentContext.close();
+      await room.dispose();
     }
   });
 

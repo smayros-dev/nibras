@@ -442,6 +442,9 @@ importers:
       '@nibras/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@nibras/providers':
+        specifier: workspace:*
+        version: link:../providers
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2

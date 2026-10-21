@@ -62,13 +62,13 @@ export default defineConfig<LocaleTestOptions>({
       use: { ...devices['Pixel 7'], uiLocale: 'fr' },
       testMatch: /landing\.spec\.ts|smoke\.spec\.ts|shell\.spec\.ts|a11y\.spec\.ts/,
     },
-    // RTL on a phone (spec §8): shell (bottom nav, More sheet), axe + screenshots, PWA. The
-    // landing and smoke specs already cover ar themselves (they iterate the locales), so they
-    // are not run twice.
+    // RTL on a phone (spec §8): shell (bottom nav, More sheet), axe + screenshots, PWA, the media
+    // watermark (SP3 AC-MED-09). The landing and smoke specs already cover ar themselves (they
+    // iterate the locales), so they are not run twice.
     {
       name: 'mobile-ar',
       use: { ...devices['Pixel 7'], uiLocale: 'ar' },
-      testMatch: /shell\.spec\.ts|a11y\.spec\.ts|pwa\.spec\.ts/,
+      testMatch: /shell\.spec\.ts|a11y\.spec\.ts|pwa\.spec\.ts|watermark\.spec\.ts/,
     },
   ],
   // The API runs with a bumped TERMS version (consent-gate e2e); registration still grants the
@@ -106,7 +106,14 @@ export default defineConfig<LocaleTestOptions>({
       // The (app) layout reads it server-side to compute the current TERMS version. The override
       // is honoured only under an explicit APP_ENV=development, whatever NODE_ENV says (the
       // standalone build runs NODE_ENV=production) — `testConsentTermsVersion`, @nibras/contracts.
-      env: { TEST_CONSENT_TERMS_VERSION, APP_ENV: 'development' },
+      // MEDIA_ORIGINS: the CSP media origins (MinIO: presigned upload PUTs, the PDF fetch, video
+      // playback). `next dev` also reads it from the root `.env` (next.config.ts); the standalone
+      // server only gets its env from here or CI's job env.
+      env: {
+        TEST_CONSENT_TERMS_VERSION,
+        APP_ENV: 'development',
+        MEDIA_ORIGINS: process.env.MEDIA_ORIGINS ?? 'http://localhost:9000',
+      },
     },
   ],
 });
