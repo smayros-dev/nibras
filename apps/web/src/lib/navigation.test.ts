@@ -13,9 +13,10 @@ const w1 = {
 /** Every route `buildNavModel` may link to (locale-less), mirroring `src/app/[locale]`. */
 const EXISTING_ROUTES = [
   /^\/app$/,
+  /^\/app\/courses$/,
   /^\/app\/settings\/(profile|security|verification|consents|workspaces)$/,
   /^\/app\/w\/[^/]+$/,
-  /^\/app\/w\/[^/]+\/(students|members|audit-log)$/,
+  /^\/app\/w\/[^/]+\/(courses|students|members|audit-log)$/,
   /^\/admin\/(workspaces|abuse-reports|health)$/,
 ];
 
@@ -58,7 +59,7 @@ describe('buildNavModel', () => {
     ]);
     expect(currentAt(sections, '/app/w/w2')).toBe('workspace-w2-pending');
     // The active workspace keeps its full section.
-    expect(sections.find((s) => s.id === 'workspace-w1')!.items).toHaveLength(4);
+    expect(sections.find((s) => s.id === 'workspace-w1')!.items).toHaveLength(5);
   });
 
   it('links only existing routes, the workspace section shown only inside it', () => {
@@ -83,7 +84,7 @@ describe('buildNavModel', () => {
     }
   });
 
-  it('adds Étudiants between settings and members for OWNER/ADMIN/TEACHER, not for a STUDENT (SP2)', () => {
+  it('adds Cours and Étudiants between settings and members for OWNER/ADMIN/TEACHER, not for a STUDENT (SP2, SP3)', () => {
     const as = (id: string, role: MyWorkspace['role']) =>
       ({ ...w1, workspace: { ...w1.workspace, id }, role }) as MyWorkspace;
     const sections = model({
@@ -94,18 +95,47 @@ describe('buildNavModel', () => {
     for (const wid of ['w1', 'w2', 'w3']) {
       expect(ids(wid)).toEqual([
         `workspace-${wid}-settings`,
+        `workspace-${wid}-courses`,
         `workspace-${wid}-students`,
         `workspace-${wid}-members`,
         `workspace-${wid}-audit`,
       ]);
     }
     expect(ids('w4')).not.toContain('workspace-w4-students');
+    expect(ids('w4')).not.toContain('workspace-w4-courses');
+    const courses = sections[1]!.items.find((i) => i.id === 'workspace-w1-courses')!;
+    expect([courses.href, courses.label]).toEqual(['/fr/app/w/w1/courses', 'workspace.navCourses']);
+    expect(currentAt(sections, '/app/w/w1/courses/c1/settings')).toBe('workspace-w1-courses');
     const students = sections[1]!.items.find((i) => i.id === 'workspace-w1-students')!;
     expect([students.href, students.label]).toEqual([
       '/fr/app/w/w1/students',
       'workspace.navStudents',
     ]);
     expect(currentAt(sections, '/app/w/w1/students')).toBe('workspace-w1-students');
+  });
+
+  it('adds the main « Cours » item (my courses) only with a STUDENT membership (SP3)', () => {
+    const student = {
+      ...w1,
+      workspace: { ...w1.workspace, id: 'w2' },
+      role: 'STUDENT',
+    } as MyWorkspace;
+    expect(
+      model()
+        .find((s) => s.id === 'main')!
+        .items.map((i) => i.id),
+    ).not.toContain('courses');
+    const main = model({ workspaces: [w1, student] }).find((s) => s.id === 'main')!;
+    expect(main.items.map((i) => i.id)).toEqual(['dashboard', 'courses', 'workspaces', 'settings']);
+    const item = main.items[1]!;
+    expect([item.href, item.label]).toEqual(['/fr/app/courses', 'nav.courses']);
+    // A membership not active yet gives no course access.
+    const pending = { ...student, status: 'PENDING_APPROVAL' } as MyWorkspace;
+    expect(
+      model({ workspaces: [pending] })
+        .find((s) => s.id === 'main')!
+        .items.map((i) => i.id),
+    ).not.toContain('courses');
   });
 
   it('has no workspace section without workspaces', () => {

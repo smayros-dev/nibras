@@ -7,8 +7,10 @@ name: nibras-staging
 
 # `.env.staging` is used for interpolation only (`--env-file`): no container reads it whole. Each app
 # service lists the variables it needs under `environment` (`${VAR:?}` required, `${VAR:-x}` optional),
-# so the published web container holds no secret and the api never sees the BYPASSRLS URL (SP1.6 F3;
-# allocation table in docs/runbooks/staging.md, enforced by packages/config/infra/compose-staging.test.ts).
+# so the published web container holds no secret, the api never sees the BYPASSRLS URL (SP1.6 F3) and
+# S3_* / VIDEO_PROVIDER / CLOUDFLARE_* reach the api and worker only (the worker without the Cloudflare
+# webhook secret and signing key; SP3). Allocation table in docs/runbooks/staging.md, enforced by
+# packages/config/infra/compose-staging.test.ts.
 # App containers run read-only without capabilities; `/tmp` (and Next's cache) are tmpfs.
 x-app: &app
   restart: unless-stopped
@@ -58,6 +60,10 @@ services:
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env.staging}
     volumes:
       - minio-data:/data
+    # S3 API only (not the console), on loopback: browsers upload parts and read media through
+    # presigned URLs on S3_PUBLIC_ENDPOINT, which the host TLS proxy forwards here (SP3).
+    ports:
+      - '${MINIO_BIND:-127.0.0.1}:9000:9000'
 
   # One-shot: `prisma migrate deploy` as app_system. The api starts only once it exits 0.
   migrate:
@@ -98,6 +104,22 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # Empty = tracing off.
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # SP3 object storage (internal endpoint + the public one presigned URLs carry).
+      S3_ENDPOINT: ${S3_ENDPOINT:?set S3_ENDPOINT in .env.staging}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env.staging}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env.staging}
+      S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET in .env.staging}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      # `s3` (passthrough) on staging; `cloudflare_stream` requires every CLOUDFLARE_* below.
+      VIDEO_PROVIDER: ${VIDEO_PROVIDER:-s3}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_STREAM_API_TOKEN: ${CLOUDFLARE_STREAM_API_TOKEN:-}
+      CLOUDFLARE_STREAM_WEBHOOK_SECRET: ${CLOUDFLARE_STREAM_WEBHOOK_SECRET:-}
+      CLOUDFLARE_STREAM_SIGNING_KEY_ID: ${CLOUDFLARE_STREAM_SIGNING_KEY_ID:-}
+      CLOUDFLARE_STREAM_SIGNING_KEY_PEM: ${CLOUDFLARE_STREAM_SIGNING_KEY_PEM:-}
+      CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN: ${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -120,11 +142,25 @@ services:
       EMAIL_FROM: ${EMAIL_FROM:?set EMAIL_FROM in .env.staging}
       WEB_ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN in .env.staging}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # SP3 media jobs (probe, cleanup, delete): same storage as the api.
+      S3_ENDPOINT: ${S3_ENDPOINT:?set S3_ENDPOINT in .env.staging}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env.staging}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env.staging}
+      S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET in .env.staging}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      VIDEO_PROVIDER: ${VIDEO_PROVIDER:-s3}
+      # Cloudflare getAsset/delete only: no webhook secret, no signing key in the worker.
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_STREAM_API_TOKEN: ${CLOUDFLARE_STREAM_API_TOKEN:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      minio:
+        condition: service_started
 
   web:
     <<: *app
@@ -134,6 +170,7 @@ services:
       - /tmp
       - /app/apps/web/.next/cache
     # No secret at all: the web only proxies to the api (server-side fetches and the `/api/*` rewrite).
+    # MEDIA_ORIGINS: space-separated media origins (S3_PUBLIC_ENDPOINT, Cloudflare) for the CSP.
     environment:
       NODE_ENV: production
       # Pinned like api/worker: `development` would enable the e2e TERMS override
@@ -141,6 +178,7 @@ services:
       APP_ENV: staging
       PORT: '3000'
       API_URL: ${API_URL:-http://api:3001}
+      MEDIA_ORIGINS: ${MEDIA_ORIGINS:-}
     # Only the web app is published; the browser reaches the API through its `/api/*` rewrite.
     # Bound to loopback: a TLS reverse proxy on the host fronts it (WEB_BIND=0.0.0.0 to expose directly).
     ports:

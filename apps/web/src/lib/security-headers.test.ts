@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCsp, newNonce, securityHeaders } from './security-headers';
+import { buildCsp, newNonce, parseOrigins, securityHeaders } from './security-headers';
 
 function directives(csp: string): Map<string, string> {
   return new Map(
@@ -22,7 +22,7 @@ describe('buildCsp', () => {
     expect(d.get('style-src')).toBe("'self' 'unsafe-inline'");
     expect(d.get('img-src')).toBe("'self' data: blob:");
     expect(d.get('connect-src')).toBe("'self'");
-    expect(d.get('worker-src')).toBe("'self'");
+    expect(d.get('worker-src')).toBe("'self' blob:");
     expect(d.get('manifest-src')).toBe("'self'");
     expect(d.has('upgrade-insecure-requests')).toBe(true);
     expect(csp).not.toContain('unsafe-eval');
@@ -35,6 +35,54 @@ describe('buildCsp', () => {
     expect(d.get('connect-src')).toBe("'self' ws: wss:");
     expect(d.has('upgrade-insecure-requests')).toBe(false);
     expect(d.get('frame-ancestors')).toBe("'none'");
+  });
+});
+
+describe('media origins (uploads, playback, PDF, thumbnails)', () => {
+  it('adds the configured origins to connect-src, media-src and img-src only', () => {
+    const d = directives(
+      buildCsp('n', {
+        dev: false,
+        mediaOrigins: ['http://localhost:9000', 'https://customer-x.cloudflarestream.com'],
+      }),
+    );
+    const origins = 'http://localhost:9000 https://customer-x.cloudflarestream.com';
+    expect(d.get('connect-src')).toBe(`'self' ${origins}`);
+    expect(d.get('media-src')).toBe(`'self' blob: ${origins}`);
+    expect(d.get('img-src')).toBe(`'self' data: blob: ${origins}`);
+    expect(d.get('default-src')).toBe("'self'");
+    expect(d.get('script-src')).not.toContain('localhost:9000');
+    expect(d.get('font-src')).toBe("'self'");
+  });
+
+  it('allows blob: workers (hls.js transmuxer) and same-origin workers (pdf.js, the PWA) only', () => {
+    for (const dev of [true, false]) {
+      expect(directives(buildCsp('n', { dev })).get('worker-src')).toBe("'self' blob:");
+    }
+  });
+
+  it('without origins the media directives stay same-origin', () => {
+    const d = directives(buildCsp('n', { dev: false, mediaOrigins: [] }));
+    expect(d.get('media-src')).toBe("'self' blob:");
+    expect(d.get('img-src')).toBe("'self' data: blob:");
+    expect(d.get('connect-src')).toBe("'self'");
+  });
+
+  it('drops garbage before it reaches the policy', () => {
+    const d = directives(
+      buildCsp('n', { dev: false, mediaOrigins: parseOrigins("* 'unsafe-inline' data: nope") }),
+    );
+    expect(d.get('media-src')).toBe("'self' blob:");
+    expect(d.get('connect-src')).toBe("'self'");
+  });
+
+  it('parses MEDIA_ORIGINS into bare http(s) origins and drops anything else', () => {
+    expect(parseOrigins(undefined)).toEqual([]);
+    expect(
+      parseOrigins(
+        'http://localhost:9000, https://media.example.com/bucket/x  javascript:alert(1) * nope',
+      ),
+    ).toEqual(['http://localhost:9000', 'https://media.example.com']);
   });
 });
 

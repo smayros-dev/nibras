@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { StudentCourseSchema } from './enrollments';
 import { GuardianInfoSchema } from './guardian';
 import { GUARDIAN_LINK_STATUSES, GUARDIAN_RELATIONSHIPS } from './invite-constants';
 import { InviteEmailSchema, PersonNameSchema } from './invitations';
@@ -39,7 +40,7 @@ export const StudentSummarySchema = z.object({
   progressPercent: z.number().nullable(),
   attendanceRate: z.number().nullable(),
   lastActivityAt: z.string().nullable(),
-  courses: z.array(z.unknown()),
+  courses: z.array(StudentCourseSchema),
 });
 
 export type StudentSummary = z.infer<typeof StudentSummarySchema>;
@@ -85,7 +86,7 @@ export const StudentProfileSchema = z.object({
     })
     .nullable(),
   assignedTeachers: z.array(PersonNameSchema.extend({ userId: z.string() })),
-  courses: z.array(z.unknown()),
+  courses: z.array(StudentCourseSchema),
   progress: z.null(),
   sessions: z.array(z.unknown()),
   attendance: z.null(),

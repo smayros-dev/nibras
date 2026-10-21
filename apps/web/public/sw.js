@@ -138,6 +138,8 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
+  // Never intercepted: playback grants (`/api/v1/me/lessons/*/playback`, bearer URLs) and the
+  // media origins (presigned MP4/PDF URLs, HLS manifests and segments) are never cached.
   if (url.origin !== ORIGIN || url.pathname.startsWith('/api/')) return;
   if (request.mode === 'navigate') {
     event.respondWith(networkOrOffline(request, url));

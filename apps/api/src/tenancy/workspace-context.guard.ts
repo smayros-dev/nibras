@@ -117,19 +117,8 @@ export class WorkspaceContextGuard implements CanActivate {
       });
       throw notFound();
     }
-    if (GUARDIAN_CONSENT_STATUSES.has(membership.status)) {
-      throw new ApiError(
-        HttpStatus.FORBIDDEN,
-        'GUARDIAN_CONSENT_REQUIRED',
-        'Parental consent is required for this workspace',
-        { status: membership.status },
-      );
-    }
-    if (membership.status !== 'ACTIVE') {
-      throw new ApiError(HttpStatus.FORBIDDEN, 'MEMBERSHIP_INACTIVE', 'Membership is not active', {
-        status: membership.status,
-      });
-    }
+    const inactive = inactiveMembershipError(membership.status);
+    if (inactive) throw inactive;
 
     store.workspace = { id: workspace.id, type: workspace.type, status: workspace.status };
     store.membership = membership;
@@ -142,6 +131,28 @@ export class WorkspaceContextGuard implements CanActivate {
     }
     return true;
   }
+}
+
+/**
+ * The `403` of a membership that exists but is not ACTIVE: a minor blocked on the parental
+ * consent → `GUARDIAN_CONSENT_REQUIRED`, any other status → `MEMBERSHIP_INACTIVE` (both with
+ * `details.status`); `null` when ACTIVE. Shared with the `/me` learn routes (SP3 §4.6).
+ */
+export function inactiveMembershipError(status: MembershipStatus): ApiError | null {
+  if (GUARDIAN_CONSENT_STATUSES.has(status)) {
+    return new ApiError(
+      HttpStatus.FORBIDDEN,
+      'GUARDIAN_CONSENT_REQUIRED',
+      'Parental consent is required for this workspace',
+      { status },
+    );
+  }
+  if (status !== 'ACTIVE') {
+    return new ApiError(HttpStatus.FORBIDDEN, 'MEMBERSHIP_INACTIVE', 'Membership is not active', {
+      status,
+    });
+  }
+  return null;
 }
 
 /** The generic 404 is the intended answer here (AC-WS-01): indistinguishable from a bad route. */

@@ -74,3 +74,19 @@ export class MembershipDeactivatedEvent {
     readonly reason: MembershipDeactivationReason,
   ) {}
 }
+
+/** Event name of {@link InviteLinkJoinedEvent} (`EventEmitter2`). */
+export const INVITE_LINK_JOINED = 'invite_link.joined';
+
+/**
+ * Emitted once a join through a group invite link is committed, whatever the resulting
+ * membership status (`ACTIVE`, `PENDING_APPROVAL`, `PENDING_GUARDIAN_CONSENT`). SP3 turns the
+ * link's `courseIds` into enrollments.
+ */
+export class InviteLinkJoinedEvent {
+  constructor(
+    readonly workspaceId: string,
+    readonly inviteLinkId: string,
+    readonly userId: string,
+  ) {}
+}

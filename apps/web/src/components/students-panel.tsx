@@ -82,6 +82,9 @@ const GUARDIAN_BADGE: Record<GuardianInfo['status'], BadgeVariant> = {
   REVOKED: 'danger',
 };
 
+/** Course titles shown per row in « Cours »; the rest is « +n » (PRD §8.3). */
+const MAX_COURSE_TITLES = 2;
+
 const fullName = (s: Pick<StudentSummary, 'firstName' | 'lastName'>) =>
   `${s.firstName} ${s.lastName}`;
 
@@ -96,7 +99,8 @@ const fullName = (s: Pick<StudentSummary, 'firstName' | 'lastName'>) =>
  * **Refuser** (`PENDING_APPROVAL`, `student.invite`; an organisation TEACHER only for students he
  * invited), **Renvoyer au tuteur** (consent statuses, `student.update`; `429` → minutes left),
  * **Retirer** (`AlertDialog`, `student.remove`), **Signaler**. A SUSPENDED/DELETING workspace is
- * read-only (423): no write action. Progress, attendance and activity are SP3–SP6 (« — »).
+ * read-only (423): no write action. « Cours » shows up to two titles then « +n », « Progression »
+ * the mean `progressPercent` (SP3); attendance and activity are SP5–SP6 (« — »).
  */
 export function StudentsPanel({
   wid,
@@ -265,8 +269,44 @@ export function StudentsPanel({
               <Table.Td label={columns.status}>
                 <Badge variant={badge.variant}>{t(badge.labelKey)}</Badge>
               </Table.Td>
-              <Table.Td label={columns.courses}>{soon}</Table.Td>
-              <Table.Td label={columns.progress}>{soon}</Table.Td>
+              <Table.Td label={columns.courses}>
+                {s.courses.length > 0 ? (
+                  <span className="flex flex-wrap items-center gap-1">
+                    {s.courses.slice(0, MAX_COURSE_TITLES).map((c) => (
+                      <Badge key={c.courseId} variant="neutral">
+                        {c.title}
+                      </Badge>
+                    ))}
+                    {s.courses.length > MAX_COURSE_TITLES ? (
+                      <span
+                        className="text-xs text-fg-muted"
+                        title={s.courses
+                          .slice(MAX_COURSE_TITLES)
+                          .map((c) => c.title)
+                          .join(', ')}
+                      >
+                        <span aria-hidden="true">{`+${s.courses.length - MAX_COURSE_TITLES}`}</span>
+                        <span className="sr-only">
+                          {t('enrollments.moreCourses', {
+                            count: s.courses.length - MAX_COURSE_TITLES,
+                          })}
+                        </span>
+                      </span>
+                    ) : null}
+                  </span>
+                ) : (
+                  <span aria-hidden="true">—</span>
+                )}
+              </Table.Td>
+              <Table.Td label={columns.progress}>
+                {s.progressPercent !== null ? (
+                  <span className="tabular-nums">
+                    {t('enrollments.percent', { percent: s.progressPercent })}
+                  </span>
+                ) : (
+                  <span aria-hidden="true">—</span>
+                )}
+              </Table.Td>
               <Table.Td label={columns.attendance}>{soon}</Table.Td>
               <Table.Td label={columns.guardian}>
                 {s.guardian ? (

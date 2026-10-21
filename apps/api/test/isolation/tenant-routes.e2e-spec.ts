@@ -4,6 +4,7 @@ import { listRoutes, type RouteInfo } from '../../src/openapi/export';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
 import { as, loginAs } from '../helpers/auth';
 import { addMember, createOrganization, createStudent, createUser } from '../helpers/factories';
+import { expectStructureInvariant } from '../helpers/invariants';
 import { TENANT_ROUTE_EXEMPTIONS } from './exemptions';
 import {
   BODYLESS_WRITE_ROUTES,
@@ -42,10 +43,10 @@ const PREFIX = '/api/v1';
 const TENANT = `${PREFIX}/workspaces/:wid`;
 const WRITE = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 /**
- * The two loops that rebuild fixtures and log in once per route grow with every tenant route
- * (~0.3 s each on the dev machine): they get their own budget instead of the 15 s default.
+ * The two outsider scenarios reset the database and build fresh organisations once per route; with
+ * 40+ tenant routes (SP3 T6) they outgrow the default 15 s on a loaded machine.
  */
-const LOOP_TIMEOUT_MS = 90_000;
+const ROUTE_LOOP_TIMEOUT_MS = 90_000;
 
 describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => {
   let ctx: TestContext;
@@ -113,6 +114,37 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         // SP2 T7: the teacher's guardian consent resend (the student's own resend lives under
         // /me/workspaces/:wid and is not a tenant route, D12).
         'POST /api/v1/workspaces/:wid/students/:uid/guardian/resend-consent',
+        // SP3 T5: courses.
+        'GET /api/v1/workspaces/:wid/courses',
+        'POST /api/v1/workspaces/:wid/courses',
+        'GET /api/v1/workspaces/:wid/courses/:cid',
+        'PATCH /api/v1/workspaces/:wid/courses/:cid',
+        'DELETE /api/v1/workspaces/:wid/courses/:cid',
+        'POST /api/v1/workspaces/:wid/courses/:cid/publish',
+        'POST /api/v1/workspaces/:wid/courses/:cid/unpublish',
+        'POST /api/v1/workspaces/:wid/courses/:cid/archive',
+        'POST /api/v1/workspaces/:wid/courses/:cid/restore',
+        'POST /api/v1/workspaces/:wid/courses/:cid/reassign',
+        // SP3 T6: structure.
+        'GET /api/v1/workspaces/:wid/courses/:cid/structure',
+        'POST /api/v1/workspaces/:wid/courses/:cid/modules',
+        'POST /api/v1/workspaces/:wid/courses/:cid/modules/reorder',
+        'PATCH /api/v1/workspaces/:wid/modules/:mid',
+        'DELETE /api/v1/workspaces/:wid/modules/:mid',
+        'POST /api/v1/workspaces/:wid/modules/:mid/lessons',
+        'POST /api/v1/workspaces/:wid/modules/:mid/lessons/reorder',
+        'GET /api/v1/workspaces/:wid/lessons/:lid',
+        'PATCH /api/v1/workspaces/:wid/lessons/:lid',
+        'DELETE /api/v1/workspaces/:wid/lessons/:lid',
+        // SP3 T7: media.
+        'GET /api/v1/workspaces/:wid/media',
+        'POST /api/v1/workspaces/:wid/media/uploads',
+        'GET /api/v1/workspaces/:wid/media/:mediaId',
+        'DELETE /api/v1/workspaces/:wid/media/:mediaId',
+        'GET /api/v1/workspaces/:wid/media/:mediaId/upload',
+        'POST /api/v1/workspaces/:wid/media/:mediaId/complete',
+        'GET /api/v1/workspaces/:wid/media/:mediaId/playback',
+        'GET /api/v1/workspaces/:wid/media/:mediaId/download',
         // SP2 T8: students list, profile skeleton, guardian email.
         'GET /api/v1/workspaces/:wid/students',
         'GET /api/v1/workspaces/:wid/students/:uid/profile',
@@ -123,6 +155,16 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         'GET /api/v1/workspaces/:wid/invitations/import/:importId/report',
       ]),
     );
+  });
+
+  it('the public media webhook is not a tenant route (SP3 T7)', () => {
+    const all = listRoutes(ctx.app).map((r) => `${r.method} ${r.path}`);
+    expect(all).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^POST (\/api\/v1)?\/webhooks\/media\/:provider$/),
+      ]),
+    );
+    expect(routes.map((r) => r.path).filter((p) => p.includes('/webhooks/'))).toEqual([]);
   });
 
   it('the /me guardian resend and the public guardian routes are not tenant routes (D12)', () => {
@@ -160,7 +202,7 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         ).toBe(1);
       }
     },
-    LOOP_TIMEOUT_MS,
+    ROUTE_LOOP_TIMEOUT_MS,
   );
 
   it(
@@ -177,7 +219,7 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         expect(res.body.code, label).toBe('NOT_FOUND');
       }
     },
-    LOOP_TIMEOUT_MS,
+    ROUTE_LOOP_TIMEOUT_MS,
   );
 
   // ---- SP1.6 F8: an ACTIVE member of A reaching B, inactive members, read-only states ----
@@ -193,8 +235,9 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     route: RouteInfo,
     path: string,
     body: unknown = {},
+    headers: Record<string, string> = {},
   ) => {
-    const req = agent[route.method.toLowerCase() as 'get'](path);
+    const req = agent[route.method.toLowerCase() as 'get'](path).set(headers);
     return WRITE.has(route.method) ? req.send(body as object) : req;
   };
 
@@ -238,6 +281,11 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     const bLink = await ctx.db.inviteLink.findUniqueOrThrow({ where: { id: p.b.inviteLink.id } });
     expect(bLink.status).toBe('ACTIVE');
     expect(bLink.label).toBe(p.b.inviteLink.label);
+    // SP3 T9: B's enrollment survived the foreign revoke.
+    const bEnrollment = await ctx.db.enrollment.findUniqueOrThrow({
+      where: { id: p.b.enrollment.id },
+    });
+    expect(bEnrollment.status).toBe('ACTIVE');
     const bStatus = async (userId: string) =>
       (
         await ctx.db.membership.findFirstOrThrow({
@@ -283,6 +331,10 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       memberships: await ctx.db.membership.count(),
       invitations: await ctx.db.invitation.count(),
       inviteLinks: await ctx.db.inviteLink.count(),
+      courses: await ctx.db.course.count(),
+      modules: await ctx.db.module.count(),
+      lessons: await ctx.db.lesson.count(),
+      enrollments: await ctx.db.enrollment.count(),
       imports: await ctx.db.invitationImport.count(),
     });
     const before = await counts();
@@ -303,12 +355,14 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       expect(BODYLESS_WRITE_ROUTES.has(label), `${label}: also listed as bodyless`).toBe(false);
       const table = probe.params === 'local' ? LOCAL_PARAMS : FOREIGN_PARAMS;
       const path = urlFor(route, p.a.workspace.id, table, p);
-      const res = await send(owner, route, path, probe.body(p));
-      // Refused, and refused on purpose: a 5xx is a crash, not an isolation guarantee.
-      expect(res.status, describeRes(label, res)).toBeGreaterThanOrEqual(400);
-      expect(res.status, describeRes(label, res)).toBeLessThan(500);
-      expectNoForeignIds(res.body, label, p);
-      probed += 1;
+      for (const body of [probe.body, ...(probe.more ?? [])]) {
+        const res = await send(owner, route, path, body(p), probe.headers);
+        // Refused, and refused on purpose: a 5xx is a crash, not an isolation guarantee.
+        expect(res.status, describeRes(label, res)).toBeGreaterThanOrEqual(400);
+        expect(res.status, describeRes(label, res)).toBeLessThan(500);
+        expectNoForeignIds(res.body, label, p);
+        probed += 1;
+      }
     }
     expect(probed).toBeGreaterThanOrEqual(4);
 
@@ -340,6 +394,44 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     expect(
       await ctx.db.inviteLink.count({ where: { workspaceId: wid, teacherUserId: { in: bIds } } }),
     ).toBe(0);
+    // SP3 T9: no invitation or link of A names B's course; no enrollment of A names B's rows.
+    expect(
+      await ctx.db.invitation.count({ where: { workspaceId: wid, courseIds: { hasSome: bIds } } }),
+    ).toBe(0);
+    expect(
+      await ctx.db.inviteLink.count({ where: { workspaceId: wid, courseIds: { hasSome: bIds } } }),
+    ).toBe(0);
+    expect(
+      await ctx.db.enrollment.count({
+        where: {
+          workspaceId: wid,
+          OR: [{ studentUserId: { in: bIds } }, { courseId: { in: bIds } }],
+        },
+      }),
+    ).toBe(0);
+    // SP3: no course of A has B's image as cover or B's teacher as owner; A's course is untouched.
+    expect(
+      await ctx.db.course.count({
+        where: {
+          workspaceId: wid,
+          OR: [{ coverMediaId: { in: bIds } }, { ownerUserId: { in: bIds } }],
+        },
+      }),
+    ).toBe(0);
+    const aCourse = await ctx.db.course.findUniqueOrThrow({ where: { id: p.a.course.id } });
+    expect(aCourse).toMatchObject({ ownerUserId: p.a.teacher.id, coverMediaId: null, version: 1 });
+    // SP3 T6: no lesson of A uses B's media or names B's image; A's structure kept its order.
+    expect(
+      await ctx.db.lesson.count({ where: { workspaceId: wid, mediaAssetId: { in: bIds } } }),
+    ).toBe(0);
+    const aLesson = await ctx.db.lesson.findUniqueOrThrow({ where: { id: p.a.lesson.id } });
+    expect(JSON.stringify(aLesson.content)).not.toContain(p.b.coverImage.id);
+    expect(aLesson).toMatchObject({ position: 1, version: 1 });
+    expect((await ctx.db.module.findUniqueOrThrow({ where: { id: p.a.module.id } })).position).toBe(
+      1,
+    );
+    await expectStructureInvariant(ctx.db, p.a.course.id);
+    await expectStructureInvariant(ctx.db, p.b.course.id);
     // Nothing moved on either side: A keeps its owner, B's admin stays an ADMIN of B.
     expect((await ctx.db.workspace.findUniqueOrThrow({ where: { id: wid } })).ownerUserId).toBe(
       p.a.owner.id,

@@ -71,6 +71,32 @@ export type AuditAction =
   | 'guardian.email_changed'
   | 'invitations.import_started'
   | 'invitations.import_completed'
+  // SP3 (courses, content & media, spec §7).
+  | 'course.created'
+  | 'course.updated'
+  | 'course.published'
+  | 'course.unpublished'
+  | 'course.archived'
+  | 'course.restored'
+  | 'course.deleted'
+  | 'course.reassigned'
+  | 'module.created'
+  | 'module.updated'
+  | 'module.deleted'
+  | 'module.reordered'
+  | 'lesson.created'
+  | 'lesson.updated'
+  | 'lesson.deleted'
+  | 'lesson.reordered'
+  | 'media.upload_created'
+  | 'media.completed'
+  | 'media.deleted'
+  | 'enrollment.created'
+  | 'enrollment.revoked'
+  // Written by the worker (`writeSystemAudit`, actor SYSTEM): processing, cleanup, webhooks,
+  // the daily course purge.
+  | 'media.failed'
+  | 'course.purged'
   | typeof CROSS_TENANT_AUDIT_ACTION;
 
 export interface AuditEntry {

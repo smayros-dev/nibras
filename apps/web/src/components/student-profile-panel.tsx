@@ -5,12 +5,14 @@ import type {
   GrantContext,
   GuardianLinkStatus,
   MembershipStatus,
+  StudentCourse,
   StudentProfile,
   StudentSummary,
 } from '@nibras/contracts';
 import { formatDate } from '@nibras/i18n';
 import {
   Alert,
+  AlertDialog,
   Badge,
   Button,
   Card,
@@ -23,7 +25,7 @@ import {
   useToast,
   type BadgeVariant,
 } from '@nibras/ui';
-import { Activity, BookOpen, FileText, Pencil, Send, Video } from 'lucide-react';
+import { Activity, FileText, Pencil, Plus, Send, UserMinus, Video } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useRouter } from '../i18n/navigation';
@@ -31,7 +33,18 @@ import { api, asApiResult } from '../lib/api';
 import { apiErrorMessage, issuesToFieldErrors } from '../lib/api-error';
 import { membershipStatusBadge } from '../lib/membership-status';
 import { useErrorFocus } from '../lib/use-error-focus';
+import { AssignCourseDialog } from './courses/assign-course-dialog';
+import { CourseStatusBadge } from './courses/course-status-badge';
+import { ENROLLMENT_STATUS_LABEL } from './courses/enrollment-status';
+import { ProgressBar } from './courses/progress-bar';
 import { retryAfterMinutes } from './invitations-list';
+
+/** Memberships a course can be assigned to (the API's rule; consent statuses are pre-assigned). */
+const ASSIGNABLE_STATUSES: readonly MembershipStatus[] = [
+  'ACTIVE',
+  'PENDING_GUARDIAN_CONSENT',
+  'SUSPENDED_NO_CONSENT',
+];
 
 /** Membership statuses waiting on the guardian: the staff may send the request again (AC-INV-12). */
 const CONSENT_STATUSES: readonly MembershipStatus[] = [
@@ -50,13 +63,8 @@ const GUARDIAN_BADGE: Record<GuardianLinkStatus, BadgeVariant> = {
   REVOKED: 'danger',
 };
 
-/** The sections later sub-projects fill (courses, sessions, reports, activity), empty for now. */
+/** The sections later sub-projects fill (sessions, reports, activity), empty for now. */
 const LATER_SECTIONS = [
-  {
-    title: 'students.profile.courses',
-    soon: 'students.profile.coursesSoon',
-    icon: <BookOpen />,
-  },
   {
     title: 'students.profile.sessions',
     soon: 'students.profile.sessionsSoon',
@@ -114,7 +122,8 @@ function Section({ id, title, children }: { id: string; title: string; children:
  * for an organisation TEACHER who did not invite him, Q7 —, name, relationship, consent status and
  * dates) with **Renvoyer la demande** (membership waiting on the consent) and **Modifier l'email**
  * (`PATCH …/students/{uid}`, refused once the guardian consented), the assigned teachers in an
- * organisation, and the empty sections the later sub-projects fill. Actions need `student.update`
+ * organisation, the « Cours » card (SP3, `CoursesCard`) and the empty sections the later
+ * sub-projects fill. Guardian actions need `student.update`
  * on a writable workspace; the page re-renders from the server after each change.
  */
 export function StudentProfilePanel({
@@ -333,6 +342,19 @@ export function StudentProfilePanel({
         ) : null}
       </div>
 
+      <CoursesCard
+        wid={wid}
+        uid={uid}
+        name={name}
+        courses={profile.courses}
+        canManage={
+          writable &&
+          grantFor(grant, 'enrollment.manage') !== 'none' &&
+          !ENDED_STATUSES.includes(membership.status)
+        }
+        canAssign={ASSIGNABLE_STATUSES.includes(membership.status)}
+      />
+
       <div className="grid gap-6 md:grid-cols-2">
         {LATER_SECTIONS.map((section) => (
           <Card key={section.title} padding="none">
@@ -346,6 +368,156 @@ export function StudentProfilePanel({
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * The profile's « Cours » card (SP3): the student's courses in this workspace (ACTIVE and REVOKED
+ * enrollments, scoped by the API), each with its status and progress, linked to the course's
+ * Étudiants tab. With `enrollment.manage` on a writable workspace: **Attribuer un cours**
+ * (`AssignCourseDialog`, imported statically: a React.lazy split here re-partitions Turbopack's
+ * shared chunks and adds ≈ 12 kB to every workspace route) and **Retirer** on an ACTIVE enrollment (`AlertDialog`,
+ * `DELETE …/enrollments/{uid}`); the page re-renders from the server after each change.
+ */
+function CoursesCard({
+  wid,
+  uid,
+  name,
+  courses,
+  canManage,
+  canAssign,
+}: {
+  wid: string;
+  uid: string;
+  name: string;
+  courses: StudentCourse[];
+  canManage: boolean;
+  canAssign: boolean;
+}) {
+  const t = useTranslations();
+  const router = useRouter();
+  const { toast } = useToast();
+  /** `null` until first opened: the dialog (and its course query) mounts then. */
+  const [assignOpen, setAssignOpen] = useState<boolean | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<StudentCourse | null>(null);
+
+  const revoke = useSubmit(async (course: StudentCourse) => {
+    try {
+      const { error } = asApiResult<unknown>(
+        await api.DELETE('/workspaces/{wid}/courses/{cid}/enrollments/{uid}', {
+          params: { path: { wid, cid: course.courseId, uid } },
+          body: {},
+        }),
+      );
+      if (error) {
+        toast({ title: apiErrorMessage(t, error), variant: 'danger' });
+        return;
+      }
+    } catch {
+      toast({ title: t('errors.INTERNAL_ERROR'), variant: 'danger' });
+      return;
+    }
+    toast({ title: t('enrollments.revoked'), variant: 'success' });
+    router.refresh();
+  });
+
+  return (
+    <Section id="profile-courses" title={t('students.profile.courses')}>
+      {courses.length > 0 ? (
+        <ul className="flex flex-col divide-y divide-border">
+          {courses.map((c) => (
+            <li
+              key={c.courseId}
+              className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-4"
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <Link
+                  href={`/app/w/${wid}/courses/${c.courseId}/students`}
+                  className="font-medium break-words hover:underline"
+                >
+                  {c.title}
+                </Link>
+                <span className="flex flex-wrap gap-1">
+                  <CourseStatusBadge status={c.status} />
+                  {c.enrollmentStatus === 'REVOKED' ? (
+                    <Badge variant="neutral">{t(ENROLLMENT_STATUS_LABEL.REVOKED)}</Badge>
+                  ) : null}
+                </span>
+              </div>
+              <ProgressBar
+                percent={c.progressPercent}
+                label={t('enrollments.progressOf', { name: c.title })}
+              />
+              {canManage && c.enrollmentStatus === 'ACTIVE' ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t('enrollments.revokeCourse', { title: c.title })}
+                  onClick={() => setRevokeTarget(c)}
+                >
+                  <UserMinus aria-hidden="true" className="size-4" />
+                  {t('students.remove')}
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-fg-muted">{t('enrollments.noCourses')}</p>
+      )}
+      {canManage && canAssign ? (
+        <div>
+          <Button variant="secondary" onClick={() => setAssignOpen(true)}>
+            <Plus aria-hidden="true" className="size-4" />
+            {t('enrollments.assignCourse')}
+          </Button>
+        </div>
+      ) : null}
+
+      {canManage && canAssign && assignOpen !== null ? (
+        <AssignCourseDialog
+          wid={wid}
+          uid={uid}
+          name={name}
+          enrolledCourseIds={courses
+            .filter((c) => c.enrollmentStatus === 'ACTIVE')
+            .map((c) => c.courseId)}
+          open={assignOpen}
+          onOpenChange={setAssignOpen}
+          onAssigned={() => router.refresh()}
+        />
+      ) : null}
+
+      <AlertDialog.Root
+        open={revokeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRevokeTarget(null);
+        }}
+      >
+        {revokeTarget ? (
+          <AlertDialog.Content
+            title={t('enrollments.revokeTitle', { name, title: revokeTarget.title })}
+            description={t('enrollments.revokeDescription')}
+          >
+            <AlertDialog.Footer>
+              <AlertDialog.Cancel>{t('common.cancel')}</AlertDialog.Cancel>
+              <AlertDialog.Action
+                destructive
+                loading={revoke.busy}
+                onClick={(event) => {
+                  // Stay open while the request runs; close on the outcome (error → toast).
+                  event.preventDefault();
+                  const target = revokeTarget;
+                  void revoke.submit(target).finally(() => setRevokeTarget(null));
+                }}
+              >
+                {t('enrollments.revokeConfirm', { name })}
+              </AlertDialog.Action>
+            </AlertDialog.Footer>
+          </AlertDialog.Content>
+        ) : null}
+      </AlertDialog.Root>
+    </Section>
   );
 }
 

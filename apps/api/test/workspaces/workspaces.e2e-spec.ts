@@ -337,6 +337,8 @@ describe('workspaces: creation, D-O7 personal rule, details, delete, transfer, a
         expect(body).toEqual({
           quotaBytes: (20n * GIB).toString(),
           usedBytes: '9007199254740993',
+          // SP3: declared sizes of the UPLOADING assets (none here).
+          reservedBytes: '0',
         }),
       );
   });

@@ -89,10 +89,14 @@ export const CROSS_TENANT_LOOKUP_KEYS = {
  * Extra user-scoped filter keys per model, accepted exactly like `userId`: the column holds the
  * data subject's own id (not a secret), so a caller filtering on it reads that user's rows only.
  * `GuardianLink.studentUserId`: the student reads his guardian links across workspaces
- * (`/me/workspaces`).
+ * (`/me/workspaces`). `Enrollment.studentUserId` / `LessonProgress.studentUserId` (SP3 spec D7):
+ * the `/me` learn routes list the caller's enrollments and progress, then read each course under
+ * `tenantDb(enrollment.workspaceId)`.
  */
 const USER_SCOPED_KEYS: Partial<Record<TenantModel, readonly string[]>> = {
   GuardianLink: ['studentUserId'],
+  Enrollment: ['studentUserId'],
+  LessonProgress: ['studentUserId'],
 };
 
 function userKeys(model: string): readonly string[] {

@@ -16,6 +16,7 @@ import { rateLimited } from '../auth/rate-window';
 import { ApiError } from '../common/api-error';
 import { RequestContext } from '../common/request-context';
 import { DB } from '../db/db.module';
+import { assertAssignableCourseIds } from '../enrollments/course-ids';
 import { memberCtx, type MemberCtx } from '../members/members.service';
 import { currentGrant, permissionDenied } from '../tenancy/permissions';
 import { validationFailed } from '../workspaces/workspaces.service';
@@ -139,7 +140,10 @@ export class InvitationsService {
    * `422 VALIDATION_FAILED`), a TEACHER only himself (`403`) and is the implicit teacher. A live
    * membership of the address (any status but REMOVED/REJECTED) → `409 ALREADY_MEMBER`; a stored
    * `PENDING` invitation → `409 INVITATION_PENDING` (`details.invitationId`; the partial unique
-   * index decides under races). Audits `invitation.created`, then emails the link inline.
+   * index decides under races). `courseIds` (SP3): a STUDENT invitation only (`422` on
+   * `courseIds` otherwise), each a live DRAFT/PUBLISHED course of the workspace — the caller's
+   * own in scope `own` — else `422` on `courseIds[i]`. Audits `invitation.created`, then emails
+   * the link inline.
    */
   async create(ctx: MemberCtx, input: CreateInvitationInput): Promise<InvitationSummary> {
     const workspace = await this.workspace(ctx.workspaceId);
@@ -155,6 +159,15 @@ export class InvitationsService {
       if (currentGrant('workspace.staff.manage') !== 'all') throw permissionDenied();
     }
     const teacherUserId = await this.teacherFor(ctx, workspace.type, staffInvite, input);
+    if (input.courseIds.length > 0) {
+      if (staffInvite)
+        throw validationFailed('courseIds', 'Only a student invitation takes courses');
+      await assertAssignableCourseIds(
+        ctx.workspaceId,
+        input.courseIds,
+        ctx.scope === 'own' ? ctx.userId : undefined,
+      );
+    }
     const db = tenantDb(ctx.workspaceId);
 
     const member = await db.membership.findFirst({
@@ -217,6 +230,7 @@ export class InvitationsService {
         role: row.role,
         expiresAt: row.expiresAt,
         teacherUserId: row.teacherUserId,
+        courseIds: row.courseIds,
       },
     });
     await this.mailer.sendInvitation(row, raw, row.invitedBy, workspace);

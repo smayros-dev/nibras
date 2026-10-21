@@ -29,6 +29,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1152.0",
+    "@aws-sdk/s3-request-presigner": "3.1152.0",
     "@nibras/contracts": "workspace:*",
     "@nibras/i18n": "workspace:*",
     "intl-messageformat": "^10.7.18",

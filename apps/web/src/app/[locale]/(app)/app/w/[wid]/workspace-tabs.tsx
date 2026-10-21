@@ -9,17 +9,19 @@ import { usePathname } from '../../../../../../i18n/navigation';
 
 const TABS = [
   { value: 'settings', segment: '', label: 'workspace.navSettings' },
+  { value: 'courses', segment: '/courses', label: 'workspace.navCourses' },
   { value: 'students', segment: '/students', label: 'workspace.navStudents' },
   { value: 'members', segment: '/members', label: 'workspace.navMembers' },
   { value: 'audit-log', segment: '/audit-log', label: 'workspace.navAudit' },
 ] as const;
 
-/** Roles that see the Étudiants tab (same rule as the sidebar, `buildNavModel`). */
-const STUDENTS_TAB_ROLES: readonly MembershipRole[] = ['OWNER', 'ADMIN', 'TEACHER'];
+/** Roles that see the Cours and Étudiants tabs (same rule as the sidebar, `buildNavModel`). */
+const STAFF_TAB_ROLES: readonly MembershipRole[] = ['OWNER', 'ADMIN', 'TEACHER'];
+const STAFF_TABS: readonly string[] = ['courses', 'students'];
 
 /**
- * Workspace sub-navigation (PRD §9.2): link tabs Paramètres · Étudiants (staff roles) · Membres ·
- * Journal, each a real URL
+ * Workspace sub-navigation (PRD §9.2): link tabs Paramètres · Cours · Étudiants (staff roles) ·
+ * Membres · Journal, each a real URL
  * (`next/link` with the locale prefix, like the shell). The active tab follows the live path from
  * `CurrentPathProvider` (the workspace layout stays mounted across tab changes); the sidebar's
  * workspace section marks the same page.
@@ -45,13 +47,13 @@ export function WorkspaceTabs({
   return (
     <Tabs.Root asLinks value={value}>
       <Tabs.List aria-label={label}>
-        {TABS.filter((tab) => tab.value !== 'students' || STUDENTS_TAB_ROLES.includes(myRole)).map(
-          (tab) => (
-            <Tabs.Trigger key={tab.value} value={tab.value} asChild>
-              <NextLink href={`${base}${tab.segment}`}>{t(tab.label)}</NextLink>
-            </Tabs.Trigger>
-          ),
-        )}
+        {TABS.filter(
+          (tab) => !STAFF_TABS.includes(tab.value) || STAFF_TAB_ROLES.includes(myRole),
+        ).map((tab) => (
+          <Tabs.Trigger key={tab.value} value={tab.value} asChild>
+            <NextLink href={`${base}${tab.segment}`}>{t(tab.label)}</NextLink>
+          </Tabs.Trigger>
+        ))}
       </Tabs.List>
     </Tabs.Root>
   );

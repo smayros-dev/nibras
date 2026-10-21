@@ -43,6 +43,7 @@
   "devDependencies": {
     "@nibras/config": "workspace:*",
     "@nibras/contracts": "workspace:*",
+    "@nibras/providers": "workspace:*",
     "@types/node": "^24.19.2",
     "argon2": "0.44.0",
     "dotenv-cli": "^11.0.0",

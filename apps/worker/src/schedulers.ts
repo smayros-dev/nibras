@@ -1,11 +1,17 @@
 import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
 import {
+  COURSE_PURGE_JOB,
+  COURSE_PURGE_SCHEDULER_ID,
+  COURSE_PURGE_SCHEDULER_PATTERN,
   DAILY_SCHEDULER_PATTERN,
   DEFAULT_JOB_OPTIONS,
   GUARDIAN_CONSENT_EXPIRE_JOB,
   GUARDIAN_CONSENT_EXPIRE_SCHEDULER_ID,
+  HOURLY_SCHEDULER_PATTERN,
   INVITATION_EXPIRE_JOB,
   INVITATION_EXPIRE_SCHEDULER_ID,
+  MEDIA_CLEANUP_JOB,
+  MEDIA_CLEANUP_SCHEDULER_ID,
   QUEUES,
   type QueueName,
 } from '@nibras/contracts';
@@ -18,16 +24,39 @@ export interface SchedulerDefinition {
   id: string;
   queue: QueueName;
   jobName: string;
+  /** Cron pattern, evaluated in UTC. */
+  pattern: string;
 }
 
-/** The repeatable jobs the worker owns: daily at `DAILY_SCHEDULER_PATTERN` (03:00 UTC). */
+/** The repeatable jobs the worker owns. */
 export const SCHEDULERS: readonly SchedulerDefinition[] = [
+  // SP2: guardian consent and invitation expiry, daily at `DAILY_SCHEDULER_PATTERN` (03:00 UTC).
   {
     id: GUARDIAN_CONSENT_EXPIRE_SCHEDULER_ID,
     queue: QUEUES.compliance,
     jobName: GUARDIAN_CONSENT_EXPIRE_JOB,
+    pattern: DAILY_SCHEDULER_PATTERN,
   },
-  { id: INVITATION_EXPIRE_SCHEDULER_ID, queue: QUEUES.compliance, jobName: INVITATION_EXPIRE_JOB },
+  {
+    id: INVITATION_EXPIRE_SCHEDULER_ID,
+    queue: QUEUES.compliance,
+    jobName: INVITATION_EXPIRE_JOB,
+    pattern: DAILY_SCHEDULER_PATTERN,
+  },
+  // SP3: courses soft-deleted more than 30 days ago, daily at 03:30 UTC.
+  {
+    id: COURSE_PURGE_SCHEDULER_ID,
+    queue: QUEUES.compliance,
+    jobName: COURSE_PURGE_JOB,
+    pattern: COURSE_PURGE_SCHEDULER_PATTERN,
+  },
+  // SP3: abandoned uploads and processing timeouts, every hour at minute 15.
+  {
+    id: MEDIA_CLEANUP_SCHEDULER_ID,
+    queue: QUEUES.media,
+    jobName: MEDIA_CLEANUP_JOB,
+    pattern: HOURLY_SCHEDULER_PATTERN,
+  },
 ];
 
 /**
@@ -60,11 +89,11 @@ export class Schedulers implements OnApplicationBootstrap {
         if (!queue) throw new Error(`unknown queue ${s.queue}`);
         await queue.upsertJobScheduler(
           s.id,
-          { pattern: DAILY_SCHEDULER_PATTERN, tz: 'UTC' },
+          { pattern: s.pattern, tz: 'UTC' },
           { name: s.jobName, data: {}, opts: { ...DEFAULT_JOB_OPTIONS } },
         );
         this.logger.info(
-          { queue: s.queue, scheduler_id: s.id, pattern: DAILY_SCHEDULER_PATTERN },
+          { queue: s.queue, scheduler_id: s.id, pattern: s.pattern },
           `job scheduler upserted ${s.id}`,
         );
       } catch (err) {

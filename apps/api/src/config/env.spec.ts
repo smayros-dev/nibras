@@ -13,7 +13,24 @@ const valid = {
   JWT_SECRET: 'test-only-jwt-secret-0123456789abcdef',
   // 'test-only-totp-key-32-bytes-long' (32 bytes)
   TOTP_ENCRYPTION_KEY: Buffer.from('test-only-totp-key-32-bytes-long').toString('base64'),
+  // SP3 object storage: the local MinIO (root credentials, refused outside development).
+  S3_ENDPOINT: 'http://localhost:9000',
+  S3_ACCESS_KEY: 'minioadmin',
+  S3_SECRET_KEY: 'minioadmin',
+  S3_BUCKET: 'nibras-dev',
 };
+
+/** Every CLOUDFLARE_* variable `VIDEO_PROVIDER=cloudflare_stream` needs (non-placeholder values). */
+const cloudflare = {
+  VIDEO_PROVIDER: 'cloudflare_stream',
+  CLOUDFLARE_ACCOUNT_ID: '023e105f4ecef8ad9ca31a8372d0c353',
+  CLOUDFLARE_STREAM_API_TOKEN: 'Yq7-Stream-Edit-Token_4f9c2a',
+  CLOUDFLARE_STREAM_WEBHOOK_SECRET: 'Wh7-Secret_from-Cloudflare-9d1e',
+  CLOUDFLARE_STREAM_SIGNING_KEY_ID: '8f926b2b01f383510284a74ed8a1d2a7',
+  CLOUDFLARE_STREAM_SIGNING_KEY_PEM: 'LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQo=',
+  CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN: 'customer-abc123.cloudflarestream.com',
+};
+const CLOUDFLARE_KEYS = Object.keys(cloudflare).filter((k) => k.startsWith('CLOUDFLARE_'));
 
 /** A well-formed staging env: real-looking secrets, no init.sql password, https, secure cookies. */
 const staging = {
@@ -26,6 +43,11 @@ const staging = {
   DATABASE_URL_SYSTEM: 'postgresql://app_system:other-random@postgres:5432/nibras',
   JWT_SECRET: 'Qm9vaywgY2F0cywgdGVhIGFuZCAzMiByYW5kb20gYnl0ZXM=',
   TOTP_ENCRYPTION_KEY: Buffer.alloc(32, 0x5a).toString('base64'),
+  S3_ENDPOINT: 'http://minio:9000',
+  S3_PUBLIC_ENDPOINT: 'https://s3.staging.example.com',
+  S3_ACCESS_KEY: 'nibras-staging',
+  S3_SECRET_KEY: 'k3Q9-random_Secret-from-openssl-7f2b',
+  S3_BUCKET: 'nibras-staging',
 };
 
 describe('EnvSchema', () => {
@@ -212,6 +234,8 @@ describe('EnvSchema', () => {
       ['DATABASE_URL_SYSTEM', 'postgresql://app_system:app@postgres:5432/nibras'],
       ['COOKIE_SECURE', 'false'],
       ['WEB_ORIGIN', 'http://staging.example.com'],
+      ['S3_SECRET_KEY', 'minioadmin'],
+      ['S3_SECRET_KEY', 'change-me'],
     ])('rejects %s=%s on staging and production, accepts it in development', (key, value) => {
       expect(() => EnvSchema.parse({ ...staging, [key]: value })).toThrow(new RegExp(key));
       expect(issuePaths({ ...staging, [key]: value })).toEqual([key]);
@@ -238,6 +262,7 @@ describe('EnvSchema', () => {
         'TOTP_ENCRYPTION_KEY',
         'DATABASE_URL',
         'DATABASE_URL_SYSTEM',
+        'S3_SECRET_KEY',
         'COOKIE_SECURE',
         'WEB_ORIGIN',
       ]);
@@ -256,6 +281,88 @@ describe('EnvSchema', () => {
       expect(EnvSchema.parse(rest).COOKIE_SECURE).toBe(true);
       // ...but not under another NODE_ENV: the default is false and staging refuses it.
       expect(issuePaths({ ...rest, NODE_ENV: 'test' })).toEqual(['COOKIE_SECURE']);
+    });
+  });
+  describe('SP3 object storage and video provider', () => {
+    it('S3_* are required; VIDEO_PROVIDER defaults to s3; cloudflare_stream needs every CLOUDFLARE_* variable', () => {
+      const env = EnvSchema.parse(valid);
+      expect(env.VIDEO_PROVIDER).toBe('s3');
+      expect(env).toMatchObject({
+        S3_ENDPOINT: 'http://localhost:9000',
+        S3_REGION: 'us-east-1',
+        S3_FORCE_PATH_STYLE: true,
+        S3_BUCKET: 'nibras-dev',
+      });
+      expect(env.S3_PUBLIC_ENDPOINT).toBeUndefined();
+      for (const key of ['S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY', 'S3_BUCKET']) {
+        expect(() => EnvSchema.parse({ ...valid, [key]: undefined }), key).toThrow(new RegExp(key));
+        expect(() => EnvSchema.parse({ ...valid, [key]: '' }), key).toThrow(new RegExp(key));
+      }
+      expect(() => EnvSchema.parse({ ...valid, VIDEO_PROVIDER: 'cloudflare_stream' })).toThrow(
+        /CLOUDFLARE_ACCOUNT_ID/,
+      );
+      expect(EnvSchema.parse({ ...valid, ...cloudflare }).VIDEO_PROVIDER).toBe('cloudflare_stream');
+    });
+
+    it('reports one issue per missing CLOUDFLARE_* variable (empty = missing)', () => {
+      const parsed = EnvSchema.safeParse({ ...valid, VIDEO_PROVIDER: 'cloudflare_stream' });
+      expect(parsed.success).toBe(false);
+      expect(parsed.error?.issues.map((i) => String(i.path[0])).sort()).toEqual(
+        [...CLOUDFLARE_KEYS].sort(),
+      );
+      for (const key of CLOUDFLARE_KEYS) {
+        const partial = EnvSchema.safeParse({ ...valid, ...cloudflare, [key]: '' });
+        expect(
+          partial.error?.issues.map((i) => String(i.path[0])),
+          key,
+        ).toEqual([key]);
+      }
+    });
+
+    it('treats empty optional values as unset (compose passes ${VAR:-})', () => {
+      const env = EnvSchema.parse({
+        ...valid,
+        S3_PUBLIC_ENDPOINT: '',
+        ...Object.fromEntries(CLOUDFLARE_KEYS.map((k) => [k, ''])),
+      });
+      expect(env.S3_PUBLIC_ENDPOINT).toBeUndefined();
+      for (const key of CLOUDFLARE_KEYS) expect(env[key as keyof typeof env], key).toBeUndefined();
+    });
+
+    it('validates the S3 settings', () => {
+      expect(() => EnvSchema.parse({ ...valid, S3_ENDPOINT: 'minio:9000' })).toThrow(/S3_ENDPOINT/);
+      expect(() => EnvSchema.parse({ ...valid, S3_PUBLIC_ENDPOINT: 'nope' })).toThrow(
+        /S3_PUBLIC_ENDPOINT/,
+      );
+      for (const bad of ['ab', 'Nibras-Dev', 'nibras_dev', 'x'.repeat(64)]) {
+        expect(() => EnvSchema.parse({ ...valid, S3_BUCKET: bad }), bad).toThrow(/S3_BUCKET/);
+      }
+      expect(EnvSchema.parse({ ...valid, S3_FORCE_PATH_STYLE: 'false' }).S3_FORCE_PATH_STYLE).toBe(
+        false,
+      );
+      expect(() => EnvSchema.parse({ ...valid, S3_FORCE_PATH_STYLE: 'maybe' })).toThrow(
+        /S3_FORCE_PATH_STYLE/,
+      );
+      expect(EnvSchema.parse({ ...valid, S3_REGION: 'gra' }).S3_REGION).toBe('gra');
+      expect(() => EnvSchema.parse({ ...valid, VIDEO_PROVIDER: 'mux' })).toThrow(/VIDEO_PROVIDER/);
+    });
+
+    it('staging refuses S3_SECRET_KEY=minioadmin and placeholder Cloudflare secrets', () => {
+      const issuePaths = (input: Record<string, unknown>) => {
+        const parsed = EnvSchema.safeParse(input);
+        return parsed.success ? [] : parsed.error.issues.map((i) => String(i.path[0]));
+      };
+      expect(issuePaths({ ...staging, ...cloudflare })).toEqual([]);
+      expect(issuePaths({ ...staging, S3_SECRET_KEY: 'minioadmin' })).toEqual(['S3_SECRET_KEY']);
+      for (const key of [
+        'CLOUDFLARE_STREAM_API_TOKEN',
+        'CLOUDFLARE_STREAM_WEBHOOK_SECRET',
+        'CLOUDFLARE_STREAM_SIGNING_KEY_PEM',
+      ]) {
+        expect(issuePaths({ ...staging, ...cloudflare, [key]: 'change-me' }), key).toEqual([key]);
+        // Development accepts it.
+        expect(issuePaths({ ...valid, ...cloudflare, [key]: 'change-me' }), key).toEqual([]);
+      }
     });
   });
 });

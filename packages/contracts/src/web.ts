@@ -13,3 +13,6 @@ export * from './member-statuses';
 export * from './abuse-constants';
 export * from './admin-constants';
 export * from './invite-constants';
+// SP3: courses, content & media
+export * from './course-constants';
+export * from './media-constants';

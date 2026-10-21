@@ -45,7 +45,12 @@ import {
   type AcceptOutcome,
 } from '../invitations/accept.service';
 import { ConsentService } from '../me/consent.service';
-import { MEMBERSHIP_ACTIVATED, MembershipActivatedEvent } from '../members/events';
+import {
+  INVITE_LINK_JOINED,
+  InviteLinkJoinedEvent,
+  MEMBERSHIP_ACTIVATED,
+  MembershipActivatedEvent,
+} from '../members/events';
 import { MembershipService, type AddedMember } from '../members/membership.service';
 import { validationFailed } from '../workspaces/workspaces.service';
 
@@ -167,7 +172,8 @@ export class JoinService {
    * organisation. With approval, a minor's guardian address is kept on a token-less `PENDING`
    * guardian link: the consent email goes out at approval (D5). After the commit: audits
    * `member.added` and `invite_link.used`, the guardian's email, the verification email, and
-   * `MembershipActivatedEvent` for an `ACTIVE` member; `REGISTER` gets a session.
+   * `MembershipActivatedEvent` for an `ACTIVE` member, and `InviteLinkJoinedEvent` whatever the
+   * status (SP3: the link's `courseIds` become enrollments); `REGISTER` gets a session.
    */
   async accept(
     rawCode: string,
@@ -318,6 +324,7 @@ export class JoinService {
     if (membershipStatus === 'ACTIVE') {
       this.publishActivated(new MembershipActivatedEvent(link.workspaceId, user.id));
     }
+    this.publishJoined(new InviteLinkJoinedEvent(link.workspaceId, link.id, user.id));
 
     const session =
       body.mode === 'REGISTER'
@@ -400,6 +407,24 @@ export class JoinService {
       );
     try {
       this.events.emitAsync(MEMBERSHIP_ACTIVATED, event).catch(failed);
+    } catch (err) {
+      failed(err);
+    }
+  }
+
+  /** SP3: same for {@link InviteLinkJoinedEvent} (the enrollment hooks). */
+  private publishJoined(event: InviteLinkJoinedEvent): void {
+    const failed = (err: unknown) =>
+      this.logger.error(
+        {
+          err: { type: err instanceof Error ? err.name : typeof err },
+          workspaceId: event.workspaceId,
+          inviteLinkId: event.inviteLinkId,
+        },
+        'InviteLinkJoinedEvent listener failed',
+      );
+    try {
+      this.events.emitAsync(INVITE_LINK_JOINED, event).catch(failed);
     } catch (err) {
       failed(err);
     }

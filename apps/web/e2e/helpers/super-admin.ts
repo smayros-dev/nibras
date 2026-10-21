@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
-import { request as playwrightRequest } from '@playwright/test';
+import { request as playwrightRequest, type APIRequestContext } from '@playwright/test';
 import { TEST_CONSENT_TERMS_VERSION, postRegister, postTransient, uniqueEmail } from '../helpers';
 import { extractLink, waitForEmail } from './mailpit';
 import { retryOn429 } from './retry';
@@ -106,6 +106,30 @@ export async function seedSuperAdmin(): Promise<SeededSuperAdmin> {
  * super-admin, logs in and calls `POST /admin/workspaces/{wid}/suspend`.
  */
 export async function suspendWorkspaceAsSuperAdmin(wid: string, reason = 'e2e suspension') {
+  await asSuperAdmin(async (ctx) => {
+    const suspend = await ctx.post(`/api/v1/admin/workspaces/${wid}/suspend`, {
+      data: { reason },
+    });
+    if (suspend.status() >= 400)
+      throw new Error(`suspend ${suspend.status()}: ${await suspend.text()}`);
+  });
+}
+
+/**
+ * Set a workspace's storage quota through the admin API (`PATCH /admin/workspaces/{wid}/quota`,
+ * SP3 over-quota e2e — no psql).
+ */
+export async function setQuotaAsSuperAdmin(wid: string, storageQuotaBytes: number) {
+  await asSuperAdmin(async (ctx) => {
+    const res = await ctx.patch(`/api/v1/admin/workspaces/${wid}/quota`, {
+      data: { storageQuotaBytes },
+    });
+    if (res.status() !== 200) throw new Error(`quota ${res.status()}: ${await res.text()}`);
+  });
+}
+
+/** Seed a super-admin, sign in on a fresh request context and run `fn` with it. */
+async function asSuperAdmin(fn: (ctx: APIRequestContext) => Promise<void>) {
   const admin = await seedSuperAdmin();
   const ctx = await playwrightRequest.newContext({ baseURL: BASE });
   try {
@@ -126,11 +150,7 @@ export async function suspendWorkspaceAsSuperAdmin(wid: string, reason = 'e2e su
         throw new Error(`2fa verify ${done.status()}: ${await done.text()}`);
     }
 
-    const suspend = await ctx.post(`/api/v1/admin/workspaces/${wid}/suspend`, {
-      data: { reason },
-    });
-    if (suspend.status() >= 400)
-      throw new Error(`suspend ${suspend.status()}: ${await suspend.text()}`);
+    await fn(ctx);
   } finally {
     await ctx.dispose();
   }

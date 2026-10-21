@@ -3,7 +3,7 @@
 Operational runbook for the SP1 slice: registration/login, 2FA, consents, workspaces, the
 super-admin console, audit actions and rate limits. Local dev setup lives in
 [local-dev.md](local-dev.md); the security rules across sub-projects are summarised in
-[security.md](security.md).
+[security.md](security.md). Courses, media and enrollments (SP3): [courses-and-media.md](courses-and-media.md).
 
 ## Creating the first super-admin
 

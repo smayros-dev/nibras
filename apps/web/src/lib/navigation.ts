@@ -2,6 +2,7 @@ import type { MeUser, MyWorkspace } from '@nibras/contracts';
 import type { NavItem, NavSection } from '@nibras/ui';
 import {
   Activity,
+  BookOpen,
   Building2,
   Flag,
   GraduationCap,
@@ -29,6 +30,9 @@ type ItemSpec = Omit<NavItem, 'current'>;
 
 /** Roles that see the workspace's students page (PRD §9.1 Étudiants; the API scopes the list). */
 const STUDENTS_PAGE_ROLES: readonly MyWorkspace['role'][] = ['OWNER', 'ADMIN', 'TEACHER'];
+
+/** Roles that see the workspace's courses page (PRD §9.1 Cours; the API scopes TEACHER to `own`). */
+const COURSES_PAGE_ROLES: readonly MyWorkspace['role'][] = ['OWNER', 'ADMIN', 'TEACHER'];
 
 /** The `{wid}` of a `/app/w/{wid}/...` path. */
 export function workspaceIdFromPath(pathname: string): string | null {
@@ -63,7 +67,18 @@ export function buildNavModel({ t, user, workspaces, locale }: NavModelInput): N
           icon: LayoutDashboard,
           exact: true,
         }),
-        // Cours (SP3), Étudiants (SP4), Sessions (SP5), Messages (SP8), Notifications (SP9).
+        // Cours: the student's courses, with at least one active STUDENT membership (SP3).
+        ...(workspaces.some((m) => m.role === 'STUDENT' && m.status === 'ACTIVE')
+          ? [
+              make({
+                id: 'courses',
+                href: '/app/courses',
+                label: t('nav.courses'),
+                icon: BookOpen,
+              }),
+            ]
+          : []),
+        // Étudiants (SP4), Sessions (SP5), Messages (SP8), Notifications (SP9).
         make({
           id: 'workspaces',
           href: '/app/settings/workspaces',
@@ -116,6 +131,16 @@ export function buildNavModel({ t, user, workspaces, locale }: NavModelInput): N
           icon: SlidersHorizontal,
           exact: true,
         }),
+        ...(COURSES_PAGE_ROLES.includes(role)
+          ? [
+              make({
+                id: `workspace-${workspace.id}-courses`,
+                href: `${base}/courses`,
+                label: t('workspace.navCourses'),
+                icon: BookOpen,
+              }),
+            ]
+          : []),
         ...(STUDENTS_PAGE_ROLES.includes(role)
           ? [
               make({

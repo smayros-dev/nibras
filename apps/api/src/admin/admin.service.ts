@@ -196,7 +196,7 @@ export class AdminService {
   ): Promise<WorkspaceStorage> {
     if (!UUID.test(wid)) throw notFound();
     const quota = BigInt(input.storageQuotaBytes);
-    const { previous, used } = await withTenantTx(wid, async (tx) => {
+    const { previous, used, reserved } = await withTenantTx(wid, async (tx) => {
       await lockWorkspace(tx, wid);
       const w = await tx.workspace.findUnique({
         where: { id: wid },
@@ -212,7 +212,16 @@ export class AdminService {
       if (quota !== w.storageQuotaBytes) {
         await tx.workspace.update({ where: { id: wid }, data: { storageQuotaBytes: quota } });
       }
-      return { previous: w.storageQuotaBytes, used: w.storageUsedBytes };
+      // SP3 (spec D17): declared sizes of the workspace's UPLOADING assets.
+      const uploading = await tx.mediaAsset.aggregate({
+        where: { status: 'UPLOADING', deletedAt: null },
+        _sum: { sizeBytes: true },
+      });
+      return {
+        previous: w.storageQuotaBytes,
+        used: w.storageUsedBytes,
+        reserved: uploading._sum.sizeBytes ?? 0n,
+      };
     });
     if (quota !== previous) {
       await this.audit.log({
@@ -225,7 +234,11 @@ export class AdminService {
         after: { storageQuotaBytes: quota },
       });
     }
-    return { quotaBytes: quota.toString(), usedBytes: used.toString() };
+    return {
+      quotaBytes: quota.toString(),
+      usedBytes: used.toString(),
+      reservedBytes: reserved.toString(),
+    };
   }
 
   /**

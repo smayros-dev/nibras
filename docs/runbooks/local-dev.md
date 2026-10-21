@@ -4,7 +4,8 @@ How to run the platform on a developer machine (Windows 11 + Git Bash or PowerSh
 This page covers what SP0 (monorepo & infrastructure) delivers; later plans append to it.
 Frontend conventions (tokens, components, nav, i18n guards, first-load budget, CSP, PWA,
 rebranding) are in [frontend.md](frontend.md). The security rules (secrets, scanners, images,
-GitHub settings) are summarised in [security.md](security.md).
+GitHub settings) are summarised in [security.md](security.md). Courses, media uploads and playback
+(SP3, MinIO buckets, `VIDEO_PROVIDER`): [courses-and-media.md](courses-and-media.md).
 
 ## Prerequisites
 
@@ -25,6 +26,7 @@ cp .env.example .env   # PowerShell: Copy-Item .env.example .env
 docker compose up -d   # Postgres, Redis, Mailpit, MinIO (init.sql creates roles and databases)
 pnpm db:migrate        # migrate the dev database `nibras`
 pnpm db:migrate:test   # migrate the test databases nibras_db_test, nibras_api_test, nibras_worker_test
+pnpm --filter @nibras/api s3:init -- --test   # MinIO buckets: nibras-dev and the three test buckets
 pnpm dev               # docker compose up -d (no-op now), then turbo run dev
 ```
 
@@ -177,6 +179,17 @@ keep the `_test` suffix that `resetDatabase` requires, which the derivation appe
 the first worktree and `7` for the second, while the main checkout keeps the default `13`), then
 run `pnpm db:migrate:test` in the worktree (Prisma creates the missing databases). Drop the
 `<prefix>_*_test` databases when the worktree is removed.
+
+**MinIO test buckets (SP3).** `@nibras/providers`, `@nibras/api` and `@nibras/worker` tests use the
+compose MinIO, each in its own bucket derived from `S3_BUCKET_TEST` (`nibras-test` →
+`nibras-providers-test`, `nibras-api-test`, `nibras-worker-test`), created on demand and emptied by
+the suites. A parallel worktree sets its own base too (e.g. `S3_BUCKET_TEST=nibras-t1-test` →
+`nibras-t1-api-test`, …). Without `S3_ENDPOINT` the providers' MinIO suite is skipped; the API and
+worker suites need MinIO running (`docker compose up -d`): the API and the worker refuse to start
+without `S3_*`, and the API test app creates and empties its bucket (it refuses any bucket but the
+derived `…-api-test` one, so `S3_BUCKET_TEST` must be set). `pnpm --filter @nibras/api s3:init`
+(re)creates the development bucket `S3_BUCKET` (CORS is a no-op on MinIO, which allows every
+origin); `-- --test` also creates the three test buckets.
 
 ### Environment variables and turbo
 

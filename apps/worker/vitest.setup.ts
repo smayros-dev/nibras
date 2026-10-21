@@ -15,5 +15,9 @@ if (process.env.DATABASE_URL_TEST_SYSTEM) {
 if (process.env.REDIS_URL_TEST) {
   process.env.REDIS_URL = process.env.REDIS_URL_TEST;
 }
+// This package's own bucket (`nibras-worker-test`, derived from the S3_BUCKET_TEST base).
+if (process.env.S3_BUCKET_TEST) {
+  process.env.S3_BUCKET = process.env.S3_BUCKET_TEST;
+}
 process.env.WORKER_PORT = '0';
 process.env.LOG_LEVEL = 'silent';

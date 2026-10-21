@@ -644,6 +644,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LearnController_courses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/courses/{cid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LearnController_course"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/email-change": {
         parameters: {
             query?: never;
@@ -654,6 +686,102 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["MeController_requestEmailChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/lessons/{lid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LearnController_lesson"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/lessons/{lid}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LearnController_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/lessons/{lid}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LearnController_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/lessons/{lid}/opened": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LearnController_opened"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/lessons/{lid}/playback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LearnController_playback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/lessons/{lid}/uncomplete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LearnController_uncomplete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -772,6 +900,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/webhooks/media/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WebhooksController_receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces": {
         parameters: {
             query?: never;
@@ -878,6 +1022,214 @@ export interface paths {
         get: operations["AuditLogController_list"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CoursesController_list"];
+        put?: never;
+        post: operations["CoursesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CoursesController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["CoursesController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["CoursesController_update"];
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CoursesController_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EnrollmentsController_list"];
+        put?: never;
+        post: operations["EnrollmentsController_enroll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/enrollments/{uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["EnrollmentsController_revoke"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ModulesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/modules/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ModulesController_reorder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EnrollmentsController_progress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CoursesController_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CoursesController_reassign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CoursesController_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/structure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CoursesController_structureOf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CoursesController_unpublish"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1012,6 +1364,134 @@ export interface paths {
         patch: operations["InviteLinksController_update"];
         trace?: never;
     };
+    "/workspaces/{wid}/lessons/{lid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LessonsController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["LessonsController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["LessonsController_update"];
+        trace?: never;
+    };
+    "/workspaces/{wid}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MediaController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/media/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["MediaController_createUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/media/{mediaId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MediaController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["MediaController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/media/{mediaId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["MediaController_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/media/{mediaId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MediaController_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/media/{mediaId}/playback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MediaController_playback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/media/{mediaId}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MediaController_uploadState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{wid}/members": {
         parameters: {
             query?: never;
@@ -1070,6 +1550,54 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["ApprovalController_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/modules/{mid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["ModulesController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["ModulesController_update"];
+        trace?: never;
+    };
+    "/workspaces/{wid}/modules/{mid}/lessons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LessonsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/modules/{mid}/lessons/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LessonsController_reorder"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1244,6 +1772,12 @@ export interface components {
             currentPassword: string;
             newPassword: string;
         };
+        CompleteUploadDto: {
+            parts?: {
+                etag: string;
+                partNumber: number;
+            }[];
+        };
         CreateAbuseReportDto: {
             attachments?: string[];
             /** @enum {string} */
@@ -1259,6 +1793,90 @@ export interface components {
             studentUserId: string;
             /** Format: uuid */
             teacherUserId: string;
+        };
+        CreateCourseDto: {
+            category?: string;
+            /** Format: uuid */
+            coverMediaId?: string | null;
+            description?: {
+                content?: components["schemas"]["CreateCourseDto__schema0"][];
+                /** @enum {string} */
+                type: "doc";
+            };
+            estimatedMinutes?: number | null;
+            /**
+             * @default fr
+             * @enum {string}
+             */
+            language: "fr" | "ar" | "en";
+            /** @enum {string} */
+            level?: "PRIMAIRE" | "COLLEGE" | "LYCEE" | "SUPERIEUR" | "ADULTE" | "AUTRE";
+            sequentialLessons?: boolean;
+            title: string;
+        };
+        CreateCourseDto__schema0: {
+            marks?: ({
+                /** @enum {string} */
+                type: "bold" | "italic" | "underline" | "strike" | "code";
+            } | {
+                attrs: {
+                    class?: null;
+                    href: string;
+                    rel?: string | null;
+                    /** @enum {string|null} */
+                    target?: "_blank" | null;
+                };
+                /** @enum {string} */
+                type: "link";
+            })[];
+            text: string;
+            /** @enum {string} */
+            type: "text";
+        } | {
+            content?: components["schemas"]["CreateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "paragraph";
+        } | {
+            attrs: {
+                level: 1 | 2 | 3;
+            };
+            content?: components["schemas"]["CreateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "heading";
+        } | {
+            content?: components["schemas"]["CreateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "bulletList";
+        } | {
+            attrs?: {
+                start?: number;
+                /** @enum {string|null} */
+                type?: "1" | "a" | "A" | "i" | "I" | null;
+            };
+            content?: components["schemas"]["CreateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "orderedList";
+        } | {
+            content?: components["schemas"]["CreateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "listItem";
+        } | {
+            content?: components["schemas"]["CreateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "blockquote";
+        } | {
+            attrs?: {
+                language?: string | null;
+            };
+            content?: components["schemas"]["CreateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "codeBlock";
+        } | {
+            /** @enum {string} */
+            type: "hardBreak";
+        } | {
+            /** @enum {string} */
+            type: "horizontalRule";
         };
         CreateInvitationDto: {
             birthDate?: string;
@@ -1290,10 +1908,138 @@ export interface components {
             /** Format: uuid */
             teacherUserId?: string;
         };
+        CreateLessonDto: {
+            description?: string | null;
+            estimatedMinutes?: number | null;
+            isRequired?: boolean;
+            /** Format: uuid */
+            mediaAssetId: string;
+            title: string;
+            /** @enum {string} */
+            type: "VIDEO";
+        } | {
+            allowDownload?: boolean;
+            description?: string | null;
+            estimatedMinutes?: number | null;
+            isRequired?: boolean;
+            /** Format: uuid */
+            mediaAssetId: string;
+            title: string;
+            /** @enum {string} */
+            type: "PDF";
+        } | {
+            content: {
+                content?: components["schemas"]["CreateLessonDto__schema0"][];
+                /** @enum {string} */
+                type: "doc";
+            };
+            description?: string | null;
+            estimatedMinutes?: number | null;
+            isRequired?: boolean;
+            title: string;
+            /** @enum {string} */
+            type: "TEXT";
+        };
+        CreateLessonDto__schema0: {
+            marks?: ({
+                /** @enum {string} */
+                type: "bold" | "italic" | "underline" | "strike" | "code";
+            } | {
+                attrs: {
+                    class?: null;
+                    href: string;
+                    rel?: string | null;
+                    /** @enum {string|null} */
+                    target?: "_blank" | null;
+                };
+                /** @enum {string} */
+                type: "link";
+            })[];
+            text: string;
+            /** @enum {string} */
+            type: "text";
+        } | {
+            content?: components["schemas"]["CreateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "paragraph";
+        } | {
+            attrs: {
+                level: 1 | 2 | 3;
+            };
+            content?: components["schemas"]["CreateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "heading";
+        } | {
+            content?: components["schemas"]["CreateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "bulletList";
+        } | {
+            attrs?: {
+                start?: number;
+                /** @enum {string|null} */
+                type?: "1" | "a" | "A" | "i" | "I" | null;
+            };
+            content?: components["schemas"]["CreateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "orderedList";
+        } | {
+            content?: components["schemas"]["CreateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "listItem";
+        } | {
+            content?: components["schemas"]["CreateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "blockquote";
+        } | {
+            attrs?: {
+                language?: string | null;
+            };
+            content?: components["schemas"]["CreateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "codeBlock";
+        } | {
+            /** @enum {string} */
+            type: "hardBreak";
+        } | {
+            /** @enum {string} */
+            type: "horizontalRule";
+        } | {
+            attrs: {
+                alt?: string;
+                /** Format: uuid */
+                mediaId: string;
+            };
+            /** @enum {string} */
+            type: "image";
+        };
+        CreateModuleDto: {
+            description?: string | null;
+            isOptional?: boolean;
+            title: string;
+            /**
+             * @default {
+             *       "type": "NONE"
+             *     }
+             */
+            unlockRule: {
+                /** @enum {string} */
+                type: "NONE";
+            } | {
+                /** @enum {string} */
+                type: "PREVIOUS_MODULE_COMPLETED";
+            };
+        };
         CreateOrganizationDto: {
             country?: string;
             name: string;
             timezone: string;
+        };
+        CreateUploadDto: {
+            filename: string;
+            /** @enum {string} */
+            kind: "VIDEO" | "PDF" | "IMAGE" | "FILE";
+            mimeType: string;
+            sizeBytes: number;
         };
         EmailChangeConfirmDto: {
             token: string;
@@ -1302,6 +2048,9 @@ export interface components {
             /** Format: email */
             newEmail: string;
             password: string;
+        };
+        EnrollStudentsDto: {
+            studentUserIds: string[];
         };
         ForgotPasswordDto: {
             /** Format: email */
@@ -1343,6 +2092,10 @@ export interface components {
         PhoneOtpVerifyDto: {
             otpCode: string;
         };
+        ReassignCourseDto: {
+            /** Format: uuid */
+            ownerUserId: string;
+        };
         RegisterTeacherDto: {
             /** @enum {boolean} */
             acceptPrivacy: true;
@@ -1363,9 +2116,16 @@ export interface components {
         RemoveMemberDto: {
             reason?: string;
         };
+        ReorderDto: {
+            ids: string[];
+        };
         ResetPasswordDto: {
             newPassword: string;
             token: string;
+        };
+        /** @default {} */
+        RevokeEnrollmentDto: {
+            reason?: string;
         };
         SuspensionDto: {
             reason: string;
@@ -1400,6 +2160,87 @@ export interface components {
             /** @enum {string} */
             status?: "OPEN" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
         };
+        UpdateCourseDto: {
+            category?: string;
+            /** Format: uuid */
+            coverMediaId?: string | null;
+            description?: {
+                content?: components["schemas"]["UpdateCourseDto__schema0"][];
+                /** @enum {string} */
+                type: "doc";
+            };
+            estimatedMinutes?: number | null;
+            /** @enum {string} */
+            language?: "fr" | "ar" | "en";
+            /** @enum {string|null} */
+            level?: "PRIMAIRE" | "COLLEGE" | "LYCEE" | "SUPERIEUR" | "ADULTE" | "AUTRE" | null;
+            sequentialLessons?: boolean;
+            title?: string;
+        };
+        UpdateCourseDto__schema0: {
+            marks?: ({
+                /** @enum {string} */
+                type: "bold" | "italic" | "underline" | "strike" | "code";
+            } | {
+                attrs: {
+                    class?: null;
+                    href: string;
+                    rel?: string | null;
+                    /** @enum {string|null} */
+                    target?: "_blank" | null;
+                };
+                /** @enum {string} */
+                type: "link";
+            })[];
+            text: string;
+            /** @enum {string} */
+            type: "text";
+        } | {
+            content?: components["schemas"]["UpdateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "paragraph";
+        } | {
+            attrs: {
+                level: 1 | 2 | 3;
+            };
+            content?: components["schemas"]["UpdateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "heading";
+        } | {
+            content?: components["schemas"]["UpdateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "bulletList";
+        } | {
+            attrs?: {
+                start?: number;
+                /** @enum {string|null} */
+                type?: "1" | "a" | "A" | "i" | "I" | null;
+            };
+            content?: components["schemas"]["UpdateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "orderedList";
+        } | {
+            content?: components["schemas"]["UpdateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "listItem";
+        } | {
+            content?: components["schemas"]["UpdateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "blockquote";
+        } | {
+            attrs?: {
+                language?: string | null;
+            };
+            content?: components["schemas"]["UpdateCourseDto__schema0"][];
+            /** @enum {string} */
+            type: "codeBlock";
+        } | {
+            /** @enum {string} */
+            type: "hardBreak";
+        } | {
+            /** @enum {string} */
+            type: "horizontalRule";
+        };
         UpdateInvitationDto: {
             firstName?: string;
             /** Format: email */
@@ -1416,6 +2257,92 @@ export interface components {
             /** @enum {string} */
             status?: "ACTIVE" | "DISABLED";
         };
+        UpdateLessonDto: {
+            allowDownload?: boolean;
+            content?: {
+                content?: components["schemas"]["UpdateLessonDto__schema0"][];
+                /** @enum {string} */
+                type: "doc";
+            };
+            description?: string | null;
+            estimatedMinutes?: number | null;
+            isRequired?: boolean;
+            /** Format: uuid */
+            mediaAssetId?: string;
+            title?: string;
+        };
+        UpdateLessonDto__schema0: {
+            marks?: ({
+                /** @enum {string} */
+                type: "bold" | "italic" | "underline" | "strike" | "code";
+            } | {
+                attrs: {
+                    class?: null;
+                    href: string;
+                    rel?: string | null;
+                    /** @enum {string|null} */
+                    target?: "_blank" | null;
+                };
+                /** @enum {string} */
+                type: "link";
+            })[];
+            text: string;
+            /** @enum {string} */
+            type: "text";
+        } | {
+            content?: components["schemas"]["UpdateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "paragraph";
+        } | {
+            attrs: {
+                level: 1 | 2 | 3;
+            };
+            content?: components["schemas"]["UpdateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "heading";
+        } | {
+            content?: components["schemas"]["UpdateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "bulletList";
+        } | {
+            attrs?: {
+                start?: number;
+                /** @enum {string|null} */
+                type?: "1" | "a" | "A" | "i" | "I" | null;
+            };
+            content?: components["schemas"]["UpdateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "orderedList";
+        } | {
+            content?: components["schemas"]["UpdateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "listItem";
+        } | {
+            content?: components["schemas"]["UpdateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "blockquote";
+        } | {
+            attrs?: {
+                language?: string | null;
+            };
+            content?: components["schemas"]["UpdateLessonDto__schema0"][];
+            /** @enum {string} */
+            type: "codeBlock";
+        } | {
+            /** @enum {string} */
+            type: "hardBreak";
+        } | {
+            /** @enum {string} */
+            type: "horizontalRule";
+        } | {
+            attrs: {
+                alt?: string;
+                /** Format: uuid */
+                mediaId: string;
+            };
+            /** @enum {string} */
+            type: "image";
+        };
         UpdateMeDto: {
             birthDate?: string;
             firstName?: string;
@@ -1428,6 +2355,18 @@ export interface components {
             canTeach?: boolean;
             /** @enum {string} */
             role?: "OWNER" | "ADMIN" | "TEACHER" | "ASSISTANT" | "STUDENT" | "GUARDIAN";
+        };
+        UpdateModuleDto: {
+            description?: string | null;
+            isOptional?: boolean;
+            title?: string;
+            unlockRule?: {
+                /** @enum {string} */
+                type: "NONE";
+            } | {
+                /** @enum {string} */
+                type: "PREVIOUS_MODULE_COMPLETED";
+            };
         };
         UpdateStudentDto: {
             /** Format: email */
@@ -2454,6 +3393,42 @@ export interface operations {
             };
         };
     };
+    LearnController_courses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LearnController_course: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     MeController_requestEmailChange: {
         parameters: {
             query?: never;
@@ -2468,6 +3443,120 @@ export interface operations {
         };
         responses: {
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LearnController_lesson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LearnController_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LearnController_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LearnController_opened: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LearnController_playback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LearnController_uncomplete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2595,6 +3684,25 @@ export interface operations {
             header?: never;
             path: {
                 wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WebhooksController_receive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
             };
             cookie?: never;
         };
@@ -2861,6 +3969,395 @@ export interface operations {
             header?: never;
             path: {
                 wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_list: {
+        parameters: {
+            query?: {
+                status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+                q?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCourseDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The course version: "<version>" */
+                "If-Match": string;
+            };
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCourseDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentsController_list: {
+        parameters: {
+            query?: {
+                status?: "ACTIVE" | "REVOKED";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentsController_enroll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrollStudentsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentsController_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RevokeEnrollmentDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ModulesController_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The course version: "<version>" (checked when given) */
+                "If-Match"?: string;
+            };
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateModuleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ModulesController_reorder: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The course version: "<version>" */
+                "If-Match": string;
+            };
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentsController_progress: {
+        parameters: {
+            query?: {
+                status?: "ACTIVE" | "REVOKED";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_reassign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReassignCourseDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_structureOf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CoursesController_unpublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
             };
             cookie?: never;
         };
@@ -3157,6 +4654,247 @@ export interface operations {
             };
         };
     };
+    LessonsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                lid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LessonsController_remove: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The course version: "<version>" (checked when given) */
+                "If-Match"?: string;
+            };
+            path: {
+                wid: string;
+                lid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LessonsController_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The course version: "<version>" */
+                "If-Match": string;
+            };
+            path: {
+                wid: string;
+                lid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLessonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MediaController_list: {
+        parameters: {
+            query?: {
+                kind?: "VIDEO" | "PDF" | "IMAGE" | "FILE" | "RECORDING";
+                status?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | "DELETING";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MediaController_createUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUploadDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MediaController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                mediaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MediaController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                mediaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MediaController_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                mediaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteUploadDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MediaController_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                mediaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MediaController_playback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                mediaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MediaController_uploadState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                mediaId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     MembersController_list: {
         parameters: {
             query?: {
@@ -3281,6 +5019,110 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ModulesController_remove: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The course version: "<version>" (checked when given) */
+                "If-Match"?: string;
+            };
+            path: {
+                wid: string;
+                mid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ModulesController_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The course version: "<version>" */
+                "If-Match": string;
+            };
+            path: {
+                wid: string;
+                mid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateModuleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LessonsController_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The course version: "<version>" (checked when given) */
+                "If-Match"?: string;
+            };
+            path: {
+                wid: string;
+                mid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLessonDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LessonsController_reorder: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The course version: "<version>" */
+                "If-Match": string;
+            };
+            path: {
+                wid: string;
+                mid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

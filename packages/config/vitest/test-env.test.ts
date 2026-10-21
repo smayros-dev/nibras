@@ -4,7 +4,9 @@ import {
   testDatabaseUrl,
   testDbName,
   testRedisDb,
+  testBucketName,
   testRedisUrl,
+  TEST_PACKAGES,
 } from './test-env.mjs';
 
 describe('per-package test env', () => {
@@ -58,5 +60,48 @@ describe('per-package test env', () => {
       expect(() => testDbName('db', { TEST_DB_PREFIX: bad })).toThrow(/TEST_DB_PREFIX/);
     }
     expect(testDbName('api', { TEST_DB_PREFIX: 'nibras_t1' })).toBe('nibras_t1_api_test');
+  });
+
+  it('derives a per-package S3 test bucket from S3_BUCKET_TEST', () => {
+    expect(TEST_PACKAGES).toEqual(['db', 'api', 'worker']); // providers: no test database
+    expect(testBucketName('api')).toBe('nibras-api-test');
+    expect(testBucketName('api', {})).toBe('nibras-api-test');
+    expect(testBucketName('providers', { S3_BUCKET_TEST: 'nibras-test' })).toBe(
+      'nibras-providers-test',
+    );
+    // A per-checkout base keeps parallel checkouts on one MinIO apart.
+    expect(testBucketName('worker', { S3_BUCKET_TEST: 'nibras-sp3-test' })).toBe(
+      'nibras-sp3-worker-test',
+    );
+    expect(testBucketName('api', { S3_BUCKET_TEST: 'mybucket' })).toBe('mybucket-api');
+    for (const bad of ['', 'Nibras-Test', 'nibras_test', 'ab']) {
+      expect(() => testBucketName('api', { S3_BUCKET_TEST: bad })).toThrow(/S3_BUCKET_TEST/);
+    }
+  });
+
+  it('applyTestEnv rewrites S3_BUCKET_TEST only when set', () => {
+    const env: Record<string, string | undefined> = { S3_BUCKET_TEST: 'nibras-test' };
+    applyTestEnv('api', env);
+    expect(env.S3_BUCKET_TEST).toBe('nibras-api-test');
+    const empty: Record<string, string | undefined> = {};
+    applyTestEnv('api', empty);
+    expect(empty).toEqual({});
+  });
+
+  it('providers get a bucket only (no database, no Redis index)', () => {
+    const env: Record<string, string | undefined> = {
+      TEST_REDIS_DB_BASE: '13',
+      DATABASE_URL_TEST: 'postgresql://u:p@h:5432/nibras_test',
+      REDIS_URL_TEST: 'redis://h:6379/15',
+      S3_BUCKET_TEST: 'nibras-test',
+    };
+    applyTestEnv('providers', env);
+    expect(env).toEqual({
+      TEST_REDIS_DB_BASE: '13',
+      DATABASE_URL_TEST: 'postgresql://u:p@h:5432/nibras_test',
+      REDIS_URL_TEST: 'redis://h:6379/15',
+      S3_BUCKET_TEST: 'nibras-providers-test',
+    });
+    expect(() => testRedisDb('providers', {})).toThrow(/no test Redis index/);
   });
 });

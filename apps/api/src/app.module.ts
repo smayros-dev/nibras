@@ -11,14 +11,18 @@ import { HttpExceptionFilter } from './common/http-exception.filter';
 import { RateLimitGuard, RateLimitModule } from './common/rate-limit.module';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
+import { CoursesModule } from './courses/courses.module';
 import { DbModule } from './db/db.module';
+import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { HealthModule } from './health/health.module';
 import { GuardianModule } from './guardian/guardian.module';
 import { ImportsModule } from './imports/imports.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { InviteLinksModule } from './invite-links/invite-links.module';
+import { LearnModule } from './learn/learn.module';
 import { ConsentModule } from './me/consent.module';
 import { MeModule } from './me/me.module';
+import { MediaModule } from './media/media.module';
 import { MembersModule } from './members/members.module';
 import { VerificationModule } from './me/verification.module';
 import { MetricsMiddleware } from './observability/metrics.middleware';
@@ -26,6 +30,7 @@ import { ObservabilityModule } from './observability/observability.module';
 import { ProvidersModule } from './providers/providers.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
+import { StructureModule } from './structure/structure.module';
 import { StudentsModule } from './students/students.module';
 import { PermissionGuard } from './tenancy/permission.guard';
 import { SuperAdminGuard } from './tenancy/super-admin.guard';
@@ -59,6 +64,11 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     StudentsModule,
     AbuseReportsModule,
     AdminModule,
+    CoursesModule,
+    StructureModule,
+    MediaModule,
+    EnrollmentsModule,
+    LearnModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
     TenancyModule,
     RateLimitModule,

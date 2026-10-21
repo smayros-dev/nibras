@@ -1,0 +1,17 @@
+{
+  "uid": "ea95132c15732412d22c1476fa83f27a",
+  "creator": null,
+  "thumbnail": "https://customer-f33zs165nr7gyfy4.cloudflarestream.com/ea95132c15732412d22c1476fa83f27a/thumbnails/thumbnail.jpg",
+  "readyToStream": true,
+  "status": {
+    "state": "ready",
+    "pctComplete": "100.000000",
+    "errorReasonCode": "",
+    "errorReasonText": ""
+  },
+  "meta": { "name": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c" },
+  "size": 4190963,
+  "requireSignedURLs": true,
+  "input": { "width": 1920, "height": 1080 },
+  "duration": 754.6
+}

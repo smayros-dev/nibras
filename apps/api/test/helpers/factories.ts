@@ -13,9 +13,19 @@ import {
   isMinor,
   type CurrentConsentType,
 } from '@nibras/contracts';
+import { storageKeyFor } from '@nibras/providers';
 import {
   systemPrisma,
   type AbuseReport,
+  type Course,
+  type CourseStatus,
+  type Enrollment,
+  type Lesson,
+  type MediaAsset,
+  type MediaKind,
+  type MediaStatus,
+  type Module,
+  type Prisma,
   uuidv7,
   type GuardianLink,
   type GuardianLinkStatus,
@@ -466,6 +476,8 @@ export interface CreateInvitationOptions {
   lastName?: string;
   message?: string;
   teacherUserId?: string;
+  /** SP3: courses assigned at acceptance (stored as given, unvalidated). */
+  courseIds?: string[];
   /** `ACCEPTED` only. */
   acceptedBy?: Pick<User, 'id'>;
 }
@@ -492,6 +504,7 @@ export async function createInvitation(
       invitedByUserId: o.invitedBy.id,
       message: o.message ?? null,
       teacherUserId: o.teacherUserId ?? null,
+      courseIds: o.courseIds ?? [],
       lastSentAt: now,
       ...(status === 'ACCEPTED' && {
         acceptedAt: now,
@@ -526,6 +539,8 @@ export interface CreateInviteLinkOptions {
   expiresAt?: Date | null;
   label?: string;
   teacherUserId?: string;
+  /** SP3: courses assigned at each join (stored as given, unvalidated). */
+  courseIds?: string[];
 }
 
 /** A group invite link (STUDENT) written directly; `code` is its 8-character code. */
@@ -541,6 +556,7 @@ export async function createInviteLink(
       role: 'STUDENT',
       createdByUserId: o.createdBy.id,
       teacherUserId: o.teacherUserId ?? null,
+      courseIds: o.courseIds ?? [],
       requiresApproval: o.requiresApproval ?? false,
       maxUses: o.maxUses ?? INVITE_LINK_DEFAULT_MAX_USES,
       usesCount: o.usesCount ?? 0,
@@ -631,6 +647,198 @@ export function createAbuseReport(
         capturedAt: new Date().toISOString(),
       },
       status: o.status ?? 'OPEN',
+    },
+  });
+}
+
+// ---- SP3: courses, structure and media (raw rows, no audit, no job) ----
+
+export interface CreateCourseOptions {
+  /** Default `DRAFT`; `PUBLISHED`/`ARCHIVED` also set `publishedAt` (and `archivedAt`). */
+  status: CourseStatus;
+  title: string;
+  sequentialLessons: boolean;
+  /** Default `fr`. */
+  language: Locale;
+  coverMediaId: string | null;
+}
+
+/** A course of `workspace` owned by `owner` (version 1). */
+export function createCourse(
+  workspace: Pick<Workspace, 'id'>,
+  owner: Pick<User, 'id'>,
+  o: Partial<CreateCourseOptions> = {},
+): Promise<Course> {
+  const status = o.status ?? 'DRAFT';
+  const now = new Date();
+  return systemPrisma().course.create({
+    data: {
+      workspaceId: workspace.id,
+      ownerUserId: owner.id,
+      title: o.title ?? 'Algèbre — niveau 1',
+      language: o.language ?? 'fr',
+      sequentialLessons: o.sequentialLessons ?? false,
+      coverMediaId: o.coverMediaId ?? null,
+      status,
+      publishedAt: status === 'DRAFT' ? null : now,
+      archivedAt: status === 'ARCHIVED' ? now : null,
+    },
+  });
+}
+
+export interface CreateModuleOptions {
+  /** Default: after the course's last module. */
+  position: number;
+  isOptional: boolean;
+  /** Default `{ type: 'NONE' }`. */
+  unlockRule: { type: 'NONE' | 'PREVIOUS_MODULE_COMPLETED' };
+  title: string;
+}
+
+/** A module at the end of `course` (or at `position`). */
+export async function createModule(
+  course: Pick<Course, 'id' | 'workspaceId'>,
+  o: Partial<CreateModuleOptions> = {},
+): Promise<Module> {
+  const db = systemPrisma();
+  const position = o.position ?? (await db.module.count({ where: { courseId: course.id } })) + 1;
+  return db.module.create({
+    data: {
+      workspaceId: course.workspaceId,
+      courseId: course.id,
+      title: o.title ?? `Module ${position}`,
+      position,
+      isOptional: o.isOptional ?? false,
+      unlockRule: o.unlockRule ?? { type: 'NONE' },
+    },
+  });
+}
+
+export interface CreateLessonOptions {
+  type: 'VIDEO' | 'PDF' | 'TEXT';
+  /** Required for VIDEO / PDF (the content check). */
+  mediaAsset: Pick<MediaAsset, 'id'>;
+  /** TEXT only; default a one-paragraph document. */
+  content: Prisma.InputJsonValue;
+  isRequired: boolean;
+  /** Default: after the module's last lesson. */
+  position: number;
+  title: string;
+  estimatedMinutes: number;
+}
+
+/** A lesson at the end of `module` (or at `position`). */
+export async function createLesson(
+  module: Pick<Module, 'id' | 'workspaceId'>,
+  o: Partial<CreateLessonOptions> & Pick<CreateLessonOptions, 'type'>,
+): Promise<Lesson> {
+  const db = systemPrisma();
+  const position = o.position ?? (await db.lesson.count({ where: { moduleId: module.id } })) + 1;
+  const text = o.type === 'TEXT';
+  if (!text && !o.mediaAsset)
+    throw new Error(`createLesson: a ${o.type} lesson needs a mediaAsset`);
+  return db.lesson.create({
+    data: {
+      workspaceId: module.workspaceId,
+      moduleId: module.id,
+      title: o.title ?? `Leçon ${position}`,
+      type: o.type,
+      position,
+      isRequired: o.isRequired ?? true,
+      estimatedMinutes: o.estimatedMinutes ?? null,
+      mediaAssetId: text ? null : o.mediaAsset!.id,
+      content: text
+        ? (o.content ?? {
+            type: 'doc',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Bonjour' }] }],
+          })
+        : undefined,
+    },
+  });
+}
+
+export interface CreateMediaAssetOptions {
+  kind: MediaKind;
+  /** Default `READY`. */
+  status: MediaStatus;
+  /** Default `storageKeyFor(…)` of a `file.<ext>` name. */
+  storageKey: string;
+  /** Default 1 MiB. */
+  sizeBytes: bigint;
+  mimeType: string;
+  durationS: number;
+}
+
+const DEFAULT_MIME: Record<MediaKind, string> = {
+  VIDEO: 'video/mp4',
+  PDF: 'application/pdf',
+  IMAGE: 'image/png',
+  FILE: 'application/pdf',
+  RECORDING: 'video/mp4',
+};
+
+/** An S3 media asset of `workspace` owned by `owner` (no object is written to the bucket). */
+export function createMediaAsset(
+  workspace: Pick<Workspace, 'id'>,
+  owner: Pick<User, 'id'>,
+  o: Partial<CreateMediaAssetOptions> & Pick<CreateMediaAssetOptions, 'kind'>,
+): Promise<MediaAsset> {
+  const id = uuidv7();
+  const mimeType = o.mimeType ?? DEFAULT_MIME[o.kind];
+  const filename = `file.${mimeType.split('/')[1]}`;
+  const status = o.status ?? 'READY';
+  const sizeBytes = o.sizeBytes ?? 1024n * 1024n;
+  return systemPrisma().mediaAsset.create({
+    data: {
+      id,
+      workspaceId: workspace.id,
+      ownerUserId: owner.id,
+      kind: o.kind,
+      provider: 'S3',
+      storageKey:
+        o.storageKey ??
+        storageKeyFor({ workspaceId: workspace.id, kind: o.kind, mediaId: id, filename }),
+      status,
+      originalFilename: filename,
+      mimeType,
+      sizeBytes,
+      durationS: o.durationS ?? null,
+      readyAt: status === 'READY' ? new Date() : null,
+      countedBytes: status === 'UPLOADING' ? 0n : sizeBytes,
+    },
+  });
+}
+
+export interface CreateEnrollmentOptions {
+  /** Default `ACTIVE`; `REVOKED` also sets `revokedAt`. */
+  status: 'ACTIVE' | 'REVOKED';
+  /** Default `MANUAL`. */
+  source: 'MANUAL' | 'INVITATION' | 'INVITE_LINK';
+  /** Default the course owner. */
+  assignedBy: Pick<User, 'id'>;
+  /** Default 0. */
+  progressPercent: number;
+}
+
+/** An enrollment of `student` in `course` written directly (no audit, no job). */
+export function createEnrollment(
+  course: Pick<Course, 'id' | 'workspaceId' | 'ownerUserId'>,
+  student: Pick<User, 'id'>,
+  o: Partial<CreateEnrollmentOptions> = {},
+): Promise<Enrollment> {
+  const status = o.status ?? 'ACTIVE';
+  const now = new Date();
+  return systemPrisma().enrollment.create({
+    data: {
+      workspaceId: course.workspaceId,
+      courseId: course.id,
+      studentUserId: student.id,
+      status,
+      assignedByUserId: o.assignedBy?.id ?? course.ownerUserId,
+      source: o.source ?? 'MANUAL',
+      activatedAt: now,
+      progressPercent: o.progressPercent ?? 0,
+      ...(status === 'REVOKED' && { revokedAt: now }),
     },
   });
 }

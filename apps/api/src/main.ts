@@ -14,8 +14,12 @@ import { createShutdownHandler } from './shutdown';
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 async function bootstrap(): Promise<void> {
-  // Boot logs are buffered until `configureApp` installs the pino logger.
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  // Boot logs are buffered until `configureApp` installs the pino logger. `rawBody`: the media
+  // webhooks verify their HMAC over the exact bytes received (`req.rawBody`).
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    rawBody: true,
+  });
   configureApp(app);
   // Instead of `enableShutdownHooks()`: close Nest (lifecycle hooks), then flush pending spans.
   const shutdown = createShutdownHandler({

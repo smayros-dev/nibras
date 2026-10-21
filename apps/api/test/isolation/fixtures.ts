@@ -1,22 +1,33 @@
 import {
   systemPrisma,
   type AbuseReport,
+  type Course,
+  type Enrollment,
   type GuardianLink,
   type Invitation,
   type InvitationImport,
   type InviteLink,
+  type Lesson,
+  type MediaAsset,
+  type Module,
   type TeacherStudentAssignment,
   type User,
   type Workspace,
 } from '@nibras/db';
+import { createS3StorageProviderFromEnv, storageKeyFor } from '@nibras/providers';
 import { expect } from 'vitest';
 import type { RouteInfo } from '../../src/openapi/export';
 import {
   assign,
   createAbuseReport,
+  createCourse,
+  createEnrollment,
   createImport,
   createInvitation,
   createInviteLink,
+  createLesson,
+  createMediaAsset,
+  createModule,
   createOrganization,
   createStudent,
   createUser,
@@ -40,6 +51,7 @@ export interface Tenant {
   /**
    * ACTIVE OWNER, 2FA on, verified teacher (phone + CODE_OF_CONDUCT, SP2): the
    * `@RequireVerifiedTeacher()` routes reach their service, so the path / body is what is probed.
+   * SP3: `canTeach`, so `course.create` (an ADMIN-column cell that needs it) reaches the service.
    */
   owner: User;
   /** ACTIVE ADMIN, 2FA on. */
@@ -61,6 +73,22 @@ export interface Tenant {
   /** SP2: a minor STUDENT in `PENDING_GUARDIAN_CONSENT`, his guardian link sent (`PENDING`). */
   consentStudent: User;
   consentLink: GuardianLink;
+  /** SP3: a DRAFT course (version 1) owned by `teacher`, without cover. */
+  course: Course;
+  /** SP3: a READY IMAGE uploaded by `owner` (a valid cover inside this workspace only). */
+  coverImage: MediaAsset;
+  /** SP3 T6: the first module of `course`. */
+  module: Module;
+  /** SP3 T6: a TEXT lesson (no image) of `module`. */
+  lesson: Lesson;
+  /** SP3 T6: a READY VIDEO uploaded by `owner` (a valid lesson media inside this workspace only). */
+  video: MediaAsset;
+  /** SP3 T7: a READY PDF uploaded by `owner` (playback and download). */
+  pdf: MediaAsset;
+  /** SP3 T7: an UPLOADING PDF of `owner` with a real multipart upload open in the test bucket. */
+  upload: MediaAsset;
+  /** SP3 T9: `student`'s ACTIVE enrollment in `course`. */
+  enrollment: Enrollment;
   /** SP2 T10: a QUEUED CSV import of this workspace, started by the OWNER. */
   import: InvitationImport;
 }
@@ -91,6 +119,11 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     students: [student],
     name: `Organisation ${tag}`,
   });
+  // SP3: the organisation OWNER also teaches (course.create needs canTeach).
+  await systemPrisma().membership.updateMany({
+    where: { workspaceId: workspace.id, userId: owner.id },
+    data: { canTeach: true },
+  });
   const assignment = await assign(workspace, teacher, student, owner);
   const report = await createAbuseReport(workspace, student, teacher);
   const audit = await systemAudit(workspace, owner);
@@ -113,6 +146,14 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     invitedBy: owner,
     user: { firstName: `Minor${tag}` },
   });
+  const course = await createCourse(workspace, teacher, { title: `Cours ${tag}` });
+  const coverImage = await createMediaAsset(workspace, owner, { kind: 'IMAGE' });
+  const module = await createModule(course);
+  const lesson = await createLesson(module, { type: 'TEXT' });
+  const video = await createMediaAsset(workspace, owner, { kind: 'VIDEO' });
+  const pdf = await createMediaAsset(workspace, owner, { kind: 'PDF' });
+  const upload = await createPendingUpload(workspace, owner);
+  const enrollment = await createEnrollment(course, student);
   return {
     workspace,
     owner,
@@ -127,8 +168,38 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     pendingStudent,
     consentStudent: consent.user,
     consentLink: consent.guardianLink!,
+    course,
+    coverImage,
+    module,
+    lesson,
+    video,
+    pdf,
+    upload,
+    enrollment,
     import: csvImport,
   };
+}
+
+/**
+ * An UPLOADING PDF whose multipart upload exists in this package's test bucket (MinIO, spec
+ * D10), so `GET …/media/{mediaId}/upload` lists its parts like a real resume.
+ */
+async function createPendingUpload(workspace: Workspace, owner: User): Promise<MediaAsset> {
+  const asset = await createMediaAsset(workspace, owner, { kind: 'PDF', status: 'UPLOADING' });
+  const storageKey = storageKeyFor({
+    workspaceId: workspace.id,
+    kind: 'PDF',
+    mediaId: asset.id,
+    filename: 'cours.pdf',
+  });
+  const { uploadId } = await createS3StorageProviderFromEnv(process.env).createMultipartUpload(
+    storageKey,
+    'application/pdf',
+  );
+  return systemPrisma().mediaAsset.update({
+    where: { id: asset.id },
+    data: { storageKey, uploadId, uploadUrlExpiresAt: new Date(Date.now() + 3600_000) },
+  });
 }
 
 async function systemAudit(workspace: Workspace, actor: User): Promise<string> {
@@ -170,6 +241,14 @@ export function foreignIds(p: TenantPair): string[] {
     b.pendingStudent.id,
     b.consentStudent.id,
     b.consentLink.id,
+    b.course.id,
+    b.coverImage.id,
+    b.module.id,
+    b.lesson.id,
+    b.video.id,
+    b.pdf.id,
+    b.upload.id,
+    b.enrollment.id,
     b.import.id,
   ];
 }
@@ -194,6 +273,19 @@ const PARAMS: Record<string, (t: Tenant) => string> = {
   'members/:uid/reject': (t) => t.pendingStudent.id,
   // A consent-waiting minor whose guardian link was sent: B's one could be re-sent inside B.
   'students/:uid/guardian': (t) => t.consentStudent.id,
+  // SP3: a course (DRAFT, version 1) of the tenant.
+  ':cid': (t) => t.course.id,
+  // SP3 T6: the course's module and its TEXT lesson.
+  ':mid': (t) => t.module.id,
+  ':lid': (t) => t.lesson.id,
+  // SP3 T7: a READY image of the tenant; the actions that need another state name their own row.
+  ':mediaId': (t) => t.coverImage.id,
+  'media/:mediaId/upload': (t) => t.upload.id,
+  'media/:mediaId/complete': (t) => t.upload.id,
+  'media/:mediaId/playback': (t) => t.pdf.id,
+  'media/:mediaId/download': (t) => t.pdf.id,
+  // SP3 T9: the enrolled student of the tenant's course.
+  'enrollments/:uid': (t) => t.enrollment.studentUserId,
   // SP2 T8: the same minor for the profile and the guardian email change (B's one could have
   // its guardian email replaced inside B, the most sensitive write of the students routes).
   'students/:uid': (t) => t.consentStudent.id,
@@ -282,6 +374,13 @@ export const FOREIGN_QUERIES: Record<string, (p: TenantPair) => Record<string, s
   'GET /api/v1/workspaces/:wid/members': (p) => ({ cursor: membersCursor(p.b.student) }),
   // SP2: an invitation id of this workspace (`invitations.service.ts`).
   'GET /api/v1/workspaces/:wid/invitations': (p) => ({ cursor: p.b.invitation.id }),
+  // SP3: a course id of this workspace (`courses.service.ts`, Prisma cursor).
+  'GET /api/v1/workspaces/:wid/courses': (p) => ({ cursor: p.b.course.id }),
+  // SP3 T7: a media id of this workspace (`media.service.ts`, Prisma cursor).
+  'GET /api/v1/workspaces/:wid/media': (p) => ({ cursor: p.b.coverImage.id }),
+  // SP3 T9: an enrollment id of this workspace (`enrollments.service.ts`, Prisma cursor).
+  'GET /api/v1/workspaces/:wid/courses/:cid/enrollments': (p) => ({ cursor: p.b.enrollment.id }),
+  'GET /api/v1/workspaces/:wid/courses/:cid/progress': (p) => ({ cursor: p.b.enrollment.id }),
   // SP2 T8: the members cursor naming a STUDENT of this workspace (`students.service.ts`).
   'GET /api/v1/workspaces/:wid/students': (p) => ({ cursor: membersCursor(p.b.consentStudent) }),
   // Not here: `GET …/assignments` pages with `id > cursor` inside `tenantDb(wid)`; a foreign id
@@ -298,12 +397,19 @@ function membersCursor(user: Pick<User, 'id' | 'firstName' | 'lastName'>): strin
 /**
  * Write routes whose body carries ids, with a body naming B's rows. `params` says which tenant's
  * ids fill the path: `'local'` when the route must reach A's own row so the **body** is what is
- * probed, `'foreign'` when the path itself is the foreign id. The call must never be `2xx` and
- * must leave no row referencing B's ids.
+ * probed, `'foreign'` when the path itself is the foreign id. `headers` are sent with the probe
+ * (SP3: `If-Match` with the fixture's version, so a versioned route reaches its body check). The
+ * call must never be `2xx` and must leave no row referencing B's ids.
  */
 export const FOREIGN_BODIES: Record<
   string,
-  { params: 'local' | 'foreign'; body: (p: TenantPair) => unknown }
+  {
+    params: 'local' | 'foreign';
+    body: (p: TenantPair) => unknown;
+    /** Further bodies probed on the same route, one id-bearing field at a time (SP3 T9). */
+    more?: ((p: TenantPair) => unknown)[];
+    headers?: Record<string, string>;
+  }
 > = {
   'POST /api/v1/workspaces/:wid/assignments': {
     params: 'local',
@@ -336,6 +442,8 @@ export const FOREIGN_BODIES: Record<
   'POST /api/v1/workspaces/:wid/invitations': {
     params: 'local',
     body: (p) => ({ email: 'probe@example.com', teacherUserId: p.b.teacher.id }),
+    // SP3 T9: an invitation of A that would enroll the student in B's course.
+    more: [(p) => ({ email: 'probe-course@example.com', courseIds: [p.b.course.id] })],
   },
   // No id in the body (names, guardian email, message): the id is the path's (B's invitation).
   'PATCH /api/v1/workspaces/:wid/invitations/:id': {
@@ -346,12 +454,72 @@ export const FOREIGN_BODIES: Record<
   'POST /api/v1/workspaces/:wid/invite-links': {
     params: 'local',
     body: (p) => ({ teacherUserId: p.b.teacher.id }),
+    // SP3 T9: a group code of A whose students would be enrolled in B's course.
+    more: [(p) => ({ courseIds: [p.b.course.id] })],
   },
   // No id in the body (label, status, limits); a non-empty body passes validation, so the path
   // (B's link) is what refuses the call.
   'PATCH /api/v1/workspaces/:wid/invite-links/:id': {
     params: 'foreign',
     body: () => ({ label: 'X' }),
+  },
+  // SP3: a course of A with B's image as its cover (Review Focus 5).
+  'POST /api/v1/workspaces/:wid/courses': {
+    params: 'local',
+    body: (p) => ({ title: 'Sonde', coverMediaId: p.b.coverImage.id }),
+  },
+  // A's course (version 1, so the If-Match passes) given B's image as its cover.
+  'PATCH /api/v1/workspaces/:wid/courses/:cid': {
+    params: 'local',
+    body: (p) => ({ coverMediaId: p.b.coverImage.id }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // A's course handed to B's teacher.
+  'POST /api/v1/workspaces/:wid/courses/:cid/reassign': {
+    params: 'local',
+    body: (p) => ({ ownerUserId: p.b.teacher.id }),
+  },
+  // SP3 T6. No id in the body (title, flags, unlock rule): the path (B's course) refuses it.
+  'POST /api/v1/workspaces/:wid/courses/:cid/modules': {
+    params: 'foreign',
+    body: () => ({ title: 'Sonde' }),
+  },
+  // A's modules reordered with B's module id (version 1, so the If-Match passes).
+  'POST /api/v1/workspaces/:wid/courses/:cid/modules/reorder': {
+    params: 'local',
+    body: (p) => ({ ids: [p.b.module.id] }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // No id in the body: the path (B's module) refuses it.
+  'PATCH /api/v1/workspaces/:wid/modules/:mid': {
+    params: 'foreign',
+    body: () => ({ title: 'Sonde' }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // A VIDEO lesson of A's module on B's video (Review Focus 5).
+  'POST /api/v1/workspaces/:wid/modules/:mid/lessons': {
+    params: 'local',
+    body: (p) => ({ type: 'VIDEO', title: 'Sonde', mediaAssetId: p.b.video.id }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // A's lessons reordered with B's lesson id.
+  'POST /api/v1/workspaces/:wid/modules/:mid/lessons/reorder': {
+    params: 'local',
+    body: (p) => ({ ids: [p.b.lesson.id] }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // A's TEXT lesson given B's image inline (Review Focus 5).
+  'PATCH /api/v1/workspaces/:wid/lessons/:lid': {
+    params: 'local',
+    body: (p) => ({
+      content: { type: 'doc', content: [{ type: 'image', attrs: { mediaId: p.b.coverImage.id } }] },
+    }),
+    headers: { 'If-Match': '"1"' },
+  },
+  // SP3 T9: B's student enrolled in A's course.
+  'POST /api/v1/workspaces/:wid/courses/:cid/enrollments': {
+    params: 'local',
+    body: (p) => ({ studentUserIds: [p.b.student.id] }),
   },
   // SP2 T8: no id in the body (a guardian email); the path is B's consent-waiting minor, whose
   // guardian link must keep its address and tokens.
@@ -386,6 +554,23 @@ export const BODYLESS_WRITE_ROUTES: Set<string> = new Set<string>([
   'POST /api/v1/workspaces/:wid/members/:uid/reject',
   // No body; the consent-waiting minor is the path's `:uid` (his guardian gets a new link).
   'POST /api/v1/workspaces/:wid/students/:uid/guardian/resend-consent',
+  // SP3. No body; status transitions and the soft delete of the path's course (`:cid`).
+  'POST /api/v1/workspaces/:wid/courses/:cid/publish',
+  'POST /api/v1/workspaces/:wid/courses/:cid/unpublish',
+  'POST /api/v1/workspaces/:wid/courses/:cid/archive',
+  'POST /api/v1/workspaces/:wid/courses/:cid/restore',
+  'DELETE /api/v1/workspaces/:wid/courses/:cid',
+  // SP3 T6. No body; deletes the path's module (`:mid`) or lesson (`:lid`).
+  'DELETE /api/v1/workspaces/:wid/modules/:mid',
+  'DELETE /api/v1/workspaces/:wid/lessons/:lid',
+  // SP3 T7. `kind`, `filename`, `mimeType`, `sizeBytes`: no id (the asset is created in `:wid`).
+  'POST /api/v1/workspaces/:wid/media/uploads',
+  // Part numbers and ETags only: the asset is the path's `:mediaId` (B's id → 404).
+  'POST /api/v1/workspaces/:wid/media/:mediaId/complete',
+  // No body; deletes the path's asset.
+  'DELETE /api/v1/workspaces/:wid/media/:mediaId',
+  // SP3 T9. Optional `reason` (free text); the course and the student are the path's.
+  'DELETE /api/v1/workspaces/:wid/courses/:cid/enrollments/:uid',
   // SP2 T10: the CSV body carries emails only, no ids.
   'POST /api/v1/workspaces/:wid/invitations/import',
 ]);

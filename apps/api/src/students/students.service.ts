@@ -20,6 +20,11 @@ import {
 import { ApiError } from '../common/api-error';
 import { RequestContext } from '../common/request-context';
 import { DB } from '../db/db.module';
+import {
+  StudentCoursesService,
+  type StudentCourses,
+  type StudentCoursesOptions,
+} from '../enrollments/student-courses.service';
 import { GuardianService, guardianInfo } from '../guardian/guardian.service';
 import {
   afterMemberCursor,
@@ -77,7 +82,12 @@ function seesGuardianEmail(ctx: MemberCtx, m: Pick<Membership, 'invitedByUserId'
   return ctx.scope === 'all' || m.invitedByUserId === ctx.userId;
 }
 
-function toSummary(m: StudentRow, link: LinkRow | undefined, ctx: MemberCtx): StudentSummary {
+function toSummary(
+  m: StudentRow,
+  link: LinkRow | undefined,
+  ctx: MemberCtx,
+  courses: StudentCourses | undefined,
+): StudentSummary {
   return {
     userId: m.userId,
     firstName: m.user.firstName,
@@ -93,11 +103,21 @@ function toSummary(m: StudentRow, link: LinkRow | undefined, ctx: MemberCtx): St
           ...(seesGuardianEmail(ctx, m) && { email: link.guardianEmail }),
         }
       : null,
-    progressPercent: null,
+    progressPercent: courses?.progressPercent ?? null,
     attendanceRate: null,
     lastActivityAt: null,
-    courses: [],
+    courses: courses?.courses ?? [],
   };
+}
+
+/**
+ * Which courses a student's `courses` / `progressPercent` cover (SP3 T9): scope `own` for staff
+ * (an organisation TEACHER / ASSISTANT) → only the courses the caller owns; scope `all` → every
+ * course. A STUDENT reading himself (also scope `own`) sees all his courses.
+ */
+function coursesScope(ctx: MemberCtx): StudentCoursesOptions {
+  if (ctx.scope === 'all' || RequestContext.get()?.membership?.role === 'STUDENT') return {};
+  return { ownerUserId: ctx.userId };
 }
 
 /**
@@ -111,6 +131,7 @@ export class StudentsService {
   constructor(
     @Inject(DB) private readonly db: Pick<GuardedClient, 'user'>,
     private readonly guardian: GuardianService,
+    private readonly studentCourses: StudentCoursesService,
   ) {}
 
   /**
@@ -152,8 +173,13 @@ export class StudentsService {
       select: { studentUserId: true, guardianEmail: true, status: true, consentExpiresAt: true },
     });
     const byStudent = new Map(links.map((l) => [l.studentUserId, l]));
+    const courses = await this.studentCourses.forStudents(
+      ctx.workspaceId,
+      items.map((m) => m.userId),
+      coursesScope(ctx),
+    );
     return {
-      items: items.map((m) => toSummary(m, byStudent.get(m.userId), ctx)),
+      items: items.map((m) => toSummary(m, byStudent.get(m.userId), ctx, courses.get(m.userId))),
       nextCursor: rows.length > q.limit ? encodeMemberCursor(items[items.length - 1]!) : null,
     };
   }
@@ -176,7 +202,7 @@ export class StudentsService {
     });
     if (!m) throw notFound();
 
-    const [invitedBy, link, assignments] = await Promise.all([
+    const [invitedBy, link, assignments, courses] = await Promise.all([
       m.invitedByUserId
         ? this.db.user.findUnique({
             where: { id: m.invitedByUserId },
@@ -189,6 +215,7 @@ export class StudentsService {
         select: { teacher: { select: { id: true, firstName: true, lastName: true } } },
         orderBy: { createdAt: 'asc' },
       }),
+      this.studentCourses.forStudent(ctx.workspaceId, uid, coursesScope(ctx)),
     ]);
     const live = await db.membership.findMany({
       where: {
@@ -243,7 +270,8 @@ export class StudentsService {
           firstName: a.teacher.firstName,
           lastName: a.teacher.lastName,
         })),
-      courses: [],
+      courses: courses.courses,
+      // SP4 fills the profile's progress section.
       progress: null,
       sessions: [],
       attendance: null,
@@ -275,7 +303,8 @@ export class StudentsService {
       where: { studentUserId: uid },
       select: { studentUserId: true, guardianEmail: true, status: true, consentExpiresAt: true },
     });
-    return toSummary(m, link ?? undefined, ctx);
+    const courses = await this.studentCourses.forStudent(ctx.workspaceId, uid, coursesScope(ctx));
+    return toSummary(m, link ?? undefined, ctx, courses);
   }
 
   /**

@@ -11,6 +11,13 @@ export const TENANT_MODELS = [
   'InviteLink',
   'GuardianLink',
   'InvitationImport',
+  // SP3 (courses, content & media).
+  'Course',
+  'Module',
+  'Lesson',
+  'MediaAsset',
+  'Enrollment',
+  'LessonProgress',
 ] as const;
 
 export type TenantModel = (typeof TENANT_MODELS)[number];

@@ -373,7 +373,7 @@ describe('super-admin console (US-X01/X02/X03, AC-SAFE-04 SP1 part)', () => {
     await saAgent
       .patch(quota)
       .send({ storageQuotaBytes: big })
-      .expect(200, { quotaBytes: big, usedBytes: String(5n * 1024n ** 3n) });
+      .expect(200, { quotaBytes: big, usedBytes: String(5n * 1024n ** 3n), reservedBytes: '0' });
     expect(
       (await db.workspace.findUniqueOrThrow({ where: { id: workspace.id } })).storageQuotaBytes,
     ).toBe(10n * TIB);

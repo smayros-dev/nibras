@@ -20,8 +20,10 @@ import {
   defaultWorkspaceSettings,
   type CurrentConsentType,
 } from '@nibras/contracts';
+import { createS3StorageProviderFromEnv, storageKeyFor } from '@nibras/providers';
 import argon2 from 'argon2';
 import { seedRefusal } from '../src/seed-guard.ts';
+import { uuidv7 } from '../src/uuid.ts';
 
 const refusal = seedRefusal(process.env);
 if (refusal) {
@@ -164,6 +166,213 @@ async function grantConsents(userId: string, types: CurrentConsentType[]): Promi
       userAgent: 'seed',
     })),
   });
+}
+
+/**
+ * A one-page PDF (Helvetica text, computed xref offsets) for the demo course's PDF lesson: small,
+ * valid for pdf.js and for the API's `%PDF-` signature check.
+ */
+function demoPdf(): Buffer {
+  const text =
+    'BT /F1 22 Tf 72 760 Td (Mathematiques Niveau 1 - Fiche d exercices) Tj ET\n' +
+    'BT /F1 14 Tf 72 720 Td (1. Calculez 12 + 30.   2. Simplifiez 6/8.) Tj ET';
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let out = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objects.forEach((body, i) => {
+    offsets.push(out.length);
+    out += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  out += offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('');
+  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(out, 'latin1');
+}
+
+/**
+ * Upload the demo PDF to the dev bucket (`S3_*`, MinIO) through `S3StorageProvider` (one-part
+ * multipart, as the browser does) and record it as a `READY` asset counted in the workspace
+ * quota. `null` with a warning when the object store is unreachable or not configured.
+ */
+async function seedDemoPdf(workspaceId: string, ownerUserId: string): Promise<string | null> {
+  const bytes = demoPdf();
+  const mediaId = uuidv7();
+  const filename = 'fiche-exercices.pdf';
+  const key = storageKeyFor({ workspaceId, kind: 'PDF', mediaId, filename });
+  try {
+    const storage = createS3StorageProviderFromEnv(process.env);
+    const { uploadId } = await storage.createMultipartUpload(key, 'application/pdf');
+    const url = await storage.signPartUrl(key, uploadId, 1, 300);
+    const put = await fetch(url, { method: 'PUT', body: bytes });
+    const etag = put.headers.get('etag');
+    if (!put.ok || !etag) throw new Error(`PUT ${put.status}`);
+    await storage.completeMultipart(key, uploadId, [{ partNumber: 1, etag, size: bytes.length }]);
+  } catch (error) {
+    console.warn(
+      `db:seed: object store unreachable (${(error as Error).message}): the demo course has no PDF lesson. Start MinIO, run \`pnpm --filter @nibras/api s3:init\`, then seed again.`,
+    );
+    return null;
+  }
+  const size = BigInt(bytes.length);
+  await prisma.$transaction([
+    prisma.mediaAsset.create({
+      data: {
+        id: mediaId,
+        workspaceId,
+        ownerUserId,
+        kind: 'PDF',
+        provider: 'S3',
+        storageKey: key,
+        status: 'READY',
+        originalFilename: filename,
+        mimeType: 'application/pdf',
+        sizeBytes: size,
+        pageCount: 1,
+        readyAt: new Date(),
+        countedBytes: size,
+      },
+    }),
+    prisma.workspace.update({
+      where: { id: workspaceId },
+      data: { storageUsedBytes: { increment: size } },
+    }),
+  ]);
+  return mediaId;
+}
+
+const DEMO_COURSE = 'Mathématiques Niveau 1';
+
+/** A document of plain paragraphs (rich-text whitelist). */
+function paragraphs(...texts: string[]) {
+  return {
+    type: 'doc',
+    content: texts.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })),
+  };
+}
+
+/**
+ * The demo course (SP3): « Mathématiques Niveau 1 » by Leila in the organisation, published, two
+ * modules (the second opens once the first is complete), a TEXT lesson each and a PDF lesson whose
+ * object is uploaded to MinIO; Yassine and Noussa are enrolled. Idempotent: found by title and
+ * owner; the PDF lesson is added on a later run if the object store was down the first time.
+ */
+async function seedDemoCourse(
+  workspaceId: string,
+  ownerUserId: string,
+  studentIds: string[],
+): Promise<void> {
+  const now = new Date();
+  let course = await prisma.course.findFirst({
+    where: { workspaceId, ownerUserId, title: DEMO_COURSE, deletedAt: null },
+    select: { id: true },
+  });
+  if (!course) {
+    course = await prisma.course.create({
+      data: {
+        workspaceId,
+        ownerUserId,
+        title: DEMO_COURSE,
+        description: paragraphs(
+          'Les bases du collège : nombres entiers, fractions et premières équations.',
+        ),
+        level: 'COLLEGE',
+        language: 'fr',
+        status: 'PUBLISHED',
+        publishedAt: now,
+        modules: {
+          create: [
+            {
+              workspaceId,
+              title: 'Les nombres',
+              position: 1,
+              lessons: {
+                create: [
+                  {
+                    workspaceId,
+                    title: 'Les nombres entiers',
+                    type: 'TEXT',
+                    position: 1,
+                    estimatedMinutes: 10,
+                    content: paragraphs(
+                      'Un nombre entier est un nombre sans partie décimale : 0, 1, 2, 3…',
+                      'On peut les additionner, les soustraire et les multiplier.',
+                    ),
+                  },
+                ],
+              },
+            },
+            {
+              workspaceId,
+              title: 'Les fractions',
+              position: 2,
+              unlockRule: { type: 'PREVIOUS_MODULE_COMPLETED' },
+              lessons: {
+                create: [
+                  {
+                    workspaceId,
+                    title: 'Qu’est-ce qu’une fraction ?',
+                    type: 'TEXT',
+                    position: 1,
+                    estimatedMinutes: 15,
+                    content: paragraphs('Une fraction partage une unité en parts égales : 3/4.'),
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+  }
+
+  const first = await prisma.module.findFirst({
+    where: { courseId: course.id, position: 1 },
+    select: { id: true, lessons: { select: { type: true, position: true } } },
+  });
+  if (first && !first.lessons.some((l) => l.type === 'PDF')) {
+    const pdfId = await seedDemoPdf(workspaceId, ownerUserId);
+    if (pdfId) {
+      await prisma.$transaction([
+        prisma.lesson.create({
+          data: {
+            workspaceId,
+            moduleId: first.id,
+            title: 'Fiche d’exercices',
+            type: 'PDF',
+            position: Math.max(0, ...first.lessons.map((l) => l.position)) + 1,
+            mediaAssetId: pdfId,
+            allowDownload: true,
+          },
+        }),
+        prisma.course.update({ where: { id: course.id }, data: { version: { increment: 1 } } }),
+        prisma.module.update({ where: { id: first.id }, data: { version: { increment: 1 } } }),
+      ]);
+    }
+  }
+
+  for (const studentUserId of studentIds) {
+    await prisma.enrollment.upsert({
+      where: { courseId_studentUserId: { courseId: course.id, studentUserId } },
+      update: {},
+      create: {
+        workspaceId,
+        courseId: course.id,
+        studentUserId,
+        status: 'ACTIVE',
+        assignedByUserId: ownerUserId,
+        source: 'MANUAL',
+        activatedAt: now,
+      },
+    });
+  }
 }
 
 async function main(): Promise<void> {
@@ -471,7 +680,14 @@ async function main(): Promise<void> {
     });
   }
 
-  console.log(`Seed OK — ${USERS.length} users, organisation « ${ORG_NAME} » (${org.slug}).`);
+  await seedDemoCourse(org.id, ids.get('leila@example.test')!, [
+    ids.get('yassine@example.test')!,
+    ids.get('noussa@example.test')!,
+  ]);
+
+  console.log(
+    `Seed OK — ${USERS.length} users, organisation « ${ORG_NAME} » (${org.slug}), cours « ${DEMO_COURSE} ».`,
+  );
   console.log(
     `Connexion démo (mot de passe ${PASSWORD}) : ${USERS.map((u) => u.email).join(', ')}`,
   );

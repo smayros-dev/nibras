@@ -30,7 +30,7 @@ describe('ERROR_CODES (SP1)', () => {
       expect.arrayContaining(['EMAIL_TAKEN', 'TEACHER_NOT_VERIFIED', 'TENANT_CONTEXT_MISSING']),
     );
     // SP0 (9) + SP1 (34) + SP2 (20, pinned in invitations.test.ts).
-    expect(ERROR_CODES).toHaveLength(9 + 34 + 20);
+    expect(ERROR_CODES).toHaveLength(9 + 34 + 20 + 19); // SP0, SP1, SP2, SP3
     expect(new Set(ERROR_CODES).size).toBe(ERROR_CODES.length);
   });
 });

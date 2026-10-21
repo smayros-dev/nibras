@@ -5,11 +5,18 @@ import {
   type EmailProvider,
   type SmsLogger,
   type SmsProvider,
+  type StorageProvider,
 } from '@nibras/providers';
 import { PinoLogger } from 'nestjs-pino';
 import { FakePwnedClient, HibpClient, type PwnedPasswordClient } from '../auth/crypto/hibp';
 import { SecretBox } from '../auth/crypto/secret-box';
 import { env, type Env } from '../config/env';
+import {
+  createStorageProvider,
+  createVideoProvider,
+  STORAGE_PROVIDER,
+  VIDEO_PROVIDER_TOKEN,
+} from '../media/tokens';
 
 /** `EmailProvider` (SMTP; `InMemoryEmailProvider` in tests). */
 export const EMAIL_PROVIDER = Symbol('EMAIL_PROVIDER');
@@ -55,7 +62,21 @@ export function createSecretBox(e: Pick<Env, 'TOTP_ENCRYPTION_KEY'>): SecretBox 
     },
     { provide: PWNED_CLIENT, useFactory: () => createPwnedClient(env) },
     { provide: SECRET_BOX, useFactory: () => createSecretBox(env) },
+    // SP3 media: object storage and the video provider (spec §6, D10).
+    { provide: STORAGE_PROVIDER, useFactory: () => createStorageProvider(env) },
+    {
+      provide: VIDEO_PROVIDER_TOKEN,
+      inject: [STORAGE_PROVIDER],
+      useFactory: (storage: StorageProvider) => createVideoProvider(env, storage),
+    },
   ],
-  exports: [EMAIL_PROVIDER, SMS_PROVIDER, PWNED_CLIENT, SECRET_BOX],
+  exports: [
+    EMAIL_PROVIDER,
+    SMS_PROVIDER,
+    PWNED_CLIENT,
+    SECRET_BOX,
+    STORAGE_PROVIDER,
+    VIDEO_PROVIDER_TOKEN,
+  ],
 })
 export class ProvidersModule {}

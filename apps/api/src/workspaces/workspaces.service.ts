@@ -9,6 +9,7 @@ import {
 import {
   crossTenantDb,
   Prisma,
+  tenantDb,
   uuidv7,
   withTenantTx,
   type GuardedClient,
@@ -279,13 +280,24 @@ export class WorkspacesService {
     return toWorkspaceDetail(workspace, me);
   }
 
-  /** `GET /workspaces/{wid}/storage`: `storageQuotaBytes` / `storageUsedBytes` as strings. */
+  /**
+   * `GET /workspaces/{wid}/storage`: `storageQuotaBytes` / `storageUsedBytes` as strings, plus the
+   * declared sizes of the workspace's `UPLOADING` assets (`reservedBytes`, SP3 spec D17).
+   */
   async storage(wid: string): Promise<WorkspaceStorage> {
     const w = await this.db.workspace.findUniqueOrThrow({
       where: { id: wid },
       select: { storageQuotaBytes: true, storageUsedBytes: true },
     });
-    return { quotaBytes: w.storageQuotaBytes.toString(), usedBytes: w.storageUsedBytes.toString() };
+    const reserved = await tenantDb(wid).mediaAsset.aggregate({
+      where: { status: 'UPLOADING', deletedAt: null },
+      _sum: { sizeBytes: true },
+    });
+    return {
+      quotaBytes: w.storageQuotaBytes.toString(),
+      usedBytes: w.storageUsedBytes.toString(),
+      reservedBytes: (reserved._sum.sizeBytes ?? 0n).toString(),
+    };
   }
 
   /**

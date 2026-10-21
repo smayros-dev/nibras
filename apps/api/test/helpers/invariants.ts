@@ -1,4 +1,4 @@
-import { isMinor } from '@nibras/contracts';
+import { collectImageIds, isMinor, type RichTextDoc } from '@nibras/contracts';
 import type { PrismaClient } from '@nibras/db';
 import { expect } from 'vitest';
 
@@ -59,4 +59,106 @@ export async function expectMinorInvariant(db: PrismaClient, wid: string): Promi
       'ACTIVE',
     );
   }
+}
+
+const contiguous = (positions: number[]): number[] => positions.map((_, i) => i + 1);
+
+/**
+ * The structure invariant (SP3): the modules of `courseId` sit at positions 1..n, the lessons of
+ * each module at 1..n, every version is ≥ 1, every lesson's content matches its type (VIDEO / PDF:
+ * a media of that kind and no content; TEXT: a content and no media), and every module, lesson
+ * and referenced media asset (lesson media, inline images of TEXT content, course cover) belongs
+ * to the course's workspace (Review Focus 5).
+ */
+export async function expectStructureInvariant(db: PrismaClient, courseId: string): Promise<void> {
+  const course = await db.course.findUniqueOrThrow({
+    where: { id: courseId },
+    select: { workspaceId: true, version: true, cover: { select: { workspaceId: true } } },
+  });
+  const wid = course.workspaceId;
+  expect(course.version, `course ${courseId}: version ≥ 1`).toBeGreaterThanOrEqual(1);
+  if (course.cover) {
+    expect(course.cover.workspaceId, `course ${courseId}: cover of another workspace`).toBe(wid);
+  }
+  const modules = await db.module.findMany({
+    where: { courseId },
+    orderBy: { position: 'asc' },
+    select: {
+      id: true,
+      workspaceId: true,
+      position: true,
+      version: true,
+      lessons: {
+        orderBy: { position: 'asc' },
+        select: {
+          id: true,
+          workspaceId: true,
+          position: true,
+          version: true,
+          type: true,
+          content: true,
+          mediaAsset: { select: { workspaceId: true, kind: true } },
+        },
+      },
+    },
+  });
+  const modulePositions = modules.map((m) => m.position);
+  expect(modulePositions, `course ${courseId}: module positions`).toEqual(
+    contiguous(modulePositions),
+  );
+  for (const m of modules) {
+    expect(m.workspaceId, `module ${m.id}: workspace`).toBe(wid);
+    expect(m.version, `module ${m.id}: version ≥ 1`).toBeGreaterThanOrEqual(1);
+    const lessonPositions = m.lessons.map((l) => l.position);
+    expect(lessonPositions, `module ${m.id}: lesson positions`).toEqual(
+      contiguous(lessonPositions),
+    );
+    for (const l of m.lessons) {
+      expect(l.workspaceId, `lesson ${l.id}: workspace`).toBe(wid);
+      expect(l.version, `lesson ${l.id}: version ≥ 1`).toBeGreaterThanOrEqual(1);
+      if (l.mediaAsset) {
+        expect(l.mediaAsset.workspaceId, `lesson ${l.id}: media of another workspace`).toBe(wid);
+      }
+      if (l.type === 'VIDEO' || l.type === 'PDF') {
+        expect(l.mediaAsset?.kind, `lesson ${l.id}: ${l.type} needs a ${l.type} media`).toBe(
+          l.type,
+        );
+        expect(l.content, `lesson ${l.id}: ${l.type} has no content`).toBeNull();
+      } else if (l.type === 'TEXT') {
+        expect(l.mediaAsset, `lesson ${l.id}: TEXT has no media`).toBeNull();
+        expect(l.content, `lesson ${l.id}: TEXT needs a content`).not.toBeNull();
+        const ids = collectImageIds(l.content as unknown as RichTextDoc);
+        if (ids.length > 0) {
+          const images = await db.mediaAsset.findMany({
+            where: { id: { in: ids } },
+            select: { workspaceId: true, kind: true },
+          });
+          expect(images, `lesson ${l.id}: unknown inline image`).toHaveLength(ids.length);
+          for (const image of images) {
+            expect(image.workspaceId, `lesson ${l.id}: image of another workspace`).toBe(wid);
+            expect(image.kind, `lesson ${l.id}: inline media is not an image`).toBe('IMAGE');
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * The quota invariant (SP3, spec D17): `Workspace.storageUsedBytes` equals the sum of
+ * `countedBytes` over the workspace's media assets (a DELETING row still counts until the worker
+ * removes it; UPLOADING and FAILED rows count 0).
+ */
+export async function expectQuotaInvariant(db: PrismaClient, wid: string): Promise<void> {
+  const { storageUsedBytes } = await db.workspace.findUniqueOrThrow({
+    where: { id: wid },
+    select: { storageUsedBytes: true },
+  });
+  const counted = await db.mediaAsset.aggregate({
+    where: { workspaceId: wid },
+    _sum: { countedBytes: true },
+  });
+  expect(storageUsedBytes, `workspace ${wid}: storageUsedBytes = Σ countedBytes`).toBe(
+    counted._sum.countedBytes ?? 0n,
+  );
 }

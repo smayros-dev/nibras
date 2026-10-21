@@ -1,7 +1,7 @@
 # SP3 — Courses, content & media design
 
 **Date:** 2026-10-19
-**Status:** Planned — plan: `docs/superpowers/plans/2026-10-19-sp3-courses-media.md`; branch `sp3/courses-media` (from `main` once `sp2/students-invitations` is merged). Owner questions in §12 carry a default each; implementation may start on the defaults.
+**Status:** Implemented on `sp3/courses-media` (2026-10-21, T0–T18); plan: `docs/superpowers/plans/2026-10-19-sp3-courses-media.md`; runbook: `docs/runbooks/courses-and-media.md`. Owner questions in §12 answered 2026-10-19: defaults accepted. Implementation notes and deviations in §13.
 **Scope:** `packages/db` (7 tables, 1 migration), `packages/contracts`, `packages/providers` (`StorageProvider`, `VideoProvider`: S3, S3 passthrough video, Cloudflare Stream), `packages/i18n`, `apps/api` (modules `courses`, `modules-lessons`, `media`, `enrollments`, `learn`, `webhooks`), `apps/worker` (media processors, schedulers, course notifications), `apps/web` (course list and editor, uploads, rich text, enrollment panel, student course and lesson pages, video player, PDF viewer, watermark), `infra`/CI (MinIO in CI, env allocation).
 **Authoritative spec:** `PRD.md` v2.1 — §4.1 D-O8; §4.2 D-P1, D-P8, D-P13, D-P14, D-P15, D-P20; §7 (rows « Cours »); §8.2.1 (`default_sequential_lessons`, `default_pdf_download`); §8.3.1 (courses in the student list/profile); §8.4.1–8.4.4; §8.5.1–8.5.2; §8.6 (formula only, the rest is SP4); §8.11.1 (`COURSE_ASSIGNED`, `COURSE_PUBLISHED`); §9.1, §9.3, §9.5 (Liste de cours, Éditeur, Lecteur de leçon); §10.5, §10.7, §10.8, §10.9; §11.1, §11.3; §12.1 (Cours, Modules / leçons, Médias, Apprentissage), §12.3 (VOD webhooks); §13.4 (`VideoProvider`, `StorageProvider`), §13.5 (`media`, `notifications`, `compliance` queues); §14.1 (budget, video start), §14.7 (fichiers vérifiés par signature, texte riche assaini, webhooks); §15.4 AC-CRS-01…05, AC-MED-01…09; §15.5 AC-ENR-01…03, 05; §18 sub-project **3**; §19 R5, R6, R11; §22 (PDF viewer, HLS player and rich-text editor are builder choices).
 
@@ -293,7 +293,7 @@ First-load budget: the player, viewer, Tiptap and dnd-kit are `next/dynamic` imp
 | `notifications` | `course.assigned_notify { enrollmentIds }`, `course.published_notify { courseId }` | enrollment, publish                     | `sentTo` progress (SP1.6 pattern); skips revoked enrollments and unpublished courses at run time |
 | `compliance`    | `course.purge_deleted`                                                             | scheduler daily 03:30                   | per course `deletedAt < now − 30 d`                                                              |
 
-## 12. Open questions for the owner (defaults in bold)
+## 12. Open questions for the owner (defaults in bold) — answered 2026-10-19: defaults accepted
 
 - **Q1 — VOD provider.** PRD D-P1 picks Cloudflare Stream (US company; Stream has no EU-only storage option; DPA + SCCs needed). EU/OVH-friendly alternatives with the same tus + signed-URL model: Bunny Stream (EU storage zones), api.video (FR), or self-hosted ffmpeg → HLS on OVH Object Storage. **Default: ship the Cloudflare adapter as specified, run dev/CI/staging on the S3 passthrough provider, decide before the first production video traffic; a Bunny/api.video adapter is one `VideoProvider` class (same interface, same tests).**
 - **Q2 — Realtime media status.** `media.status_changed` is delivered by 5 s polling in the editor until SP7/SP8's gateway. **Default: accepted.**
@@ -306,4 +306,79 @@ First-load budget: the player, viewer, Tiptap and dnd-kit are `next/dynamic` imp
 
 ## 13. Implementation notes and deviations
 
-Filled at the close of SP3 (final task) from the commit bodies.
+Collected from the branch's commit bodies (`git log main..sp3/courses-media`) at the close of SP3.
+No decision contradicts the PRD (the S3 passthrough provider and polling are planner additions
+recorded in D2/D12), so `PRD.md` is unchanged.
+
+**Contracts (T0).** The rich-text whitelist accepts the attributes Tiptap emits with restricted
+values (link `target` `_blank`/null, `rel`/`class` null, `orderedList` `start`/`type`, `codeBlock`
+`language`); unknown keys are still refused. The 200 kB limit is measured in UTF-8 bytes of the
+serialised JSON. `CourseDetail` adds `estimatedMinutesOverride` and `coverMediaId`; a
+`RichTextDescriptionDoc` type (no image at any depth). Extra zod-free constants
+(`UPLOADABLE_MEDIA_KINDS`, `ENROLLMENT_SOURCES`, `PUBLISH_BLOCKERS`, `LOCK_REASONS`,
+`COURSE_PURGE_SCHEDULER_PATTERN`); reorder and enroll bodies refuse duplicate ids.
+`UpdateCourseSchema.level` is nullable (« Non précisé » clears it; T18 fix).
+
+**Job ids (T9 fix).** BullMQ refuses a custom id containing `:` unless it has exactly three parts:
+`webhookProcessJobId` is `webhook:{id}:process` (not `webhook:{id}`) and
+`coursePublishedNotifyJobId` is `course:{id}:published-v{version}` (not `…:published:{v}`).
+SP2's `FakeQueueService` now applies the same check.
+
+**Database (T1).** The deferrable unique constraints passed `migrate:check`: the two-phase
+fallback of D9 was not needed. `Enrollment.studentUserId` / `LessonProgress.studentUserId` went to
+`USER_SCOPED_KEYS` rather than `CROSS_TENANT_LOOKUP_KEYS` (the data subject's id is not a secret
+lookup column — SP2's `GuardianLink` precedent); same behaviour for the `/me` routes.
+`Lesson.mediaAsset` is `onDelete: NoAction` (checked at statement end) instead of `Restrict`, so a
+workspace deletion cascading to lessons and assets succeeds. Module, Lesson, Enrollment and
+LessonProgress also carry a workspace FK; extra FK indexes; extra check
+`enrollment_progress_percent_check`.
+
+**Storage (T2–T4).** `TEST_PACKAGES` stays `db/api/worker` (providers has a bucket, no DB/Redis
+index); test buckets derive from `S3_BUCKET_TEST` (`nibras-x-test` → `nibras-x-api-test`). S3
+clients compute checksums only when required, so presigned part URLs carry no SDK checksum the
+browser cannot send. Staging MinIO publishes its S3 API on `127.0.0.1:9000` for the TLS proxy host
+(`S3_PUBLIC_ENDPOINT`).
+
+**Courses and structure (T5–T6).** `@IfMatch()` yields the version or null and the service raises
+`428`/`409` after locking the course row, so a foreign or deleted course is still `404` first.
+Status transitions and reassign bump the version too (a re-publication gets a new notify job id).
+`If-Match` is required on PATCH and reorders, optional (checked when sent) on creates and deletes.
+Lesson media in scope `own`: the teacher's uploads, media already used by one of his live courses,
+or what the lesson already references; inline images follow the same rule.
+
+**Media (T7–T8).** The plan's quota race (three 10 GiB uploads on 20 GiB) exceeds the 4 GiB VIDEO
+limit: tested as three parallel 4 GiB tickets on a 10 GiB quota. `DELETE` of an `UPLOADING` asset
+aborts the upload and removes the row at once; a repeated `DELETE` on `DELETING` re-enqueues the
+same job id. The webhook route answers `404` unless the configured provider has webhooks.
+`media.process` reads an object whole only after a HEAD within the kind limit; unreadable PDF →
+`INVALID_SIGNATURE`, encrypted → `ENCRYPTED`, MP4 over 4 h → `SIZE_MISMATCH`.
+
+**Learn (T10).** An ARCHIVED course is read-only for students: `opened` answers without writing,
+`complete`/`uncomplete` → `409 COURSE_STATUS_INVALID`; progress writes on a SUSPENDED/DELETING
+workspace → `423`; a module with no required lesson never gates the next one.
+
+**Enrollment hooks (T9, T18).** A member rejected in the approval queue loses the courses his code
+pre-assigned (`MEMBERSHIP_REJECTED`); a member removed from the workspace has his ACTIVE
+enrollments revoked (`MEMBERSHIP_REMOVED`, `SYSTEM` audit, progress kept) — otherwise they blocked
+the deletion of an archived course with no UI to revoke them (T18 fix). Invitation / invite-link
+`courseIds` are validated at creation (live DRAFT/PUBLISHED course of the workspace, own in scope
+own; staff invitations take none).
+
+**Course purge (T18).** The `course.purge_deleted` processor and its `course-purge-deleted`
+scheduler (03:30 UTC) were missing (constants only) and were added at the final review: hard
+delete per course under its row lock; lesson media, inline images and cover referenced nowhere
+else in the workspace → `DELETING` + `media.delete`; `UPLOADING` left to the hourly cleanup;
+`course.purged` system audit.
+
+**Web (T11–T17).** Rich-text editor loaded with `React.lazy` (Tiptap 3.32.0 pinned); hls.js
+1.7.3 and pdfjs-dist 6.4.299 loaded with a plain `import()` inside the players' effects (no
+`next/dynamic` around app components — Turbopack then duplicates shared modules into every route);
+the pdf.js worker is bundled under `_next/static`. `EnrollmentsPanel` is imported statically for
+the same chunking reason. Under `next dev`, `next.config.ts` reads `MEDIA_ORIGINS` from the root
+`.env`. The axe scans exclude the decorative watermark (incidental text, WCAG 1.4.3). First-load
+JS at close: teacher preview lesson 249.2 kB, student lesson ≈ 237 kB (budget 250 kB).
+
+**Still open (owner questions keep their defaults).** Q1 VOD provider: S3 passthrough in
+dev/CI/staging, Cloudflare adapter shipped and unit-tested, decision before the first production
+video traffic. Q2 polling until SP7/SP8. Q3 both interim emails until SP7. Q4 no course codes.
+FIX-LATER items are listed in the runbook.

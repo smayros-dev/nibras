@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockRouter, renderWithIntl, tr } from '../test/render';
 import { StudentProfilePanel } from './student-profile-panel';
 
-const api = vi.hoisted(() => ({ GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn() }));
+const api = vi.hoisted(() => ({ GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn(), DELETE: vi.fn() }));
 vi.mock('../lib/api', () => ({ api, asApiResult: (result: unknown) => result }));
 
 const UID = 'aaaaaaaa-0000-4000-8000-000000000004';
@@ -75,6 +75,7 @@ beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset();
   api.POST.mockResolvedValue({ data: { status: 'PENDING' } });
   api.PATCH.mockResolvedValue({ data: { userId: UID } });
+  api.DELETE.mockResolvedValue({ data: undefined });
 });
 
 describe('StudentProfilePanel', () => {
@@ -93,7 +94,6 @@ describe('StudentProfilePanel', () => {
     ).not.toBeInTheDocument();
     // The sections later sub-projects fill are present, empty, and name the feature.
     for (const [title, soon] of [
-      ['courses', 'coursesSoon'],
       ['sessions', 'sessionsSoon'],
       ['reports', 'reportsSoon'],
       ['activity', 'activitySoon'],
@@ -101,6 +101,9 @@ describe('StudentProfilePanel', () => {
       expect(heading(`students.profile.${title}`)).toBeInTheDocument();
       expect(screen.getByText(tr('fr', `students.profile.${soon}`))).toBeInTheDocument();
     }
+    // No course yet: the « Cours » card says so.
+    const courses = screen.getByRole('region', { name: tr('fr', 'students.profile.courses') });
+    expect(within(courses).getByText(tr('fr', 'enrollments.noCourses'))).toBeInTheDocument();
     // A personal workspace has no assigned teachers section.
     expect(
       screen.queryByRole('heading', { name: tr('fr', 'students.profile.teachers') }),
@@ -226,5 +229,126 @@ describe('StudentProfilePanel', () => {
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
     const card = screen.getByRole('region', { name: tr('ar', 'students.profile.teachers') });
     expect(within(card).getByText('Sara Haddad')).toBeInTheDocument();
+  });
+
+  describe('« Cours » card', () => {
+    const ENROLLED: StudentProfile = {
+      ...ADULT,
+      courses: [
+        {
+          courseId: 'c1',
+          title: 'Algèbre 1',
+          status: 'PUBLISHED',
+          enrollmentStatus: 'ACTIVE',
+          progressPercent: 40,
+          completedAt: null,
+        },
+        {
+          courseId: 'c2',
+          title: 'Géométrie',
+          status: 'PUBLISHED',
+          enrollmentStatus: 'REVOKED',
+          progressPercent: 10,
+          completedAt: null,
+        },
+      ],
+    };
+
+    it('lists the courses with status and progress, linked to the course', () => {
+      renderPanel(ENROLLED);
+      const card = screen.getByRole('region', { name: tr('fr', 'students.profile.courses') });
+      expect(within(card).getByRole('link', { name: 'Algèbre 1' })).toHaveAttribute(
+        'href',
+        '/app/w/w1/courses/c1/students',
+      );
+      expect(
+        within(card).getByRole('progressbar', {
+          name: fill('enrollments.progressOf', { name: 'Algèbre 1' }),
+        }),
+      ).toHaveAttribute('aria-valuenow', '40');
+      expect(within(card).getByText(tr('fr', 'enrollments.status_REVOKED'))).toBeInTheDocument();
+    });
+
+    it('« Attribuer un cours » lists the draft and published courses and posts the student', async () => {
+      const router = mockRouter();
+      api.GET.mockImplementation(
+        async (_path: string, opts: { params: { query: { status: string } } }) => ({
+          data: {
+            items:
+              opts.params.query.status === 'PUBLISHED'
+                ? [
+                    { id: 'c1', title: 'Algèbre 1', status: 'PUBLISHED' },
+                    { id: 'c3', title: 'Physique', status: 'PUBLISHED' },
+                  ]
+                : [{ id: 'c4', title: 'Chimie', status: 'DRAFT' }],
+            nextCursor: null,
+          },
+        }),
+      );
+      api.POST.mockResolvedValue({ data: { items: [] } });
+      renderPanel(ENROLLED);
+      const ue = userEvent.setup();
+      await ue.click(screen.getByRole('button', { name: tr('fr', 'enrollments.assignCourse') }));
+      const dialog = await screen.findByRole('dialog', {
+        name: fill('enrollments.assignCourseTitle', { name: 'Yasmine Trabelsi' }),
+      });
+      const select = await within(dialog).findByRole('combobox', {
+        name: tr('fr', 'enrollments.pickCourse'),
+      });
+      // Already enrolled (ACTIVE) in c1: not offered again.
+      expect(within(select).queryByRole('option', { name: 'Algèbre 1' })).toBeNull();
+      expect(within(select).getByRole('option', { name: 'Chimie' })).toBeInTheDocument();
+      await ue.selectOptions(select, 'c3');
+      await ue.click(
+        within(dialog).getByRole('button', { name: tr('fr', 'enrollments.assignSubmit') }),
+      );
+      await waitFor(() =>
+        expect(api.POST).toHaveBeenCalledWith('/workspaces/{wid}/courses/{cid}/enrollments', {
+          params: { path: { wid: 'w1', cid: 'c3' } },
+          body: { studentUserIds: [UID] },
+        }),
+      );
+      expect(await screen.findByText(tr('fr', 'enrollments.courseAssigned'))).toBeInTheDocument();
+      expect(router.refresh).toHaveBeenCalled();
+    });
+
+    it('revokes an active enrollment after confirmation', async () => {
+      const router = mockRouter();
+      renderPanel(ENROLLED);
+      const ue = userEvent.setup();
+      await ue.click(
+        screen.getByRole('button', {
+          name: fill('enrollments.revokeCourse', { title: 'Algèbre 1' }),
+        }),
+      );
+      const dialog = await screen.findByRole('alertdialog');
+      await ue.click(
+        within(dialog).getByRole('button', {
+          name: fill('enrollments.revokeConfirm', { name: 'Yasmine Trabelsi' }),
+        }),
+      );
+      await waitFor(() =>
+        expect(api.DELETE).toHaveBeenCalledWith(
+          '/workspaces/{wid}/courses/{cid}/enrollments/{uid}',
+          {
+            params: { path: { wid: 'w1', cid: 'c1', uid: UID } },
+            body: {},
+          },
+        ),
+      );
+      expect(router.refresh).toHaveBeenCalled();
+      // The revoked one has nothing to remove.
+      expect(
+        screen.queryByRole('button', {
+          name: fill('enrollments.revokeCourse', { title: 'Géométrie' }),
+        }),
+      ).toBeNull();
+    });
+
+    it('a read-only workspace shows the courses without any action', () => {
+      renderPanel(ENROLLED, { writable: false });
+      expect(screen.getByRole('link', { name: 'Algèbre 1' })).toBeInTheDocument();
+      expect(screen.queryByRole('button')).toBeNull();
+    });
   });
 });

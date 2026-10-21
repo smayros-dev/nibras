@@ -301,4 +301,31 @@ describe('StudentsPanel', () => {
     await ue.click(button);
     expect(await screen.findByRole('dialog', { name: tr('fr', 'imports.title') })).toBeVisible();
   });
+
+  it('shows each student’s courses (two titles, then +n) and mean progress', async () => {
+    const course = (courseId: string, title: string) => ({
+      courseId,
+      title,
+      status: 'PUBLISHED' as const,
+      enrollmentStatus: 'ACTIVE' as const,
+      progressPercent: 0,
+      completedAt: null,
+    });
+    mockLists(
+      [
+        student(YASMINE, 'Yasmine', {
+          progressPercent: 42,
+          courses: [course('c1', 'Algèbre'), course('c2', 'Géométrie'), course('c3', 'Physique')],
+        }),
+      ],
+      [],
+    );
+    renderPanel();
+    const row = (await screen.findByText('Yasmine Test')).closest('tr')!;
+    expect(within(row).getByText('Algèbre')).toBeVisible();
+    expect(within(row).getByText('Géométrie')).toBeVisible();
+    expect(within(row).queryByText('Physique')).not.toBeInTheDocument();
+    expect(within(row).getByText('+1')).toBeVisible();
+    expect(within(row).getByText(fill('enrollments.percent', { percent: 42 }))).toBeVisible();
+  });
 });

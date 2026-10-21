@@ -1,4 +1,4 @@
-import { LOCALES } from '@nibras/contracts';
+import { LOCALES, MEDIA_FAILURE_REASONS, type MediaFailureReason } from '@nibras/contracts';
 import { describe, expect, it } from 'vitest';
 import { extractFirstLink, renderEmail } from './templates';
 import { EMAIL_TEMPLATE_KEYS, type EmailParamsByKey } from './types';
@@ -119,6 +119,26 @@ const SAMPLE_PARAMS: EmailParamsByKey = {
     failed: 2,
     link: 'https://x/fr/app/w/w1/students?tab=pending',
   },
+  'media.failed': {
+    firstName: 'Amel',
+    filename: 'cours-1.pdf',
+    reason: 'ENCRYPTED',
+    link: 'https://x/fr/app/w/w1/courses',
+  },
+  'course.assigned': {
+    firstName: 'Yasmine',
+    courseTitle: 'Algèbre — niveau 1',
+    teacherName: 'Mohamed Ben Ali',
+    workspaceName: 'École Ibn Khaldoun',
+    link: 'https://x/fr/app/courses/c1',
+  },
+  'course.published': {
+    firstName: 'Yasmine',
+    courseTitle: 'Algèbre — niveau 1',
+    teacherName: 'Mohamed Ben Ali',
+    workspaceName: 'École Ibn Khaldoun',
+    link: 'https://x/fr/app/courses/c1',
+  },
 };
 
 /** The 13 SP2 templates (invitations, guardian consent, join requests, CSV imports). */
@@ -136,7 +156,7 @@ function teacherOf(params: Record<string, unknown>): string {
 
 const ARABIC = /[؀-ۿ]/;
 const RAW_KEY =
-  /\b(?:emails|auth|security|phone|workspace|abuse|admin|invitation|guardian|join|imports)\.[a-z0-9_]+/;
+  /\b(?:emails|auth|security|phone|workspace|abuse|admin|invitation|guardian|join|imports|media)\.[a-z0-9_]+/;
 
 describe('renderEmail', () => {
   it('renders every template key in every locale with no missing ICU argument', () => {
@@ -360,6 +380,43 @@ describe('SP2 templates', () => {
         const teacher = renderEmail(key, locale, { ...p, recipientRole: 'TEACHER' }).text;
         expect(student, `${locale}:${key}`).not.toBe(teacher);
       }
+  });
+
+  it('media.failed names the file and explains each failure reason in every locale', () => {
+    const text = (locale: 'fr' | 'en' | 'ar', reason: MediaFailureReason) =>
+      renderEmail('media.failed', locale, { ...SAMPLE_PARAMS['media.failed'], reason }).text;
+    expect(text('fr', 'ENCRYPTED')).toContain(
+      'Le traitement de cours-1.pdf a échoué (le PDF est protégé par un mot de passe).',
+    );
+    expect(text('fr', 'ENCRYPTED')).toContain(
+      'Vous pouvez réessayer l’envoi depuis l’éditeur de cours.',
+    );
+    expect(text('fr', 'TIMEOUT')).toContain('délai de traitement dépassé');
+    expect(text('en', 'TIMEOUT')).toContain('cours-1.pdf');
+    for (const locale of LOCALES) {
+      const seen = new Set(MEDIA_FAILURE_REASONS.map((r) => text(locale, r)));
+      expect(seen.size, locale).toBe(MEDIA_FAILURE_REASONS.length);
+      for (const r of MEDIA_FAILURE_REASONS) expect(text(locale, r)).not.toContain(r);
+    }
+    expect(text('ar', 'ENCRYPTED')).toMatch(ARABIC);
+  });
+
+  it('course.assigned and course.published name the course, the teacher and the workspace in every locale', () => {
+    for (const key of ['course.assigned', 'course.published'] as const) {
+      for (const locale of LOCALES) {
+        const mail = renderEmail(key, locale, SAMPLE_PARAMS[key]);
+        for (const value of ['Algèbre — niveau 1', 'Mohamed Ben Ali', 'École Ibn Khaldoun']) {
+          expect(mail.text, `${locale}:${key}`).toContain(value);
+        }
+        expect(mail.text, `${locale}:${key}`).toContain('https://x/fr/app/courses/c1');
+      }
+    }
+    expect(renderEmail('course.assigned', 'fr', SAMPLE_PARAMS['course.assigned']).subject).toBe(
+      'Nouveau cours : Algèbre — niveau 1',
+    );
+    expect(renderEmail('course.published', 'ar', SAMPLE_PARAMS['course.published']).text).toMatch(
+      ARABIC,
+    );
   });
 
   it('pluralises import counts per locale', () => {

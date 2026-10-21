@@ -14,6 +14,9 @@ if (process.env.DATABASE_URL_TEST_SYSTEM) {
   process.env.DATABASE_URL_SYSTEM = process.env.DATABASE_URL_TEST_SYSTEM;
 }
 if (process.env.REDIS_URL_TEST) process.env.REDIS_URL = process.env.REDIS_URL_TEST;
+// This package's own bucket (`nibras-api-test`, derived from the S3_BUCKET_TEST base), never the
+// development bucket: `reset()` empties it.
+if (process.env.S3_BUCKET_TEST) process.env.S3_BUCKET = process.env.S3_BUCKET_TEST;
 process.env.NODE_ENV = 'test';
 // Specs capture logs in memory (see helpers/app.ts) and assert on debug lines.
 process.env.LOG_LEVEL = 'debug';

@@ -46,6 +46,17 @@ function interpolated(value: unknown): Set<string> {
 
 const SECRET_LIKE = /SECRET|PASSWORD|KEY|TOKEN|DATABASE_URL|REDIS_URL|SMTP_URL/;
 
+/** Object storage settings shared by the api and the worker (SP3). */
+const S3_VARS = [
+  'S3_ENDPOINT',
+  'S3_PUBLIC_ENDPOINT',
+  'S3_REGION',
+  'S3_ACCESS_KEY',
+  'S3_SECRET_KEY',
+  'S3_BUCKET',
+  'S3_FORCE_PATH_STYLE',
+];
+
 describe('infra/compose.staging.yml', () => {
   it('has the four app services next to postgres, redis and minio', () => {
     expect(Object.keys(services).sort()).toEqual(
@@ -64,7 +75,7 @@ describe('infra/compose.staging.yml', () => {
     expect(envKeys('migrate')).toEqual(['DATABASE_URL_SYSTEM']);
   });
 
-  it('api receives exactly its allocation: no BYPASSRLS URL, no Postgres password, no S3 keys', () => {
+  it('api receives exactly its allocation: no BYPASSRLS URL, no Postgres password', () => {
     expect(envKeys('api')).toEqual(
       [
         'APP_ENV',
@@ -85,12 +96,20 @@ describe('infra/compose.staging.yml', () => {
         'TOTP_ENCRYPTION_KEY',
         'TRUST_PROXY_HOPS',
         'WEB_ORIGIN',
+        ...S3_VARS,
+        'VIDEO_PROVIDER',
+        // The API uploads (tus), signs playback JWTs and verifies webhooks: every Cloudflare value.
+        'CLOUDFLARE_ACCOUNT_ID',
+        'CLOUDFLARE_STREAM_API_TOKEN',
+        'CLOUDFLARE_STREAM_WEBHOOK_SECRET',
+        'CLOUDFLARE_STREAM_SIGNING_KEY_ID',
+        'CLOUDFLARE_STREAM_SIGNING_KEY_PEM',
+        'CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN',
       ].sort(),
     );
     const keys = envKeys('api');
     expect(keys).not.toContain('DATABASE_URL_SYSTEM');
     expect(keys).not.toContain('POSTGRES_PASSWORD');
-    expect(keys.filter((k) => k.startsWith('S3_'))).toEqual([]);
   });
 
   it('worker receives exactly its allocation: no JWT/TOTP secret, no RLS-bound DATABASE_URL', () => {
@@ -105,16 +124,33 @@ describe('infra/compose.staging.yml', () => {
         'SMTP_URL',
         'WEB_ORIGIN',
         'WORKER_PORT',
+        ...S3_VARS,
+        'VIDEO_PROVIDER',
+        // getAsset / delete only: the worker never signs playback nor verifies webhooks.
+        'CLOUDFLARE_ACCOUNT_ID',
+        'CLOUDFLARE_STREAM_API_TOKEN',
       ].sort(),
     );
     const keys = envKeys('worker');
-    for (const forbidden of ['JWT_SECRET', 'TOTP_ENCRYPTION_KEY', 'DATABASE_URL']) {
+    for (const forbidden of [
+      'JWT_SECRET',
+      'TOTP_ENCRYPTION_KEY',
+      'DATABASE_URL',
+      'CLOUDFLARE_STREAM_WEBHOOK_SECRET',
+      'CLOUDFLARE_STREAM_SIGNING_KEY_PEM',
+    ]) {
       expect(keys).not.toContain(forbidden);
     }
   });
 
+  it('migrate receives no object storage or video provider setting', () => {
+    expect(envKeys('migrate').filter((k) => /^(S3_|CLOUDFLARE_|VIDEO_)/.test(k))).toEqual([]);
+  });
+
   it('web (the only published container) holds no secret at all', () => {
-    expect(envKeys('web')).toEqual(['API_URL', 'APP_ENV', 'NODE_ENV', 'PORT']);
+    // MEDIA_ORIGINS: browser-reachable media origins for the CSP (origins, not secrets).
+    expect(envKeys('web')).toEqual(['API_URL', 'APP_ENV', 'MEDIA_ORIGINS', 'NODE_ENV', 'PORT']);
+    expect(envKeys('web').filter((k) => /^(S3_|CLOUDFLARE_|VIDEO_)/.test(k))).toEqual([]);
     expect(envKeys('web').filter((k) => SECRET_LIKE.test(k))).toEqual([]);
     // Nor through a value interpolating a secret under an innocent name.
     expect([...interpolated(services.web)].filter((v) => SECRET_LIKE.test(v))).toEqual([]);

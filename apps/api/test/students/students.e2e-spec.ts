@@ -5,6 +5,8 @@ import { createTestApp, type TestAgent, type TestContext } from '../helpers/app'
 import { as, loginAs } from '../helpers/auth';
 import {
   assign,
+  createCourse,
+  createEnrollment,
   createOrganization,
   createPersonalWorkspace,
   createStudent,
@@ -40,7 +42,7 @@ interface StudentItem {
     status: string;
     consentExpiresAt: string | null;
   } | null;
-  progressPercent: null;
+  progressPercent: number | null;
   attendanceRate: null;
   lastActivityAt: null;
   courses: unknown[];
@@ -484,6 +486,63 @@ describe('students API: list, profile skeleton, guardian email (AC-WS-02 for stu
       .send({ guardianEmail: 'x@example.com' })
       .expect(404);
     await expectMinorInvariant(db, workspace.id);
+  });
+
+  it('SP3 T9: list and profile carry the enrollments (courses, progressPercent); an org TEACHER (scope own) sees only the courses he owns', async () => {
+    const owner = await createUser({ totpSecret: S });
+    const teacher = await createUser({ firstName: 'Karim' });
+    const teacher2 = await createUser({ firstName: 'Sami' });
+    const { workspace } = await createOrganization({ owner, teachers: [teacher, teacher2] });
+    const s = await createStudent({ workspace, invitedBy: owner, user: { lastName: 'Aaa' } });
+    const other = await createStudent({ workspace, invitedBy: owner, user: { lastName: 'Bbb' } });
+    await assign(workspace, teacher, s.user, owner);
+    const algebra = await createCourse(workspace, teacher, {
+      status: 'PUBLISHED',
+      title: 'Algèbre',
+    });
+    const physics = await createCourse(workspace, teacher2, {
+      status: 'PUBLISHED',
+      title: 'Physique',
+    });
+    await createEnrollment(algebra, s.user, { progressPercent: 40 });
+    await createEnrollment(physics, s.user, { progressPercent: 75 });
+
+    const o = await agent(owner);
+    const list = await o.get(students(workspace.id)).expect(200);
+    const items = list.body.items as StudentItem[];
+    const mine = items.find((i) => i.userId === s.user.id)!;
+    expect(mine.progressPercent).toBe(57);
+    expect(mine.courses).toEqual([
+      {
+        courseId: algebra.id,
+        title: 'Algèbre',
+        status: 'PUBLISHED',
+        enrollmentStatus: 'ACTIVE',
+        progressPercent: 40,
+        completedAt: null,
+      },
+      expect.objectContaining({ courseId: physics.id, progressPercent: 75 }),
+    ]);
+    const none = items.find((i) => i.userId === other.user.id)!;
+    expect(none.courses).toEqual([]);
+    expect(none.progressPercent).toBeNull();
+
+    const p = await o.get(profile(workspace.id, s.user.id)).expect(200);
+    expect(p.body.courses.map((c: { title: string }) => c.title)).toEqual(['Algèbre', 'Physique']);
+    expect(p.body.progress).toBeNull();
+
+    // The teacher (scope own): his course only, the mean over it.
+    const t = await agent(teacher);
+    const tList = await t.get(students(workspace.id)).expect(200);
+    expect(tList.body.items).toHaveLength(1);
+    expect(tList.body.items[0].progressPercent).toBe(40);
+    expect(tList.body.items[0].courses.map((c: { courseId: string }) => c.courseId)).toEqual([
+      algebra.id,
+    ]);
+    const tProfile = await t.get(profile(workspace.id, s.user.id)).expect(200);
+    expect(tProfile.body.courses.map((c: { courseId: string }) => c.courseId)).toEqual([
+      algebra.id,
+    ]);
   });
 
   it('resend-consent route → 200 with the guardian info, then the GuardianRequestService cooldown (429)', async () => {

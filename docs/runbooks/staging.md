@@ -3,7 +3,8 @@
 Staging runs the three container images built by CI (`ghcr.io/<owner>/nibras-{web,api,worker}`) with
 Postgres, Redis and MinIO on a single Docker host, described by `infra/compose.staging.yml`. Staging runs on a local machine today; the production
 target is OVHcloud, with the same procedures. Security rules (per-service environment, image gate,
-host-key pinning, GitHub settings to enable): [security.md](security.md).
+host-key pinning, GitHub settings to enable): [security.md](security.md). Media storage, the
+`s3.<domain>` proxy host and Cloudflare Stream (SP3): [courses-and-media.md](courses-and-media.md).
 
 ## Pipeline
 
@@ -75,10 +76,20 @@ gh api repos/<owner>/<repo>/git/tags/<sha> --jq .object.sha
 
 - Linux VM in the **EU (Paris) region** (D-P4), e.g. 2 vCPU / 4 GB RAM / 40 GB disk.
 - Docker Engine 24+ with the Compose v2 plugin; the deploy user in the `docker` group.
-- Firewall: SSH from GitHub Actions runners (or a bastion) and HTTPS from the internet; Postgres,
-  Redis and MinIO publish **no** ports.
+- Firewall: SSH from GitHub Actions runners (or a bastion) and HTTPS from the internet; Postgres
+  and Redis publish **no** ports; MinIO publishes its S3 API on `127.0.0.1:9000` only (for the TLS
+  proxy below, never on a public interface; the console on 9001 is not published).
 - A TLS reverse proxy (Caddy, nginx, Traefik) in front of `127.0.0.1:3000` (the web container).
-  The browser reaches the API through the web app's `/api/*` rewrite, so only the web is exposed.
+  The browser reaches the API through the web app's `/api/*` rewrite.
+- **SP3 media:** a second TLS host on the same proxy for object storage, e.g.
+  `https://s3.staging.example.com` → `127.0.0.1:9000` (MinIO). Browsers upload parts (`PUT`, 8 MiB
+  each) and read videos/PDFs through presigned URLs on this host, so the proxy must: keep the `Host`
+  header (the signature covers it: nginx `proxy_set_header Host $host;`), allow request bodies of at
+  least 16 MiB (nginx `client_max_body_size 16m;`, or `0`), not buffer them
+  (`proxy_request_buffering off;`), and pass `Range` requests and the `ETag` response header
+  through untouched (the defaults). This origin is `S3_PUBLIC_ENDPOINT` and goes into
+  `MEDIA_ORIGINS`. With OVH Object Storage instead of MinIO, skip this host: `S3_ENDPOINT` is the
+  public OVH endpoint and `S3_PUBLIC_ENDPOINT` stays empty.
 - `<STAGING_DIR>/infra/.env.staging` (mode `600`, owned by the deploy user) holding the real secrets.
   It is never committed and never baked into an image.
 
@@ -120,44 +131,76 @@ TOTP_ENCRYPTION_KEY=<openssl rand -base64 32>
 HIBP_ENABLED=true
 COOKIE_SECURE=true
 
-# MinIO root credentials (no app service receives S3_* yet).
+# Object storage (SP3). MinIO here: S3_ACCESS_KEY/S3_SECRET_KEY are its root user/password (never
+# `minioadmin`: refused outside development). The api/worker reach MinIO on the compose network;
+# browsers reach it through the TLS proxy's S3 host (see "Host prerequisites").
 S3_ENDPOINT=http://minio:9000
+S3_PUBLIC_ENDPOINT=https://s3.staging.example.com
+S3_REGION=us-east-1
 S3_ACCESS_KEY=<random>
 S3_SECRET_KEY=<random>
 S3_BUCKET=nibras-staging
+S3_FORCE_PATH_STYLE=true
+# Origins the browser loads media from (CSP of the web app, read from SP3 T16 on).
+MEDIA_ORIGINS=https://s3.staging.example.com
+
+# Video provider: `s3` = MP4/WebM passthrough in the bucket above (staging default).
+VIDEO_PROVIDER=s3
+# `cloudflare_stream` (D-P1) needs all six values below; the api gets them all, the worker only the
+# account id and the API token (getAsset/delete). Leave them unset with VIDEO_PROVIDER=s3.
+# CLOUDFLARE_ACCOUNT_ID=<dashboard: account id>
+# CLOUDFLARE_STREAM_API_TOKEN=<API token with Stream:Edit>
+# CLOUDFLARE_STREAM_WEBHOOK_SECRET=<returned by PUT /accounts/{id}/stream/webhook>
+# CLOUDFLARE_STREAM_SIGNING_KEY_ID=<`id` returned by POST /accounts/{id}/stream/keys>
+# CLOUDFLARE_STREAM_SIGNING_KEY_PEM=<`pem` returned by the same call, as is (base64 of the PEM)>
+# CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN=customer-<code>.cloudflarestream.com
 ```
 
 **Which service receives what.** Kept in step with `compose.staging.yml` by
 `packages/config/infra/compose-staging.test.ts` (every `${VAR}` of the compose file must have a row
 here naming exactly the services that use it):
 
-| Variable                      | Used by                   | Required / default                                         |
-| ----------------------------- | ------------------------- | ---------------------------------------------------------- |
-| `NIBRAS_IMAGE_OWNER`          | api, migrate, web, worker | required (image path only, not passed into the containers) |
-| `NIBRAS_IMAGE_TAG`            | api, migrate, web, worker | default `latest` (the deploy job sets the commit SHA)      |
-| `POSTGRES_PASSWORD`           | postgres                  | required                                                   |
-| `APP_SYSTEM_DB_PASSWORD`      | postgres                  | required (init script, first boot only)                    |
-| `APP_USER_DB_PASSWORD`        | postgres                  | required (init script, first boot only)                    |
-| `S3_ACCESS_KEY`               | minio                     | required (MinIO root user)                                 |
-| `S3_SECRET_KEY`               | minio                     | required (MinIO root password)                             |
-| `DATABASE_URL_SYSTEM`         | migrate, worker           | required (`app_system`, BYPASSRLS)                         |
-| `DATABASE_URL`                | api                       | required (`app_user`, RLS enforced)                        |
-| `REDIS_URL`                   | api, worker               | required                                                   |
-| `WEB_ORIGIN`                  | api, worker               | required                                                   |
-| `SMTP_URL`                    | api, worker               | required                                                   |
-| `EMAIL_FROM`                  | api, worker               | required                                                   |
-| `JWT_SECRET`                  | api                       | required                                                   |
-| `TOTP_ENCRYPTION_KEY`         | api                       | required                                                   |
-| `SMS_PROVIDER`                | api                       | default `console`                                          |
-| `HIBP_ENABLED`                | api                       | default `true`                                             |
-| `COOKIE_SECURE`               | api                       | default `true`                                             |
-| `RATE_LIMIT_USER`             | api                       | default `600`                                              |
-| `RATE_LIMIT_ANON`             | api                       | default `60`                                               |
-| `TRUST_PROXY_HOPS`            | api                       | default `1` (see "Client IP behind the proxies")           |
-| `LOG_LEVEL`                   | api, worker               | default `info`                                             |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | api                       | default empty (tracing off)                                |
-| `API_URL`                     | web                       | default `http://api:3001`                                  |
-| `WEB_BIND`                    | web                       | default `127.0.0.1` (host port binding, not passed in)     |
+| Variable                               | Used by                   | Required / default                                         |
+| -------------------------------------- | ------------------------- | ---------------------------------------------------------- |
+| `NIBRAS_IMAGE_OWNER`                   | api, migrate, web, worker | required (image path only, not passed into the containers) |
+| `NIBRAS_IMAGE_TAG`                     | api, migrate, web, worker | default `latest` (the deploy job sets the commit SHA)      |
+| `POSTGRES_PASSWORD`                    | postgres                  | required                                                   |
+| `APP_SYSTEM_DB_PASSWORD`               | postgres                  | required (init script, first boot only)                    |
+| `APP_USER_DB_PASSWORD`                 | postgres                  | required (init script, first boot only)                    |
+| `S3_ACCESS_KEY`                        | api, minio, worker        | required (MinIO root user; the apps' S3 access key)        |
+| `S3_SECRET_KEY`                        | api, minio, worker        | required (MinIO root password; never `minioadmin`)         |
+| `MINIO_BIND`                           | minio                     | default `127.0.0.1` (S3 API port 9000, not passed in)      |
+| `DATABASE_URL_SYSTEM`                  | migrate, worker           | required (`app_system`, BYPASSRLS)                         |
+| `DATABASE_URL`                         | api                       | required (`app_user`, RLS enforced)                        |
+| `REDIS_URL`                            | api, worker               | required                                                   |
+| `WEB_ORIGIN`                           | api, worker               | required                                                   |
+| `SMTP_URL`                             | api, worker               | required                                                   |
+| `EMAIL_FROM`                           | api, worker               | required                                                   |
+| `JWT_SECRET`                           | api                       | required                                                   |
+| `TOTP_ENCRYPTION_KEY`                  | api                       | required                                                   |
+| `SMS_PROVIDER`                         | api                       | default `console`                                          |
+| `HIBP_ENABLED`                         | api                       | default `true`                                             |
+| `COOKIE_SECURE`                        | api                       | default `true`                                             |
+| `RATE_LIMIT_USER`                      | api                       | default `600`                                              |
+| `RATE_LIMIT_ANON`                      | api                       | default `60`                                               |
+| `TRUST_PROXY_HOPS`                     | api                       | default `1` (see "Client IP behind the proxies")           |
+| `LOG_LEVEL`                            | api, worker               | default `info`                                             |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`          | api                       | default empty (tracing off)                                |
+| `API_URL`                              | web                       | default `http://api:3001`                                  |
+| `WEB_BIND`                             | web                       | default `127.0.0.1` (host port binding, not passed in)     |
+| `MEDIA_ORIGINS`                        | web                       | default empty (space-separated media origins for the CSP)  |
+| `S3_ENDPOINT`                          | api, worker               | required (`http://minio:9000`, or the OVH endpoint)        |
+| `S3_PUBLIC_ENDPOINT`                   | api, worker               | default empty (= `S3_ENDPOINT`; presigned URLs only)       |
+| `S3_REGION`                            | api, worker               | default `us-east-1`                                        |
+| `S3_BUCKET`                            | api, worker               | required                                                   |
+| `S3_FORCE_PATH_STYLE`                  | api, worker               | default `true` (MinIO)                                     |
+| `VIDEO_PROVIDER`                       | api, worker               | default `s3` (`cloudflare_stream` needs the rows below)    |
+| `CLOUDFLARE_ACCOUNT_ID`                | api, worker               | default empty; required with `cloudflare_stream`           |
+| `CLOUDFLARE_STREAM_API_TOKEN`          | api, worker               | default empty; required with `cloudflare_stream`           |
+| `CLOUDFLARE_STREAM_WEBHOOK_SECRET`     | api                       | default empty; required with `cloudflare_stream`           |
+| `CLOUDFLARE_STREAM_SIGNING_KEY_ID`     | api                       | default empty; required with `cloudflare_stream`           |
+| `CLOUDFLARE_STREAM_SIGNING_KEY_PEM`    | api                       | default empty; required with `cloudflare_stream`           |
+| `CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN` | api                       | default empty; required with `cloudflare_stream`           |
 
 A required variable that is missing or empty stops `docker compose` before any container starts
 (`required variable JWT_SECRET is missing a value: set JWT_SECRET in .env.staging`).
@@ -166,7 +209,12 @@ worker `WORKER_PORT=3002`) are fixed in `compose.staging.yml`, not read from thi
 
 The API validates these at startup and refuses to boot when one is missing or malformed:
 `TOTP_ENCRYPTION_KEY` must be canonical base64 of exactly 32 bytes and `REDIS_URL` must use
-`redis:` or `rediss:`.
+`redis:` or `rediss:`. The API and the worker also require `S3_ENDPOINT` (`http:`/`https:`),
+`S3_ACCESS_KEY`, `S3_SECRET_KEY` and a valid `S3_BUCKET` name, and, with
+`VIDEO_PROVIDER=cloudflare_stream`, every Cloudflare row of the table for that service (the error
+names each missing one; an empty value counts as missing). The API parses
+`CLOUDFLARE_STREAM_SIGNING_KEY_PEM` at boot (PEM, or the base64 of a PEM as Cloudflare returns it)
+and refuses to start on an unreadable key.
 
 **Startup refusals outside development.** With `APP_ENV=staging` or `production` the API and the
 worker also refuse to start (exit 1, the error names every offending variable) when:
@@ -181,7 +229,10 @@ worker also refuse to start (exit 1, the error names every offending variable) w
   `init.sql`;
 - `COOKIE_SECURE` is not `true` (API; when omitted it defaults to `true` because the images run
   `NODE_ENV=production`);
-- `WEB_ORIGIN` is not an `https:` URL (API and worker).
+- `WEB_ORIGIN` is not an `https:` URL (API and worker);
+- `S3_SECRET_KEY` is `minioadmin` (MinIO's default root password) or another placeholder (API and
+  worker), or `CLOUDFLARE_STREAM_API_TOKEN` (API and worker), `CLOUDFLARE_STREAM_WEBHOOK_SECRET` or
+  `CLOUDFLARE_STREAM_SIGNING_KEY_PEM` (API) is a placeholder, when set.
 
 `HIBP_ENABLED` is not checked: it stays a free choice in every tier (`true` recommended above).
 Local development (`APP_ENV=development` or unset), the test suites and CI (`APP_ENV: development`
@@ -250,8 +301,18 @@ curl -fsS http://127.0.0.1:3000/health/live
 On the empty volume Postgres runs `init-staging.sh` once: roles `app_system` / `app_user` with the
 passwords from `.env.staging` and the `nibras` database. Changing those passwords later means
 `ALTER ROLE ... PASSWORD` in Postgres **and** updating `.env.staging`.
-Create the MinIO bucket once: `docker compose ... exec minio mc mb --ignore-existing local/nibras-staging`
-(after `mc alias set local http://localhost:9000 $S3_ACCESS_KEY $S3_SECRET_KEY`).
+Create the media bucket once, after the first `up -d` (idempotent; it also sets the bucket's CORS
+rule for `WEB_ORIGIN` — GET/PUT/HEAD, `ETag` exposed — where the server supports it: OVH does,
+MinIO answers `NotImplemented` and allows every origin by default). The script ships in the api
+image and reads the api service's environment:
+
+```bash
+docker compose --env-file .env.staging -f compose.staging.yml run --rm --no-deps api node apps/api/scripts/s3-init.mjs
+# s3:init: bucket nibras-staging ready
+```
+
+From a repository checkout whose `.env` points at the same storage, `pnpm --filter @nibras/api s3:init`
+does the same.
 
 ### Hosts set up before the rename to Nibras
 

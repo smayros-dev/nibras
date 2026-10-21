@@ -41,8 +41,9 @@ const SP2_ERROR_CODES = [
   'IMPORT_IN_PROGRESS',
 ];
 
-it('ERROR_CODES ends with the 20 SP2 codes, in order, without duplicates', () => {
-  expect(ERROR_CODES.slice(-SP2_ERROR_CODES.length)).toEqual(SP2_ERROR_CODES);
+it('ERROR_CODES carries the 20 SP2 codes, in order, without duplicates', () => {
+  const start = ERROR_CODES.indexOf('INVITATION_PENDING');
+  expect(ERROR_CODES.slice(start, start + SP2_ERROR_CODES.length)).toEqual(SP2_ERROR_CODES);
   expect(new Set(ERROR_CODES).size).toBe(ERROR_CODES.length);
 });
 

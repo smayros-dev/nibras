@@ -55,6 +55,27 @@ jobs:
     name: check (lint, typecheck, test, build, contracts drift)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # SP3 media (spec D10): the MinIO started below. Root credentials of the pinned image, not
+      # secrets (refused outside development by assertDeployableEnv). S3_PUBLIC_ENDPOINT stays unset
+      # (= S3_ENDPOINT). S3_BUCKET_TEST is a base: each package derives nibras-<pkg>-test.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: nibras-dev
+      S3_BUCKET_TEST: nibras-test
+      S3_FORCE_PATH_STYLE: 'true'
+      VIDEO_PROVIDER: s3
+      # Cloudflare Stream is never called in CI (VIDEO_PROVIDER=s3): empty = unset.
+      CLOUDFLARE_ACCOUNT_ID: ''
+      CLOUDFLARE_STREAM_API_TOKEN: ''
+      CLOUDFLARE_STREAM_WEBHOOK_SECRET: ''
+      CLOUDFLARE_STREAM_SIGNING_KEY_ID: ''
+      CLOUDFLARE_STREAM_SIGNING_KEY_PEM: ''
+      CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN: ''
+      # The web CSP's media origins (connect/media/img-src): the MinIO above, as browsers reach it.
+      MEDIA_ORIGINS: http://localhost:9000
     services:
       postgres:
         image: postgres:17
@@ -89,6 +110,18 @@ jobs:
         run: pnpm --filter @nibras/db migrate:deploy
       - name: Migrate the test DBs (nibras_db_test, nibras_api_test, nibras_worker_test)
         run: pnpm db:migrate:test
+      # Same image (and digest) as docker-compose.yml. Not a service container: those cannot take
+      # the `server /data` command.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372 server /data
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:9000/minio/health/live && exit 0
+            sleep 1
+          done
+          echo "MinIO did not become healthy within 60 s" >&2
+          docker logs minio
+          exit 1
       - run: pnpm test
       - run: pnpm build
       - name: First-load JS budget (PRD §14.1, < 250 kB gzip per route)
@@ -98,7 +131,8 @@ jobs:
 
   windows-check:
     # Developers run Windows 11: scripts must not be Linux-only. No Docker services on this
-    # runner, so only the DB/Redis-free packages run their tests here.
+    # runner, so only the DB/Redis-free packages run their tests here; S3_ENDPOINT is unset, so
+    # @nibras/providers skips its MinIO suite.
     name: windows-check (lint, typecheck, DB-free tests)
     runs-on: windows-latest
     timeout-minutes: 30
@@ -112,7 +146,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test --filter=@nibras/config --filter=@nibras/contracts --filter=@nibras/i18n --filter=@nibras/ui
+      - run: pnpm test --filter=@nibras/config --filter=@nibras/contracts --filter=@nibras/i18n --filter=@nibras/ui --filter=@nibras/providers
 
   migrate-check:
     # Fails when schema.prisma and prisma/migrations drift apart (a model change without a migration).
@@ -149,6 +183,24 @@ jobs:
     env:
       TEST_CONSENT_TERMS_VERSION: terms-e2e-2026-11
       RATE_LIMIT_ANON: '10000'
+      # SP3 media: same MinIO settings as the check job.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: nibras-dev
+      S3_BUCKET_TEST: nibras-test
+      S3_FORCE_PATH_STYLE: 'true'
+      VIDEO_PROVIDER: s3
+      # Cloudflare Stream is never called in CI (VIDEO_PROVIDER=s3): empty = unset.
+      CLOUDFLARE_ACCOUNT_ID: ''
+      CLOUDFLARE_STREAM_API_TOKEN: ''
+      CLOUDFLARE_STREAM_WEBHOOK_SECRET: ''
+      CLOUDFLARE_STREAM_SIGNING_KEY_ID: ''
+      CLOUDFLARE_STREAM_SIGNING_KEY_PEM: ''
+      CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN: ''
+      # The web CSP's media origins (connect/media/img-src): the MinIO above, as browsers reach it.
+      MEDIA_ORIGINS: http://localhost:9000
     services:
       postgres:
         image: postgres:17
@@ -176,6 +228,18 @@ jobs:
       - name: Initialise Postgres (roles and databases)
         run: psql "$PG_ADMIN_URL" -v ON_ERROR_STOP=1 -f infra/docker/postgres/init.sql
       - run: pnpm --filter @nibras/db migrate:deploy
+      # Same image (and digest) as docker-compose.yml. Not a service container: those cannot take
+      # the `server /data` command.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372 server /data
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:9000/minio/health/live && exit 0
+            sleep 1
+          done
+          echo "MinIO did not become healthy within 60 s" >&2
+          docker logs minio
+          exit 1
       # The api/worker dist and the web standalone output (`.next/standalone`) the e2e runs.
       - run: pnpm build
       - run: pnpm --filter @nibras/web exec playwright install --with-deps chromium
