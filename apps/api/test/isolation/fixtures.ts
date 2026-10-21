@@ -2,6 +2,7 @@ import {
   systemPrisma,
   type AbuseReport,
   type Course,
+  type Enrollment,
   type GuardianLink,
   type Invitation,
   type InviteLink,
@@ -19,6 +20,7 @@ import {
   assign,
   createAbuseReport,
   createCourse,
+  createEnrollment,
   createInvitation,
   createInviteLink,
   createLesson,
@@ -83,6 +85,8 @@ export interface Tenant {
   pdf: MediaAsset;
   /** SP3 T7: an UPLOADING PDF of `owner` with a real multipart upload open in the test bucket. */
   upload: MediaAsset;
+  /** SP3 T9: `student`'s ACTIVE enrollment in `course`. */
+  enrollment: Enrollment;
 }
 
 export interface TenantPair {
@@ -140,6 +144,7 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
   const video = await createMediaAsset(workspace, owner, { kind: 'VIDEO' });
   const pdf = await createMediaAsset(workspace, owner, { kind: 'PDF' });
   const upload = await createPendingUpload(workspace, owner);
+  const enrollment = await createEnrollment(course, student);
   return {
     workspace,
     owner,
@@ -161,6 +166,7 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     video,
     pdf,
     upload,
+    enrollment,
   };
 }
 
@@ -232,6 +238,7 @@ export function foreignIds(p: TenantPair): string[] {
     b.video.id,
     b.pdf.id,
     b.upload.id,
+    b.enrollment.id,
   ];
 }
 
@@ -266,6 +273,8 @@ const PARAMS: Record<string, (t: Tenant) => string> = {
   'media/:mediaId/complete': (t) => t.upload.id,
   'media/:mediaId/playback': (t) => t.pdf.id,
   'media/:mediaId/download': (t) => t.pdf.id,
+  // SP3 T9: the enrolled student of the tenant's course.
+  'enrollments/:uid': (t) => t.enrollment.studentUserId,
 };
 
 /** B's id for each path param: an ACTIVE OWNER of A calling with it gets `404 NOT_FOUND`. */
@@ -353,6 +362,9 @@ export const FOREIGN_QUERIES: Record<string, (p: TenantPair) => Record<string, s
   'GET /api/v1/workspaces/:wid/courses': (p) => ({ cursor: p.b.course.id }),
   // SP3 T7: a media id of this workspace (`media.service.ts`, Prisma cursor).
   'GET /api/v1/workspaces/:wid/media': (p) => ({ cursor: p.b.coverImage.id }),
+  // SP3 T9: an enrollment id of this workspace (`enrollments.service.ts`, Prisma cursor).
+  'GET /api/v1/workspaces/:wid/courses/:cid/enrollments': (p) => ({ cursor: p.b.enrollment.id }),
+  'GET /api/v1/workspaces/:wid/courses/:cid/progress': (p) => ({ cursor: p.b.enrollment.id }),
   // Not here: `GET …/assignments` pages with `id > cursor` inside `tenantDb(wid)`; a foreign id
   // only positions the scan over A's rows (nothing of B is read or revealed), so it stays `200`.
 };
@@ -376,6 +388,8 @@ export const FOREIGN_BODIES: Record<
   {
     params: 'local' | 'foreign';
     body: (p: TenantPair) => unknown;
+    /** Further bodies probed on the same route, one id-bearing field at a time (SP3 T9). */
+    more?: ((p: TenantPair) => unknown)[];
     headers?: Record<string, string>;
   }
 > = {
@@ -410,6 +424,8 @@ export const FOREIGN_BODIES: Record<
   'POST /api/v1/workspaces/:wid/invitations': {
     params: 'local',
     body: (p) => ({ email: 'probe@example.com', teacherUserId: p.b.teacher.id }),
+    // SP3 T9: an invitation of A that would enroll the student in B's course.
+    more: [(p) => ({ email: 'probe-course@example.com', courseIds: [p.b.course.id] })],
   },
   // No id in the body (names, guardian email, message): the id is the path's (B's invitation).
   'PATCH /api/v1/workspaces/:wid/invitations/:id': {
@@ -420,6 +436,8 @@ export const FOREIGN_BODIES: Record<
   'POST /api/v1/workspaces/:wid/invite-links': {
     params: 'local',
     body: (p) => ({ teacherUserId: p.b.teacher.id }),
+    // SP3 T9: a group code of A whose students would be enrolled in B's course.
+    more: [(p) => ({ courseIds: [p.b.course.id] })],
   },
   // No id in the body (label, status, limits); a non-empty body passes validation, so the path
   // (B's link) is what refuses the call.
@@ -480,6 +498,11 @@ export const FOREIGN_BODIES: Record<
     }),
     headers: { 'If-Match': '"1"' },
   },
+  // SP3 T9: B's student enrolled in A's course.
+  'POST /api/v1/workspaces/:wid/courses/:cid/enrollments': {
+    params: 'local',
+    body: (p) => ({ studentUserIds: [p.b.student.id] }),
+  },
 };
 
 /**
@@ -522,6 +545,8 @@ export const BODYLESS_WRITE_ROUTES: Set<string> = new Set<string>([
   'POST /api/v1/workspaces/:wid/media/:mediaId/complete',
   // No body; deletes the path's asset.
   'DELETE /api/v1/workspaces/:wid/media/:mediaId',
+  // SP3 T9. Optional `reason` (free text); the course and the student are the path's.
+  'DELETE /api/v1/workspaces/:wid/courses/:cid/enrollments/:uid',
 ]);
 
 /** A key that never appears, at any depth, in an organisation-facing abuse-report response. */

@@ -17,6 +17,7 @@ import {
   lessonLink,
   myCoursesLink,
   parseIfMatch,
+  studentCourseLink,
 } from './course-constants';
 
 describe('course constants', () => {
@@ -70,5 +71,8 @@ describe('course constants', () => {
       'https://app.test/ar/app/courses/c1/lessons/l1',
     );
     expect(myCoursesLink('https://app.test', 'en')).toBe('https://app.test/en/app/courses');
+    expect(studentCourseLink('https://app.test/', 'fr', 'c1')).toBe(
+      'https://app.test/fr/app/courses/c1',
+    );
   });
 });

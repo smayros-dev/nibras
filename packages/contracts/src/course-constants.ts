@@ -121,6 +121,10 @@ export const courseEditorLink = (
 ): string =>
   `${base(origin, locale)}/w/${encodeURIComponent(wid)}/courses/${encodeURIComponent(cid)}`;
 
+/** Student course outline: `{origin}/{locale}/app/courses/{cid}` (course emails, T9). */
+export const studentCourseLink = (origin: string, locale: Locale, cid: string): string =>
+  `${base(origin, locale)}/courses/${encodeURIComponent(cid)}`;
+
 /** Student lesson page: `{origin}/{locale}/app/courses/{cid}/lessons/{lid}`. */
 export const lessonLink = (origin: string, locale: Locale, cid: string, lid: string): string =>
   `${base(origin, locale)}/courses/${encodeURIComponent(cid)}/lessons/${encodeURIComponent(lid)}`;

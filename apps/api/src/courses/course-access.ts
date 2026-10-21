@@ -16,6 +16,12 @@ export interface CourseCtx {
   scope: 'all' | 'own';
 }
 
+/**
+ * The part of a {@link CourseCtx} the scope filters read: also built without a request by the
+ * system paths (SP3 T9 enrollment hooks: scope `all`, acting for the inviter).
+ */
+export type CourseScope = Pick<CourseCtx, 'workspaceId' | 'userId' | 'scope'>;
+
 /** Members who learn, not teach: their courses are under `/me/courses` (spec §7). */
 const LEARNER_ROLES: readonly MembershipRole[] = ['STUDENT', 'GUARDIAN'];
 
@@ -36,7 +42,7 @@ export function courseCtx(workspaceId: string): CourseCtx {
 }
 
 /** Scope `own` → the caller's courses only; `all` → no restriction. */
-export function ownerFilter(ctx: CourseCtx): Prisma.CourseWhereInput {
+export function ownerFilter(ctx: CourseScope): Prisma.CourseWhereInput {
   return ctx.scope === 'own' ? { ownerUserId: ctx.userId } : {};
 }
 
@@ -64,7 +70,7 @@ export interface LockedCourse {
  */
 export async function loadCourseForWrite(
   tx: TenantTx,
-  ctx: CourseCtx,
+  ctx: CourseScope,
   cid: string,
 ): Promise<LockedCourse> {
   if (!isUuid(cid)) throw courseNotFound();

@@ -327,6 +327,20 @@
         "body": "Bonjour {firstName},\n\nLe traitement de {filename} a échoué ({reason, select, ABANDONED {l’envoi n’a pas été terminé dans les 24 heures} TIMEOUT {délai de traitement dépassé} PROVIDER_ERROR {le service vidéo n’a pas pu traiter le fichier} INVALID_SIGNATURE {le fichier est illisible ou ne correspond pas à son type} ENCRYPTED {le PDF est protégé par un mot de passe} QUOTA_EXCEEDED {l’espace de stockage est plein} SIZE_MISMATCH {le fichier dépasse la taille ou la durée autorisée} other {erreur inconnue}}). Vous pouvez réessayer l’envoi depuis l’éditeur de cours.",
         "cta": "Ouvrir mes cours"
       }
+    },
+    "course": {
+      "assigned": {
+        "subject": "Nouveau cours : {courseTitle}",
+        "title": "Un cours vous a été attribué",
+        "body": "Bonjour {firstName},\n\n{teacherName} vous a attribué le cours « {courseTitle} » dans l’espace « {workspaceName} ».\n\nVous pouvez le commencer dès maintenant.",
+        "cta": "Ouvrir le cours"
+      },
+      "published": {
+        "subject": "Votre cours est disponible : {courseTitle}",
+        "title": "Votre cours est disponible",
+        "body": "Bonjour {firstName},\n\n{teacherName} vient de publier le cours « {courseTitle} » dans l’espace « {workspaceName} ».\n\nVous pouvez le commencer dès maintenant.",
+        "cta": "Ouvrir le cours"
+      }
     }
   },
   "sms": {

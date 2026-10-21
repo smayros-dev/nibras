@@ -2,7 +2,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { PrismaClient, User, Workspace } from '@nibras/db';
 import { extractFirstLink } from '@nibras/providers';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { MEMBERSHIP_ACTIVATED, type MembershipActivatedEvent } from '../../src/members/events';
+import {
+  INVITE_LINK_JOINED,
+  MEMBERSHIP_ACTIVATED,
+  type InviteLinkJoinedEvent,
+  type MembershipActivatedEvent,
+} from '../../src/members/events';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
 import { as, loginAs, setCookies } from '../helpers/auth';
 import {
@@ -233,12 +238,15 @@ describe('public join by group code (AC-INV-08; Review Focus 2, 3)', () => {
 
   it('personal workspace, adult, no approval → ACTIVE at once with the owner assignment and MembershipActivatedEvent', async () => {
     const { teacher, workspace } = await personal();
-    const { code } = await createInviteLink({ workspace, createdBy: teacher });
+    const { code, link } = await createInviteLink({ workspace, createdBy: teacher });
     const student = await createUser();
     const events: MembershipActivatedEvent[] = [];
+    const joined: InviteLinkJoinedEvent[] = [];
     const emitter = ctx.app.get(EventEmitter2);
     const listener = (e: MembershipActivatedEvent) => events.push(e);
+    const onJoined = (e: InviteLinkJoinedEvent) => joined.push(e);
     emitter.on(MEMBERSHIP_ACTIVATED, listener);
+    emitter.on(INVITE_LINK_JOINED, onJoined);
     try {
       const res = await (
         await agent(student)
@@ -250,8 +258,17 @@ describe('public join by group code (AC-INV-08; Review Focus 2, 3)', () => {
       await new Promise((r) => setImmediate(r));
     } finally {
       emitter.off(MEMBERSHIP_ACTIVATED, listener);
+      emitter.off(INVITE_LINK_JOINED, onJoined);
     }
     expect(events).toEqual([expect.objectContaining({ workspaceId: workspace.id })]);
+    // SP3 T9: the join itself is announced (the link's courseIds become enrollments).
+    expect(joined).toEqual([
+      expect.objectContaining({
+        workspaceId: workspace.id,
+        inviteLinkId: link.id,
+        userId: student.id,
+      }),
+    ]);
     expect((await membership(workspace, student))!.joinedAt).not.toBeNull();
     expect(
       await db.teacherStudentAssignment.count({

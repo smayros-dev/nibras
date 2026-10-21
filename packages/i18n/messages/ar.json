@@ -327,6 +327,20 @@
         "body": "مرحباً {firstName}،\n\nفشلت معالجة {filename} ({reason, select, ABANDONED {لم يكتمل الرفع خلال 24 ساعة} TIMEOUT {تجاوزت المعالجة المهلة المحددة} PROVIDER_ERROR {تعذّر على خدمة الفيديو معالجة الملف} INVALID_SIGNATURE {الملف غير قابل للقراءة أو لا يطابق نوعه} ENCRYPTED {ملف PDF محمي بكلمة مرور} QUOTA_EXCEEDED {مساحة التخزين ممتلئة} SIZE_MISMATCH {يتجاوز الملف الحجم أو المدة المسموح بهما} other {خطأ غير معروف}}). يمكنك إعادة محاولة الرفع من محرّر الدروس.",
         "cta": "فتح دروسي"
       }
+    },
+    "course": {
+      "assigned": {
+        "subject": "درس جديد: {courseTitle}",
+        "title": "تمّ تعيين درس لك",
+        "body": "مرحباً {firstName}،\n\nعيّن لك {teacherName} الدرس « {courseTitle} » في الفضاء « {workspaceName} ».\n\nيمكنك البدء فيه الآن.",
+        "cta": "فتح الدرس"
+      },
+      "published": {
+        "subject": "درسك متاح الآن: {courseTitle}",
+        "title": "درسك متاح الآن",
+        "body": "مرحباً {firstName}،\n\nنشر {teacherName} للتوّ الدرس « {courseTitle} » في الفضاء « {workspaceName} ».\n\nيمكنك البدء فيه الآن.",
+        "cta": "فتح الدرس"
+      }
     }
   },
   "sms": {

@@ -13,6 +13,7 @@ import { RequestIdMiddleware } from './common/request-id.middleware';
 import { ZodValidationPipe } from './common/zod-validation.pipe';
 import { CoursesModule } from './courses/courses.module';
 import { DbModule } from './db/db.module';
+import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { HealthModule } from './health/health.module';
 import { GuardianModule } from './guardian/guardian.module';
 import { InvitationsModule } from './invitations/invitations.module';
@@ -60,6 +61,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     CoursesModule,
     StructureModule,
     MediaModule,
+    EnrollmentsModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
     TenancyModule,
     RateLimitModule,

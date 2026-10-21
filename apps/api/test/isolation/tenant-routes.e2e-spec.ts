@@ -273,6 +273,11 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     const bLink = await ctx.db.inviteLink.findUniqueOrThrow({ where: { id: p.b.inviteLink.id } });
     expect(bLink.status).toBe('ACTIVE');
     expect(bLink.label).toBe(p.b.inviteLink.label);
+    // SP3 T9: B's enrollment survived the foreign revoke.
+    const bEnrollment = await ctx.db.enrollment.findUniqueOrThrow({
+      where: { id: p.b.enrollment.id },
+    });
+    expect(bEnrollment.status).toBe('ACTIVE');
     const bStatus = async (userId: string) =>
       (
         await ctx.db.membership.findFirstOrThrow({
@@ -315,6 +320,7 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       courses: await ctx.db.course.count(),
       modules: await ctx.db.module.count(),
       lessons: await ctx.db.lesson.count(),
+      enrollments: await ctx.db.enrollment.count(),
     });
     const before = await counts();
 
@@ -334,12 +340,14 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       expect(BODYLESS_WRITE_ROUTES.has(label), `${label}: also listed as bodyless`).toBe(false);
       const table = probe.params === 'local' ? LOCAL_PARAMS : FOREIGN_PARAMS;
       const path = urlFor(route, p.a.workspace.id, table, p);
-      const res = await send(owner, route, path, probe.body(p), probe.headers);
-      // Refused, and refused on purpose: a 5xx is a crash, not an isolation guarantee.
-      expect(res.status, describeRes(label, res)).toBeGreaterThanOrEqual(400);
-      expect(res.status, describeRes(label, res)).toBeLessThan(500);
-      expectNoForeignIds(res.body, label, p);
-      probed += 1;
+      for (const body of [probe.body, ...(probe.more ?? [])]) {
+        const res = await send(owner, route, path, body(p), probe.headers);
+        // Refused, and refused on purpose: a 5xx is a crash, not an isolation guarantee.
+        expect(res.status, describeRes(label, res)).toBeGreaterThanOrEqual(400);
+        expect(res.status, describeRes(label, res)).toBeLessThan(500);
+        expectNoForeignIds(res.body, label, p);
+        probed += 1;
+      }
     }
     expect(probed).toBeGreaterThanOrEqual(4);
 
@@ -370,6 +378,21 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     ).toBe(0);
     expect(
       await ctx.db.inviteLink.count({ where: { workspaceId: wid, teacherUserId: { in: bIds } } }),
+    ).toBe(0);
+    // SP3 T9: no invitation or link of A names B's course; no enrollment of A names B's rows.
+    expect(
+      await ctx.db.invitation.count({ where: { workspaceId: wid, courseIds: { hasSome: bIds } } }),
+    ).toBe(0);
+    expect(
+      await ctx.db.inviteLink.count({ where: { workspaceId: wid, courseIds: { hasSome: bIds } } }),
+    ).toBe(0);
+    expect(
+      await ctx.db.enrollment.count({
+        where: {
+          workspaceId: wid,
+          OR: [{ studentUserId: { in: bIds } }, { courseId: { in: bIds } }],
+        },
+      }),
     ).toBe(0);
     // SP3: no course of A has B's image as cover or B's teacher as owner; A's course is untouched.
     expect(

@@ -948,6 +948,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{wid}/courses/{cid}/enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EnrollmentsController_list"];
+        put?: never;
+        post: operations["EnrollmentsController_enroll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/enrollments/{uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["EnrollmentsController_revoke"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{wid}/courses/{cid}/modules": {
         parameters: {
             query?: never;
@@ -974,6 +1006,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["ModulesController_reorder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/courses/{cid}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EnrollmentsController_progress"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1777,6 +1825,9 @@ export interface components {
             newEmail: string;
             password: string;
         };
+        EnrollStudentsDto: {
+            studentUserIds: string[];
+        };
         ForgotPasswordDto: {
             /** Format: email */
             email: string;
@@ -1843,6 +1894,10 @@ export interface components {
         ResetPasswordDto: {
             newPassword: string;
             token: string;
+        };
+        /** @default {} */
+        RevokeEnrollmentDto: {
+            reason?: string;
         };
         SuspensionDto: {
             reason: string;
@@ -3679,6 +3734,79 @@ export interface operations {
             };
         };
     };
+    EnrollmentsController_list: {
+        parameters: {
+            query?: {
+                status?: "ACTIVE" | "REVOKED";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentsController_enroll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrollStudentsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentsController_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RevokeEnrollmentDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ModulesController_create: {
         parameters: {
             query?: never;
@@ -3724,6 +3852,30 @@ export interface operations {
                 "application/json": components["schemas"]["ReorderDto"];
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentsController_progress: {
+        parameters: {
+            query?: {
+                status?: "ACTIVE" | "REVOKED";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {

@@ -327,6 +327,20 @@
         "body": "Hello {firstName},\n\nProcessing of {filename} failed ({reason, select, ABANDONED {the upload was not finished within 24 hours} TIMEOUT {processing took too long} PROVIDER_ERROR {the video service could not process the file} INVALID_SIGNATURE {the file is unreadable or does not match its type} ENCRYPTED {the PDF is password-protected} QUOTA_EXCEEDED {the storage space is full} SIZE_MISMATCH {the file exceeds the allowed size or duration} other {unknown error}}). You can try uploading it again from the course editor.",
         "cta": "Open my courses"
       }
+    },
+    "course": {
+      "assigned": {
+        "subject": "New course: {courseTitle}",
+        "title": "A course was assigned to you",
+        "body": "Hello {firstName},\n\n{teacherName} assigned you the course “{courseTitle}” in the “{workspaceName}” space.\n\nYou can start it right away.",
+        "cta": "Open the course"
+      },
+      "published": {
+        "subject": "Your course is available: {courseTitle}",
+        "title": "Your course is available",
+        "body": "Hello {firstName},\n\n{teacherName} has just published the course “{courseTitle}” in the “{workspaceName}” space.\n\nYou can start it right away.",
+        "cta": "Open the course"
+      }
     }
   },
   "sms": {

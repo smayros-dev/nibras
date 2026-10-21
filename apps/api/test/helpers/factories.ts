@@ -19,6 +19,7 @@ import {
   type AbuseReport,
   type Course,
   type CourseStatus,
+  type Enrollment,
   type Lesson,
   type MediaAsset,
   type MediaKind,
@@ -475,6 +476,8 @@ export interface CreateInvitationOptions {
   lastName?: string;
   message?: string;
   teacherUserId?: string;
+  /** SP3: courses assigned at acceptance (stored as given, unvalidated). */
+  courseIds?: string[];
   /** `ACCEPTED` only. */
   acceptedBy?: Pick<User, 'id'>;
 }
@@ -501,6 +504,7 @@ export async function createInvitation(
       invitedByUserId: o.invitedBy.id,
       message: o.message ?? null,
       teacherUserId: o.teacherUserId ?? null,
+      courseIds: o.courseIds ?? [],
       lastSentAt: now,
       ...(status === 'ACCEPTED' && {
         acceptedAt: now,
@@ -535,6 +539,8 @@ export interface CreateInviteLinkOptions {
   expiresAt?: Date | null;
   label?: string;
   teacherUserId?: string;
+  /** SP3: courses assigned at each join (stored as given, unvalidated). */
+  courseIds?: string[];
 }
 
 /** A group invite link (STUDENT) written directly; `code` is its 8-character code. */
@@ -550,6 +556,7 @@ export async function createInviteLink(
       role: 'STUDENT',
       createdByUserId: o.createdBy.id,
       teacherUserId: o.teacherUserId ?? null,
+      courseIds: o.courseIds ?? [],
       requiresApproval: o.requiresApproval ?? false,
       maxUses: o.maxUses ?? INVITE_LINK_DEFAULT_MAX_USES,
       usesCount: o.usesCount ?? 0,
@@ -798,6 +805,40 @@ export function createMediaAsset(
       durationS: o.durationS ?? null,
       readyAt: status === 'READY' ? new Date() : null,
       countedBytes: status === 'UPLOADING' ? 0n : sizeBytes,
+    },
+  });
+}
+
+export interface CreateEnrollmentOptions {
+  /** Default `ACTIVE`; `REVOKED` also sets `revokedAt`. */
+  status: 'ACTIVE' | 'REVOKED';
+  /** Default `MANUAL`. */
+  source: 'MANUAL' | 'INVITATION' | 'INVITE_LINK';
+  /** Default the course owner. */
+  assignedBy: Pick<User, 'id'>;
+  /** Default 0. */
+  progressPercent: number;
+}
+
+/** An enrollment of `student` in `course` written directly (no audit, no job). */
+export function createEnrollment(
+  course: Pick<Course, 'id' | 'workspaceId' | 'ownerUserId'>,
+  student: Pick<User, 'id'>,
+  o: Partial<CreateEnrollmentOptions> = {},
+): Promise<Enrollment> {
+  const status = o.status ?? 'ACTIVE';
+  const now = new Date();
+  return systemPrisma().enrollment.create({
+    data: {
+      workspaceId: course.workspaceId,
+      courseId: course.id,
+      studentUserId: student.id,
+      status,
+      assignedByUserId: o.assignedBy?.id ?? course.ownerUserId,
+      source: o.source ?? 'MANUAL',
+      activatedAt: now,
+      progressPercent: o.progressPercent ?? 0,
+      ...(status === 'REVOKED' && { revokedAt: now }),
     },
   });
 }

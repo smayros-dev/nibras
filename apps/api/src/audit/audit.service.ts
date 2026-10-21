@@ -91,6 +91,8 @@ export type AuditAction =
   | 'media.upload_created'
   | 'media.completed'
   | 'media.deleted'
+  | 'enrollment.created'
+  | 'enrollment.revoked'
   // Written by the worker (`writeSystemAudit`, actor SYSTEM): processing, cleanup, webhooks.
   | 'media.failed'
   | typeof CROSS_TENANT_AUDIT_ACTION;

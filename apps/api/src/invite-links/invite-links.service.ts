@@ -22,6 +22,7 @@ import { ApiError } from '../common/api-error';
 import { uniqueViolationOn } from '../common/prisma-errors';
 import { env } from '../config/env';
 import { DB } from '../db/db.module';
+import { assertAssignableCourseIds } from '../enrollments/course-ids';
 import { studentTeacherFor } from '../invitations/invitations.service';
 import type { MemberCtx } from '../members/members.service';
 import { validationFailed } from '../workspaces/workspaces.service';
@@ -110,7 +111,8 @@ export class InviteLinksService {
    * a PERSONAL workspace), `INVITE_LINK_DEFAULT_MAX_USES` uses, `INVITE_LINK_DEFAULT_TTL_DAYS`
    * days; `expiresAt` in the future and at most a year ahead (`422`). `teacherUserId` follows the
    * invitation rules (`studentTeacherFor`). The code is drawn at random and retried on a
-   * collision. Audits `invite_link.created`.
+   * collision. `courseIds` (SP3): each a live DRAFT/PUBLISHED course of the workspace — the
+   * caller's own in scope `own` — else `422` on `courseIds[i]`. Audits `invite_link.created`.
    */
   async create(ctx: MemberCtx, input: CreateInviteLinkInput): Promise<InviteLinkView> {
     const workspace = await this.workspace(ctx.workspaceId);
@@ -122,6 +124,11 @@ export class InviteLinksService {
       ctx,
       workspace.type === 'ORGANIZATION',
       input.teacherUserId,
+    );
+    await assertAssignableCourseIds(
+      ctx.workspaceId,
+      input.courseIds,
+      ctx.scope === 'own' ? ctx.userId : undefined,
     );
     const data = {
       workspaceId: ctx.workspaceId,
@@ -157,6 +164,7 @@ export class InviteLinksService {
         expiresAt: row.expiresAt,
         requiresApproval: row.requiresApproval,
         teacherUserId: row.teacherUserId,
+        courseIds: row.courseIds,
       },
     });
     return toView(row, workspace, now);

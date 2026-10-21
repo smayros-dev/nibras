@@ -125,6 +125,20 @@ const SAMPLE_PARAMS: EmailParamsByKey = {
     reason: 'ENCRYPTED',
     link: 'https://x/fr/app/w/w1/courses',
   },
+  'course.assigned': {
+    firstName: 'Yasmine',
+    courseTitle: 'Algèbre — niveau 1',
+    teacherName: 'Mohamed Ben Ali',
+    workspaceName: 'École Ibn Khaldoun',
+    link: 'https://x/fr/app/courses/c1',
+  },
+  'course.published': {
+    firstName: 'Yasmine',
+    courseTitle: 'Algèbre — niveau 1',
+    teacherName: 'Mohamed Ben Ali',
+    workspaceName: 'École Ibn Khaldoun',
+    link: 'https://x/fr/app/courses/c1',
+  },
 };
 
 /** The 13 SP2 templates (invitations, guardian consent, join requests, CSV imports). */
@@ -385,6 +399,24 @@ describe('SP2 templates', () => {
       for (const r of MEDIA_FAILURE_REASONS) expect(text(locale, r)).not.toContain(r);
     }
     expect(text('ar', 'ENCRYPTED')).toMatch(ARABIC);
+  });
+
+  it('course.assigned and course.published name the course, the teacher and the workspace in every locale', () => {
+    for (const key of ['course.assigned', 'course.published'] as const) {
+      for (const locale of LOCALES) {
+        const mail = renderEmail(key, locale, SAMPLE_PARAMS[key]);
+        for (const value of ['Algèbre — niveau 1', 'Mohamed Ben Ali', 'École Ibn Khaldoun']) {
+          expect(mail.text, `${locale}:${key}`).toContain(value);
+        }
+        expect(mail.text, `${locale}:${key}`).toContain('https://x/fr/app/courses/c1');
+      }
+    }
+    expect(renderEmail('course.assigned', 'fr', SAMPLE_PARAMS['course.assigned']).subject).toBe(
+      'Nouveau cours : Algèbre — niveau 1',
+    );
+    expect(renderEmail('course.published', 'ar', SAMPLE_PARAMS['course.published']).text).toMatch(
+      ARABIC,
+    );
   });
 
   it('pluralises import counts per locale', () => {

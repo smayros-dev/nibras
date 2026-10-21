@@ -34,6 +34,8 @@ export const EMAIL_TEMPLATE_KEYS = [
   'join.rejected',
   'imports.completed',
   'media.failed',
+  'course.assigned',
+  'course.published',
 ] as const;
 
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number];
@@ -133,6 +135,26 @@ export type EmailParamsByKey = {
    * explanation; `link`: the course editor (or the workspace's course list).
    */
   'media.failed': Name & { filename: string; reason: MediaFailureReason; link: string };
+  /**
+   * To a student when a PUBLISHED course is assigned to him (worker, spec §4.5 / D14, AC-ENR-01):
+   * `teacherName` is the course owner; `link`: the student's course page.
+   */
+  'course.assigned': Name & {
+    courseTitle: string;
+    teacherName: string;
+    workspaceName: string;
+    link: string;
+  };
+  /**
+   * To every ACTIVE enrolled student when the course is published (worker, spec D14 / Q3,
+   * AC-ENR-02; SP7 replaces it with an in-app notification).
+   */
+  'course.published': Name & {
+    courseTitle: string;
+    teacherName: string;
+    workspaceName: string;
+    link: string;
+  };
 };
 
 /** ICU arguments of template `K`. */

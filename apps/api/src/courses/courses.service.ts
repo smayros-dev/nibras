@@ -1,4 +1,5 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   COURSE_PUBLISHED_NOTIFY_JOB,
   INLINE_URL_TTL_S,
@@ -28,6 +29,7 @@ import { ApiError } from '../common/api-error';
 import { assertVersion } from '../common/if-match';
 import { RequestContext } from '../common/request-context';
 import { DB } from '../db/db.module';
+import { COURSE_PUBLISHED, CoursePublishedEvent } from '../enrollments/events';
 import { STORAGE_PROVIDER } from '../media/tokens';
 import { QueueService } from '../queue/queue.service';
 import { RichTextService } from '../structure/rich-text.service';
@@ -134,6 +136,7 @@ export class CoursesService {
     private readonly richText: RichTextService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
     private readonly logger: PinoLogger,
+    private readonly events: EventEmitter2,
   ) {
     logger.setContext(CoursesService.name);
   }
@@ -288,7 +291,7 @@ export class CoursesService {
    * transition does not start from → `409 COURSE_STATUS_INVALID { status, allowed }`. `publish`
    * also needs ≥ 1 module and ≥ 1 lesson that is TEXT or whose media is READY, checked under the
    * row lock (`422 COURSE_NOT_PUBLISHABLE { missing, lessons }`), and enqueues one
-   * `course.published_notify` per published version. Each transition bumps the version and is
+   * `course.published_notify` per published version (+ `CoursePublishedEvent`). Each transition bumps the version and is
    * audited with before/after `{ status }`; `unpublish` keeps enrollments and progress.
    */
   async transition(ctx: CourseCtx, cid: string, name: CourseTransition): Promise<CourseDetail> {
@@ -329,7 +332,10 @@ export class CoursesService {
       before: { status: from },
       after: { status: t.to },
     });
-    if (name === 'publish') await this.enqueuePublished(ctx.workspaceId, cid, course.version);
+    if (name === 'publish') {
+      await this.enqueuePublished(ctx.workspaceId, cid, course.version);
+      this.publishEvent(new CoursePublishedEvent(ctx.workspaceId, cid, course.version));
+    }
     return course;
   }
 
@@ -544,6 +550,20 @@ export class CoursesService {
         { courseId, err: { type: err instanceof Error ? err.name : typeof err } },
         'course published notifications not enqueued',
       );
+    }
+  }
+
+  /** Fire-and-forget {@link CoursePublishedEvent} (SP7); a listener's failure is only logged. */
+  private publishEvent(event: CoursePublishedEvent): void {
+    const failed = (err: unknown) =>
+      this.logger.error(
+        { courseId: event.courseId, err: { type: err instanceof Error ? err.name : typeof err } },
+        'CoursePublishedEvent listener failed',
+      );
+    try {
+      this.events.emitAsync(COURSE_PUBLISHED, event).catch(failed);
+    } catch (err) {
+      failed(err);
     }
   }
 }
