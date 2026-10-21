@@ -1,7 +1,8 @@
 'use client';
 
 import type { GrantContext } from '@nibras/contracts/web';
-import { Card, SkeletonText, Tabs, useCurrentPath } from '@nibras/ui';
+import { Button, Card, SkeletonText, Tabs, useCurrentPath } from '@nibras/ui';
+import { Eye } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import NextLink from 'next/link';
 import { lazy, Suspense, type ReactNode } from 'react';
@@ -57,15 +58,26 @@ export function CourseFrame({
         writable={writable}
         onChanged={setCourse}
       />
-      <Tabs.Root asLinks value={value}>
-        <Tabs.List aria-label={t('courses.sections')}>
-          {TABS.map((tab) => (
-            <Tabs.Trigger key={tab.value} value={tab.value} asChild>
-              <NextLink href={`${base}${tab.segment}`}>{t(tab.label)}</NextLink>
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-      </Tabs.Root>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <Tabs.Root asLinks value={value}>
+          <Tabs.List aria-label={t('courses.sections')}>
+            {TABS.map((tab) => (
+              <Tabs.Trigger key={tab.value} value={tab.value} asChild>
+                <NextLink href={`${base}${tab.segment}`}>{t(tab.label)}</NextLink>
+              </Tabs.Trigger>
+            ))}
+          </Tabs.List>
+        </Tabs.Root>
+        <Button variant="secondary" size="sm" asChild>
+          <NextLink
+            href={`${base}/preview`}
+            aria-current={segment === 'preview' ? 'page' : undefined}
+          >
+            <Eye aria-hidden="true" className="size-4" />
+            {t('learn.preview')}
+          </NextLink>
+        </Button>
+      </div>
       <div>{children}</div>
     </div>
   );

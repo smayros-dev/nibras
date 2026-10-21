@@ -45,6 +45,7 @@ const DYNAMIC_KEYS: readonly string[] = [
   'courses.blocker_', // t(`courses.blocker_${blocker}`) — course header (publish blockers)
   'structure.type_', // t(`structure.type_${type}`) — lesson dialog, structure panel
   'structure.unlock_', // t(`structure.unlock_${rule}`) — module dialog
+  'learn.status_', // t(`learn.status_${status}`) — course outline
   'upload.title_', // t(`upload.title_${kind}`) — upload dialog
   'upload.hint_', // t(`upload.hint_${kind}`) — upload dialog
   'upload.status_', // t(`upload.status_${status}`) — media state chip, media picker
