@@ -4,20 +4,20 @@ What is done, in progress and still to do on Nibras. Updated as each task lands.
 
 Legend: ✅ done · 🔄 in progress · ⏳ to do · 🙋 owner action
 
-**Last update:** 2026-10-21
+**Last update:** 2026-10-22
 
 ## Overview
 
-| Sub-project                     | Branch              | Status             |
-| ------------------------------- | ------------------- | ------------------ |
-| SP0 Monorepo and infrastructure | `main`              | ✅ merged          |
-| SP1 Auth, tenancy and roles     | `main`              | ✅ merged          |
-| SP1.5 Frontend redesign         | `main`              | ✅ merged          |
-| Rename TT → Nibras              | `main`              | ✅ merged          |
-| SP1.6 Security hardening        | `main`              | ✅ merged (T0–T12) |
-| SP2 Students and invitations    | `main`              | ✅ merged (T0–T16) |
-| SP3 Courses, content and media  | `sp3/courses-media` | 🔄 T10 of T0–T18   |
-| SP4–SP11                        | —                   | ⏳ not planned yet |
+| Sub-project                     | Branch | Status             |
+| ------------------------------- | ------ | ------------------ |
+| SP0 Monorepo and infrastructure | `main` | ✅ merged          |
+| SP1 Auth, tenancy and roles     | `main` | ✅ merged          |
+| SP1.5 Frontend redesign         | `main` | ✅ merged          |
+| Rename TT → Nibras              | `main` | ✅ merged          |
+| SP1.6 Security hardening        | `main` | ✅ merged (T0–T12) |
+| SP2 Students and invitations    | `main` | ✅ merged (T0–T16) |
+| SP3 Courses, content and media  | `main` | ✅ merged (T0–T18) |
+| SP4–SP11                        | —      | ⏳ not planned yet |
 
 Specs and plans: [`docs/superpowers/specs/`](docs/superpowers/specs/),
 [`docs/superpowers/plans/`](docs/superpowers/plans/).
@@ -63,7 +63,7 @@ Specs and plans: [`docs/superpowers/specs/`](docs/superpowers/specs/),
 | T15  | Web: CSV import dialog, accessibility sweep, budget                  | ✅     |
 | T16  | Final review, runbook, merge into `main`                             | ✅     |
 
-## SP3 Courses, content and media 🔄
+## SP3 Courses, content and media ✅
 
 | Task | Content                                                           | Status |
 | ---- | ----------------------------------------------------------------- | ------ |
@@ -77,16 +77,16 @@ Specs and plans: [`docs/superpowers/specs/`](docs/superpowers/specs/),
 | T7   | Media API: resumable upload, checks, playback, webhooks           | ✅     |
 | T8   | Worker: media processing, webhooks, cleanup                       | ✅     |
 | T9   | Enrollments + SP2 invitation hooks                                | ✅     |
-| T10  | Student learning API (`/me/courses`, locks, progress)             | 🔄     |
-| —    | Merge SP2 into SP3                                                | ⏳     |
-| T11  | Web: course list, create dialog, settings                         | ⏳     |
-| T12  | Web: structure editor (drag and drop), upload engine              | ⏳     |
-| T13  | Web: rich-text editor                                             | ⏳     |
-| T14  | Web: enrollment panel, student profile courses                    | ⏳     |
-| T15  | Web: student pages (my courses, outline, lesson)                  | ⏳     |
-| T16  | Web: video player, PDF viewer, watermark, CSP                     | ⏳     |
-| T17  | E2E, accessibility, demo course in the seed                       | ⏳     |
-| T18  | Final review, runbook, merge into `main`                          | ⏳     |
+| T10  | Student learning API (`/me/courses`, locks, progress)             | ✅     |
+| —    | Merge SP2 into SP3                                                | ✅     |
+| T11  | Web: course list, create dialog, settings                         | ✅     |
+| T12  | Web: structure editor (drag and drop), upload engine              | ✅     |
+| T13  | Web: rich-text editor                                             | ✅     |
+| T14  | Web: enrollment panel, student profile courses                    | ✅     |
+| T15  | Web: student pages (my courses, outline, lesson)                  | ✅     |
+| T16  | Web: video player, PDF viewer, watermark, CSP                     | ✅     |
+| T17  | E2E, accessibility, demo course in the seed                       | ✅     |
+| T18  | Final review, runbook, merge into `main`                          | ✅     |
 
 ## Next sub-projects (PRD §18) ⏳
 
