@@ -227,8 +227,10 @@ test.describe('workspaces (plan Task 21)', () => {
     await page.goto(`/${locale}/app/w/${wid}/members`);
     await page.getByRole('button', { name: t(locale, 'members.inviteStaff') }).click();
     const dialog = page.getByRole('dialog', { name: t(locale, 'members.inviteStaffTitle') });
+    // By role: the required field's <label> text carries the « * » marker (aria-hidden), so an
+    // exact getByLabel never matches; the accessible name does not include it.
     await dialog
-      .getByLabel(t(locale, 'members.inviteStaffEmail'), { exact: true })
+      .getByRole('textbox', { name: t(locale, 'members.inviteStaffEmail'), exact: true })
       .fill(teacherEmail);
     await dialog.getByLabel(t(locale, 'members.role'), { exact: true }).selectOption('TEACHER');
     await dialog.getByRole('button', { name: t(locale, 'invitations.submit') }).click();
@@ -259,7 +261,11 @@ test.describe('workspaces (plan Task 21)', () => {
         .fill('un mot de passe assez long');
       await teacherPage.getByRole('checkbox').check();
       await teacherPage.getByRole('button', { name: t(locale, 'invite.registerSubmit') }).click();
-      await expect(teacherPage).toHaveURL(appUrl(`/${locale}/app`), { timeout: 15_000 });
+      // Staff land on the verification page (`acceptDestination`, T11): a teacher verifies
+      // before inviting (D-O6).
+      await expect(teacherPage).toHaveURL(appUrl(`/${locale}/app/settings/verification`), {
+        timeout: 15_000,
+      });
       await acceptConsentGate(teacherPage, locale);
 
       // D-O7: an invited teacher has no PERSONAL workspace — only the organisation.
