@@ -16,6 +16,16 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   };
 }
 
+// jsdom has no layout; ProseMirror (the rich-text editor) measures selections and coordinates.
+if (typeof Range !== 'undefined') {
+  const rect = { x: 0, y: 0, top: 0, left: 0, bottom: 0, right: 0, width: 0, height: 0 };
+  Range.prototype.getBoundingClientRect = () => ({ ...rect, toJSON: () => rect }) as DOMRect;
+  Range.prototype.getClientRects = () =>
+    Object.assign([], { item: () => null }) as unknown as DOMRectList;
+  Element.prototype.scrollIntoView ??= () => {};
+  document.elementFromPoint ??= () => null;
+}
+
 afterEach(() => {
   if (typeof document !== 'undefined') {
     cleanup();

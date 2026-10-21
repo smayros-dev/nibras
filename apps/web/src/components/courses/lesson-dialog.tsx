@@ -1,20 +1,28 @@
 'use client';
 
-import type { LessonDetail, LessonSummary } from '@nibras/contracts';
+import type {
+  CreateLessonInput,
+  LessonDetail,
+  LessonSummary,
+  RichTextDoc,
+  UpdateLessonInput,
+} from '@nibras/contracts';
 import { MVP_LESSON_TYPES } from '@nibras/contracts/web';
-import { Alert, Button, Dialog, Field, Input, Switch, Textarea, useSubmit } from '@nibras/ui';
+import { Alert, Button, Dialog, Field, Input, Switch, useSubmit } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, asApiResult } from '../../lib/api';
 import { apiErrorMessage, issuesToFieldErrors } from '../../lib/api-error';
+import { withIfMatch, type CourseWrite, type WriteOutcome } from '../../lib/courses';
 import {
-  docToText,
-  textToDoc,
-  withIfMatch,
-  type CourseWrite,
-  type WriteOutcome,
-} from '../../lib/courses';
+  cleanRichText,
+  EMPTY_DOC,
+  richTextProblem,
+  richTextProblemMessage,
+} from '../../lib/rich-text';
 import { useErrorFocus } from '../../lib/use-error-focus';
+import type { RichTextImages } from '../rich-text/editor';
+import { LazyRichTextEditor } from '../rich-text/lazy-editor';
 import { MediaPicker } from './media-picker';
 
 type LessonType = (typeof MVP_LESSON_TYPES)[number];
@@ -24,8 +32,8 @@ const FIELDS = ['title', 'mediaAssetId', 'content', 'isRequired', 'allowDownload
 /**
  * Create or edit a lesson (PRD §8.4.3): the type is picked on create (Vidéo / PDF / Texte) and
  * immutable afterwards; VIDEO and PDF take a workspace media (`MediaPicker`, with upload), PDF
- * also « Autoriser le téléchargement », TEXT a content (a plain `Textarea` stored one paragraph
- * per line until T13's editor). The write goes through the editor's `run`.
+ * also « Autoriser le téléchargement », TEXT a content (the rich-text editor with inline images
+ * uploaded as IMAGE media of the workspace). The write goes through the editor's `run`.
  */
 export function LessonDialog({
   wid,
@@ -85,8 +93,24 @@ function LessonForm({
   const [mediaId, setMediaId] = useState<string | null>(lesson?.mediaAssetId ?? null);
   // Unset on create: the API applies the workspace's default (`default_pdf_download`).
   const [allowDownload, setAllowDownload] = useState<boolean | undefined>(lesson?.allowDownload);
-  const [content, setContent] = useState('');
-  const [loadedContent, setLoadedContent] = useState('');
+  const [content, setContent] = useState<RichTextDoc>(EMPTY_DOC);
+  /** The loaded content, serialised: an untouched content is not sent again. */
+  const [loadedContent, setLoadedContent] = useState(JSON.stringify(EMPTY_DOC));
+  /** `mediaId` → presigned URL of the content's inline images (5 min, from the lesson detail). */
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const images = useMemo<RichTextImages>(
+    () => ({
+      urls: imageUrls,
+      // Inline images go through the upload engine (kind IMAGE), fetched with the upload dialog's
+      // chunk on the first image: a separate dynamic import of the engine reshuffles the shared
+      // chunks and costs every workspace route ≈ 12 kB of first-load JS.
+      upload: async (file, signal) => {
+        const { startUpload } = await import('./upload-dialog');
+        return startUpload({ wid, kind: 'IMAGE', file, signal });
+      },
+    }),
+    [wid, imageUrls],
+  );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
@@ -105,9 +129,10 @@ function LessonForm({
           }),
         );
         if (data) {
-          const text = docToText(data.content);
-          setContent(text);
-          setLoadedContent(text);
+          const doc = cleanRichText(data.content ?? EMPTY_DOC, { allowImage: true });
+          setImageUrls(data.images);
+          setContent(doc);
+          setLoadedContent(JSON.stringify(doc));
         }
       } catch {
         // Left empty: saving without touching the content does not send it.
@@ -123,32 +148,43 @@ function LessonForm({
       setFieldErrors({ mediaAssetId: t('structure.mediaRequired') });
       return;
     }
-    let body: Record<string, unknown>;
-    if (!lesson) {
-      body = { type, title: title.trim(), isRequired };
-      if (type === 'TEXT') body.content = textToDoc(content);
-      else body.mediaAssetId = mediaId;
-      if (type === 'PDF' && allowDownload !== undefined) body.allowDownload = allowDownload;
-    } else {
-      body = { title: title.trim(), isRequired };
-      if (type !== 'TEXT' && mediaId !== lesson.mediaAssetId) body.mediaAssetId = mediaId;
-      if (type === 'PDF' && allowDownload !== lesson.allowDownload) {
-        body.allowDownload = allowDownload;
-      }
-      if (type === 'TEXT' && content !== loadedContent) body.content = textToDoc(content);
+    const problem = type === 'TEXT' ? richTextProblem(content) : null;
+    if (problem) {
+      setFieldErrors({ content: richTextProblemMessage(t, problem) });
+      return;
     }
-    const outcome = await run((version) =>
-      lesson
-        ? api.PATCH('/workspaces/{wid}/lessons/{lid}', {
-            params: { path: { wid, lid: lesson.id }, header: withIfMatch(version) },
-            // The generated type of the recursive rich-text union is narrower than the contract's.
-            body: body as never,
-          })
-        : api.POST('/workspaces/{wid}/modules/{mid}/lessons', {
-            params: { path: { wid, mid: moduleId }, header: withIfMatch(version) },
-            body: body as never,
-          }),
-    );
+    const outcome = await run((version) => {
+      if (lesson) {
+        const body: UpdateLessonInput = { title: title.trim(), isRequired };
+        if (type !== 'TEXT' && mediaId && mediaId !== lesson.mediaAssetId) {
+          body.mediaAssetId = mediaId;
+        }
+        if (type === 'PDF' && allowDownload !== lesson.allowDownload) {
+          body.allowDownload = allowDownload;
+        }
+        if (type === 'TEXT' && JSON.stringify(content) !== loadedContent) body.content = content;
+        return api.PATCH('/workspaces/{wid}/lessons/{lid}', {
+          params: { path: { wid, lid: lesson.id }, header: withIfMatch(version) },
+          body,
+        });
+      }
+      const common = { title: title.trim(), isRequired };
+      const body: CreateLessonInput =
+        type === 'TEXT'
+          ? { type, ...common, content }
+          : type === 'PDF'
+            ? {
+                type,
+                ...common,
+                mediaAssetId: mediaId ?? '',
+                ...(allowDownload === undefined ? {} : { allowDownload }),
+              }
+            : { type, ...common, mediaAssetId: mediaId ?? '' };
+      return api.POST('/workspaces/{wid}/modules/{mid}/lessons', {
+        params: { path: { wid, mid: moduleId }, header: withIfMatch(version) },
+        body,
+      });
+    });
     if (outcome.ok || outcome.conflict) {
       onDone();
       return;
@@ -218,20 +254,14 @@ function LessonForm({
         />
       </Field>
       {type === 'TEXT' ? (
-        <Field
-          htmlFor="lesson-content"
+        <LazyRichTextEditor
+          id="lesson-content"
           label={t('structure.fieldContent')}
           error={fieldErrors.content}
-        >
-          <Textarea
-            id="lesson-content"
-            name="content"
-            rows={6}
-            autoResize
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
-        </Field>
+          value={content}
+          onChange={setContent}
+          images={images}
+        />
       ) : (
         <MediaPicker
           key={type}

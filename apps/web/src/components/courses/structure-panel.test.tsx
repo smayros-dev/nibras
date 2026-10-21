@@ -254,10 +254,10 @@ describe('StructurePanel', () => {
       within(dialog).getByRole('textbox', { name: tr('fr', 'structure.fieldTitle') }),
       'Lire une fraction',
     );
-    await ue.type(
-      within(dialog).getByRole('textbox', { name: tr('fr', 'structure.fieldContent') }),
-      'Le numérateur est en haut.',
+    await ue.click(
+      await within(dialog).findByRole('textbox', { name: tr('fr', 'structure.fieldContent') }),
     );
+    await ue.keyboard('Le numérateur est en haut.');
     await ue.click(within(dialog).getByRole('button', { name: tr('fr', 'structure.create') }));
     await waitFor(() =>
       expect(api.POST).toHaveBeenCalledWith('/workspaces/{wid}/modules/{mid}/lessons', {

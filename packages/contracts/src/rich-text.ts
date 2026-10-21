@@ -24,30 +24,47 @@ export type RichTextMark =
         href: string;
         target?: '_blank' | null;
         rel?: string | null;
-        class?: null;
+        // `class: null` (Tiptap's) is accepted by the schema but left out of the type: the
+        // generated OpenAPI client types it as absent, and nothing reads it.
       };
     };
 
-export type RichTextNode =
+/** The whitelisted nodes; `Extra` is the `image` node for lesson content, `never` for descriptions. */
+export type RichTextNodeOf<Extra> =
   | { type: 'text'; text: string; marks?: RichTextMark[] }
-  | { type: 'paragraph'; content?: RichTextNode[] }
-  | { type: 'heading'; attrs: { level: 1 | 2 | 3 }; content?: RichTextNode[] }
-  | { type: 'bulletList'; content?: RichTextNode[] }
+  | { type: 'paragraph'; content?: RichTextNodeOf<Extra>[] }
+  | { type: 'heading'; attrs: { level: 1 | 2 | 3 }; content?: RichTextNodeOf<Extra>[] }
+  | { type: 'bulletList'; content?: RichTextNodeOf<Extra>[] }
   | {
       type: 'orderedList';
       attrs?: { start?: number; type?: '1' | 'a' | 'A' | 'i' | 'I' | null };
-      content?: RichTextNode[];
+      content?: RichTextNodeOf<Extra>[];
     }
-  | { type: 'listItem'; content?: RichTextNode[] }
-  | { type: 'blockquote'; content?: RichTextNode[] }
-  | { type: 'codeBlock'; attrs?: { language?: string | null }; content?: RichTextNode[] }
+  | { type: 'listItem'; content?: RichTextNodeOf<Extra>[] }
+  | { type: 'blockquote'; content?: RichTextNodeOf<Extra>[] }
+  | { type: 'codeBlock'; attrs?: { language?: string | null }; content?: RichTextNodeOf<Extra>[] }
   | { type: 'hardBreak' }
   | { type: 'horizontalRule' }
-  | { type: 'image'; attrs: { mediaId: string; alt?: string } };
+  | Extra;
+
+export interface RichTextImageNode {
+  type: 'image';
+  attrs: { mediaId: string; alt?: string };
+}
+
+export type RichTextNode = RichTextNodeOf<RichTextImageNode>;
+/** A node of a course description (no image at any depth). */
+export type RichTextDescriptionNode = RichTextNodeOf<never>;
 
 export interface RichTextDoc {
   type: 'doc';
   content?: RichTextNode[];
+}
+
+/** A course description: assignable to `RichTextDoc`, never holds an image. */
+export interface RichTextDescriptionDoc {
+  type: 'doc';
+  content?: RichTextDescriptionNode[];
 }
 
 const MarkSchema: z.ZodType<RichTextMark> = z.discriminatedUnion('type', [
@@ -60,7 +77,7 @@ const MarkSchema: z.ZodType<RichTextMark> = z.discriminatedUnion('type', [
         .max(RICH_TEXT_HREF_MAX)
         .regex(/^https?:\/\//i, 'Only http(s) links are allowed'),
       // Emitted by Tiptap's link extension; the renderer sets its own `target` / `rel`.
-      target: z.literal('_blank').nullable().optional(),
+      target: z.enum(['_blank']).nullable().optional(),
       rel: z.string().max(100).nullable().optional(),
       class: z.null().optional(),
     }),
@@ -165,7 +182,9 @@ function docSchema(allowImage: boolean): z.ZodType<RichTextDoc> {
 /** A TEXT lesson's content. */
 export const RichTextDocSchema = docSchema(true);
 /** A course description: the same whitelist without `image`. */
-export const RichTextDescriptionSchema = docSchema(false);
+export const RichTextDescriptionSchema = docSchema(
+  false,
+) as unknown as z.ZodType<RichTextDescriptionDoc>;
 
 /** A document with one empty paragraph (what a fresh editor holds). */
 export const EMPTY_DOC: RichTextDoc = { type: 'doc', content: [{ type: 'paragraph' }] };

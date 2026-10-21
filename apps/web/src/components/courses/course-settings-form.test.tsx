@@ -69,9 +69,9 @@ describe('CourseSettingsForm', () => {
     api.PATCH.mockResolvedValue({ data: saved });
     renderForm();
     expect(titleBox()).toHaveValue('Algèbre 1');
-    expect(screen.getByRole('textbox', { name: tr('fr', 'courses.fieldDescription') })).toHaveValue(
-      'Les bases.',
-    );
+    expect(
+      await screen.findByRole('textbox', { name: tr('fr', 'courses.fieldDescription') }),
+    ).toHaveTextContent('Les bases.');
     const ue = userEvent.setup();
     await ue.clear(titleBox());
     await ue.type(titleBox(), 'Algèbre 2');
@@ -89,9 +89,11 @@ describe('CourseSettingsForm', () => {
     api.PATCH.mockResolvedValue({ data: course({ version: 4 }) });
     renderForm(course({ estimatedMinutesOverride: 90 }));
     const ue = userEvent.setup();
-    const description = screen.getByRole('textbox', { name: tr('fr', 'courses.fieldDescription') });
-    await ue.clear(description);
-    await ue.type(description, 'Ligne 1{Enter}Ligne 2');
+    const description = await screen.findByRole('textbox', {
+      name: tr('fr', 'courses.fieldDescription'),
+    });
+    await ue.click(description);
+    await ue.keyboard('{Control>}a{/Control}Ligne 1{Enter}Ligne 2');
     await ue.clear(screen.getByRole('spinbutton', { name: tr('fr', 'courses.fieldEstimated') }));
     await ue.click(save());
     await waitFor(() => expect(api.PATCH).toHaveBeenCalled());

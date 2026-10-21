@@ -1,6 +1,6 @@
 'use client';
 
-import type { CourseDetail, RichTextDoc, RichTextNode } from '@nibras/contracts';
+import type { CourseDetail } from '@nibras/contracts';
 import type { Locale } from '@nibras/contracts/web';
 import {
   createContext,
@@ -34,30 +34,6 @@ export function conflictVersion(error: unknown): number | null {
   if (body?.code !== 'VERSION_CONFLICT') return null;
   const v = body.details?.currentVersion;
   return typeof v === 'number' ? v : null;
-}
-
-function nodeText(node: RichTextNode): string {
-  if (node.type === 'text') return node.text;
-  if (node.type === 'hardBreak') return '\n';
-  return 'content' in node && node.content ? node.content.map(nodeText).join('') : '';
-}
-
-/** Plain text of a description, one line per block (the settings `Textarea` until T13's editor). */
-export function docToText(doc: RichTextDoc | null): string {
-  return (doc?.content ?? []).map(nodeText).join('\n');
-}
-
-/** One paragraph per non-blank line; an empty text is the editor's empty document. */
-export function textToDoc(text: string): RichTextDoc {
-  const lines = text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line !== '');
-  if (lines.length === 0) return { type: 'doc', content: [{ type: 'paragraph' }] };
-  return {
-    type: 'doc',
-    content: lines.map((line) => ({ type: 'paragraph', content: [{ type: 'text', text: line }] })),
-  };
 }
 
 export interface CourseState {

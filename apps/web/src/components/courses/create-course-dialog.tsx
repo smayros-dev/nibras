@@ -1,6 +1,6 @@
 'use client';
 
-import type { CourseDetail, CreateCourseInput } from '@nibras/contracts';
+import type { CourseDetail, CreateCourseInput, RichTextDescriptionDoc } from '@nibras/contracts';
 import { COURSE_LEVELS, LOCALES, type CourseLevel, type Locale } from '@nibras/contracts/web';
 import { Alert, Button, Dialog, Field, Input, Select, Switch, useSubmit } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
@@ -8,12 +8,19 @@ import { useState } from 'react';
 import { api, asApiResult } from '../../lib/api';
 import { apiErrorMessage, issuesToFieldErrors } from '../../lib/api-error';
 import { LANGUAGE_NAMES } from '../../lib/courses';
+import {
+  EMPTY_DOC,
+  isEmptyDoc,
+  richTextProblem,
+  richTextProblemMessage,
+} from '../../lib/rich-text';
 import { useErrorFocus } from '../../lib/use-error-focus';
+import { LazyRichTextEditor } from '../rich-text/lazy-editor';
 
-const FIELDS = ['title', 'level', 'language', 'sequentialLessons'];
+const FIELDS = ['title', 'description', 'level', 'language', 'sequentialLessons'];
 
 /**
- * « + Créer » on the courses page (PRD §8.4.1): title, level, teaching language (the workspace's
+ * « + Créer » on the courses page (PRD §8.4.1): title, description (rich text, no images), level, teaching language (the workspace's
  * default) and « Leçons dans l'ordre ». `POST /courses` creates a DRAFT; `onCreated` gets it (the
  * panel opens it). Validation issues land on their fields, anything else in a form alert. Loaded
  * on the first click (React.lazy), so the route's first-load JS does not carry it.
@@ -58,6 +65,7 @@ function CreateCourseForm({
 }) {
   const t = useTranslations();
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState<RichTextDescriptionDoc>(EMPTY_DOC);
   const [level, setLevel] = useState<CourseLevel | ''>('');
   const [language, setLanguage] = useState<Locale>(defaultLanguage);
   const [sequential, setSequential] = useState(false);
@@ -68,10 +76,15 @@ function CreateCourseForm({
   const submit = useSubmit(async () => {
     setFieldErrors({});
     setFormError(null);
-    // No description here: the generated body type of the recursive rich-text union is narrower.
-    const body: Pick<CreateCourseInput, 'title' | 'language' | 'level' | 'sequentialLessons'> = {
+    const problem = richTextProblem(description);
+    if (problem) {
+      setFieldErrors({ description: richTextProblemMessage(t, problem) });
+      return;
+    }
+    const body: CreateCourseInput = {
       title: title.trim(),
       language,
+      ...(isEmptyDoc(description) ? {} : { description }),
       ...(level ? { level } : {}),
       ...(sequential ? { sequentialLessons: true } : {}),
     };
@@ -127,6 +140,14 @@ function CreateCourseForm({
           required
         />
       </Field>
+      <LazyRichTextEditor
+        id="create-course-description"
+        label={t('courses.fieldDescription')}
+        error={fieldErrors.description}
+        value={description}
+        // Without `images` the editor drops every image node.
+        onChange={(doc) => setDescription(doc as RichTextDescriptionDoc)}
+      />
       <Field
         htmlFor="create-course-level"
         label={t('courses.fieldLevel')}

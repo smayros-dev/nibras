@@ -1823,8 +1823,8 @@ export interface components {
                     class?: null;
                     href: string;
                     rel?: string | null;
-                    /** @constant */
-                    target?: "_blank";
+                    /** @enum {string|null} */
+                    target?: "_blank" | null;
                 };
                 /** @enum {string} */
                 type: "link";
@@ -1949,8 +1949,8 @@ export interface components {
                     class?: null;
                     href: string;
                     rel?: string | null;
-                    /** @constant */
-                    target?: "_blank";
+                    /** @enum {string|null} */
+                    target?: "_blank" | null;
                 };
                 /** @enum {string} */
                 type: "link";
@@ -2186,8 +2186,8 @@ export interface components {
                     class?: null;
                     href: string;
                     rel?: string | null;
-                    /** @constant */
-                    target?: "_blank";
+                    /** @enum {string|null} */
+                    target?: "_blank" | null;
                 };
                 /** @enum {string} */
                 type: "link";
@@ -2280,8 +2280,8 @@ export interface components {
                     class?: null;
                     href: string;
                     rel?: string | null;
-                    /** @constant */
-                    target?: "_blank";
+                    /** @enum {string|null} */
+                    target?: "_blank" | null;
                 };
                 /** @enum {string} */
                 type: "link";

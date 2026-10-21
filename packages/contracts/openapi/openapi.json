@@ -440,7 +440,10 @@
                               "type": "string"
                             },
                             "target": {
-                              "const": "_blank",
+                              "enum": [
+                                "_blank",
+                                null
+                              ],
                               "nullable": true,
                               "type": "string"
                             }
@@ -1024,7 +1027,10 @@
                               "type": "string"
                             },
                             "target": {
-                              "const": "_blank",
+                              "enum": [
+                                "_blank",
+                                null
+                              ],
                               "nullable": true,
                               "type": "string"
                             }
@@ -2066,7 +2072,10 @@
                               "type": "string"
                             },
                             "target": {
-                              "const": "_blank",
+                              "enum": [
+                                "_blank",
+                                null
+                              ],
                               "nullable": true,
                               "type": "string"
                             }
@@ -2517,7 +2526,10 @@
                               "type": "string"
                             },
                             "target": {
-                              "const": "_blank",
+                              "enum": [
+                                "_blank",
+                                null
+                              ],
                               "nullable": true,
                               "type": "string"
                             }

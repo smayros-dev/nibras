@@ -15,6 +15,9 @@ import {
   type ResumeRecord,
 } from '../../lib/upload/engine';
 
+/** Re-exported for the rich-text editor's inline images, which load this chunk on demand. */
+export { startUpload };
+
 export type LessonMediaKind = 'VIDEO' | 'PDF';
 
 type Phase = 'idle' | 'uploading' | 'paused' | 'finishing' | 'error';

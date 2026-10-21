@@ -1,31 +1,21 @@
 'use client';
 
-import type { CourseDetail, UpdateCourseInput } from '@nibras/contracts';
+import type { CourseDetail, RichTextDescriptionDoc, UpdateCourseInput } from '@nibras/contracts';
 import { COURSE_LEVELS, LOCALES, type CourseLevel, type Locale } from '@nibras/contracts/web';
-import {
-  Alert,
-  Button,
-  Card,
-  Field,
-  Input,
-  Select,
-  Switch,
-  Textarea,
-  useSubmit,
-  useToast,
-} from '@nibras/ui';
+import { Alert, Button, Card, Field, Input, Select, Switch, useSubmit, useToast } from '@nibras/ui';
 import { useTranslations } from 'next-intl';
 import { lazy, Suspense, useState } from 'react';
 import { api, asApiResult } from '../../lib/api';
 import { apiErrorMessage, issuesToFieldErrors } from '../../lib/api-error';
+import { conflictVersion, LANGUAGE_NAMES, withIfMatch } from '../../lib/courses';
 import {
-  conflictVersion,
-  docToText,
-  LANGUAGE_NAMES,
-  textToDoc,
-  withIfMatch,
-} from '../../lib/courses';
+  cleanRichText,
+  EMPTY_DOC,
+  richTextProblem,
+  richTextProblemMessage,
+} from '../../lib/rich-text';
 import { useErrorFocus } from '../../lib/use-error-focus';
+import { LazyRichTextEditor } from '../rich-text/lazy-editor';
 
 /** Fetched on the first conflict (PRD §14.1 budget). */
 const VersionConflictDialog = lazy(() =>
@@ -44,7 +34,7 @@ const FIELDS = [
 
 interface Values {
   title: string;
-  description: string;
+  description: RichTextDescriptionDoc;
   category: string;
   level: CourseLevel | '';
   language: Locale;
@@ -54,7 +44,7 @@ interface Values {
 
 const valuesOf = (c: CourseDetail): Values => ({
   title: c.title,
-  description: docToText(c.description),
+  description: cleanRichText(c.description ?? EMPTY_DOC, { allowImage: false }),
   category: c.category ?? '',
   level: c.level ?? '',
   language: c.language,
@@ -65,10 +55,10 @@ const valuesOf = (c: CourseDetail): Values => ({
 /** The fields that differ from `course`: a PATCH sends only what the teacher changed. */
 function changes(v: Values, course: CourseDetail): UpdateCourseInput {
   const before = valuesOf(course);
-  const out: Record<string, unknown> = {};
+  const out: UpdateCourseInput = {};
   if (v.title.trim() !== before.title) out.title = v.title.trim();
-  if (docToText(textToDoc(v.description)) !== docToText(textToDoc(before.description))) {
-    out.description = textToDoc(v.description);
+  if (JSON.stringify(v.description) !== JSON.stringify(before.description)) {
+    out.description = v.description;
   }
   if (v.category.trim() !== before.category) out.category = v.category.trim();
   // The level cannot be cleared (the schema has no `null`): « Non précisé » only while unset.
@@ -78,12 +68,12 @@ function changes(v: Values, course: CourseDetail): UpdateCourseInput {
     out.estimatedMinutes = v.estimated.trim() === '' ? null : Number(v.estimated);
   }
   if (v.sequential !== before.sequential) out.sequentialLessons = v.sequential;
-  return out as UpdateCourseInput;
+  return out;
 }
 
 /**
- * The course's Paramètres tab (PRD §8.4.1; AC-CRS-03): title, description (a plain `Textarea`
- * stored as one paragraph per line until T13's editor), category, level, teaching language,
+ * The course's Paramètres tab (PRD §8.4.1; AC-CRS-03): title, description (the rich-text editor,
+ * without images, loaded on demand), category, level, teaching language,
  * duration override (empty = derived from the lessons) and « Leçons dans l'ordre ». « Enregistrer »
  * PATCHes the changed fields with `If-Match: "<version>"`. A `409 VERSION_CONFLICT` opens
  * `VersionConflictDialog`: « Recharger » takes the latest version and drops the local edits,
@@ -118,6 +108,11 @@ export function CourseSettingsForm({
   const save = useSubmit(async (version: number) => {
     setFieldErrors({});
     setFormError(null);
+    const problem = richTextProblem(values.description);
+    if (problem) {
+      setFieldErrors({ description: richTextProblemMessage(t, problem) });
+      return;
+    }
     const body = changes(values, course);
     if (Object.keys(body).length === 0) {
       toast({ title: t('courses.noChanges') });
@@ -128,9 +123,7 @@ export function CourseSettingsForm({
       result = asApiResult<CourseDetail>(
         await api.PATCH('/workspaces/{wid}/courses/{cid}', {
           params: { path: { wid, cid: course.id }, header: withIfMatch(version) },
-          // The generated type of the recursive rich-text union (`description`) is narrower than
-          // the contract's `RichTextDoc`; the API validates the body with the contract's schema.
-          body: body as never,
+          body,
         }),
       );
     } catch {
@@ -198,20 +191,15 @@ export function CourseSettingsForm({
               required
             />
           </Field>
-          <Field
-            htmlFor="course-description"
+          <LazyRichTextEditor
+            id="course-description"
             label={t('courses.fieldDescription')}
             error={error('description')}
-          >
-            <Textarea
-              id="course-description"
-              name="description"
-              rows={5}
-              autoResize
-              value={values.description}
-              onChange={(e) => set('description', e.target.value)}
-            />
-          </Field>
+            value={values.description}
+            // Without `images` the editor drops every image node.
+            onChange={(doc) => set('description', doc as RichTextDescriptionDoc)}
+            disabled={!writable}
+          />
           <Field
             htmlFor="course-category"
             label={t('courses.fieldCategory')}
