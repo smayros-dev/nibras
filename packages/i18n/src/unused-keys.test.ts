@@ -40,6 +40,9 @@ const DYNAMIC_KEYS: readonly string[] = [
   'legal.', // t(`legal.${document}.body`), t(`legal.${TITLE_KEYS[document]}`) — legal pages
   'landing.trust', // t(`landing.${key}`) over ['trustMobile', …] — landing page
   'landing.value', // t(`landing.value${n}Title`), t(`landing.value${n}Body`) — landing page
+  'courses.status_', // t(`courses.status_${status}`) — course status badge
+  'courses.level_', // t(`courses.level_${level}`) — create dialog, course settings form
+  'courses.blocker_', // t(`courses.blocker_${blocker}`) — course header (publish blockers)
 ];
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
