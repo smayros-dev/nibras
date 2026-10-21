@@ -8,16 +8,16 @@ Legend: ✅ done · 🔄 in progress · ⏳ to do · 🙋 owner action
 
 ## Overview
 
-| Sub-project                     | Branch                     | Status             |
-| ------------------------------- | -------------------------- | ------------------ |
-| SP0 Monorepo and infrastructure | `main`                     | ✅ merged          |
-| SP1 Auth, tenancy and roles     | `main`                     | ✅ merged          |
-| SP1.5 Frontend redesign         | `main`                     | ✅ merged          |
-| Rename TT → Nibras              | `main`                     | ✅ merged          |
-| SP1.6 Security hardening        | `main`                     | ✅ merged (T0–T12) |
-| SP2 Students and invitations    | `sp2/students-invitations` | 🔄 T15 of T0–T16   |
-| SP3 Courses, content and media  | `sp3/courses-media`        | 🔄 T9 of T0–T18    |
-| SP4–SP11                        | —                          | ⏳ not planned yet |
+| Sub-project                     | Branch              | Status             |
+| ------------------------------- | ------------------- | ------------------ |
+| SP0 Monorepo and infrastructure | `main`              | ✅ merged          |
+| SP1 Auth, tenancy and roles     | `main`              | ✅ merged          |
+| SP1.5 Frontend redesign         | `main`              | ✅ merged          |
+| Rename TT → Nibras              | `main`              | ✅ merged          |
+| SP1.6 Security hardening        | `main`              | ✅ merged (T0–T12) |
+| SP2 Students and invitations    | `main`              | ✅ merged (T0–T16) |
+| SP3 Courses, content and media  | `sp3/courses-media` | 🔄 T10 of T0–T18   |
+| SP4–SP11                        | —                   | ⏳ not planned yet |
 
 Specs and plans: [`docs/superpowers/specs/`](docs/superpowers/specs/),
 [`docs/superpowers/plans/`](docs/superpowers/plans/).
@@ -40,7 +40,7 @@ Specs and plans: [`docs/superpowers/specs/`](docs/superpowers/specs/),
 | T11  | Security CI: audit, dependency review, CodeQL, gitleaks, trivy       | ✅     |
 | T12  | Security runbook, final review, merge                                | ✅     |
 
-## SP2 Students and invitations 🔄
+## SP2 Students and invitations ✅
 
 | Task | Content                                                              | Status |
 | ---- | -------------------------------------------------------------------- | ------ |
@@ -60,8 +60,8 @@ Specs and plans: [`docs/superpowers/specs/`](docs/superpowers/specs/),
 | T12  | Web: guardian consent page, guardian page, minors notice placeholder | ✅     |
 | T13  | Web: students page, invite dialog, invite links, approvals           | ✅     |
 | T14  | Web: student profile, staff invitations, e2e seeding through the API | ✅     |
-| T15  | Web: CSV import dialog, accessibility sweep, budget                  | 🔄     |
-| T16  | Final review, runbook, merge into `main`                             | ⏳     |
+| T15  | Web: CSV import dialog, accessibility sweep, budget                  | ✅     |
+| T16  | Final review, runbook, merge into `main`                             | ✅     |
 
 ## SP3 Courses, content and media 🔄
 
@@ -76,8 +76,8 @@ Specs and plans: [`docs/superpowers/specs/`](docs/superpowers/specs/),
 | T6   | Modules and lessons API, reorder                                  | ✅     |
 | T7   | Media API: resumable upload, checks, playback, webhooks           | ✅     |
 | T8   | Worker: media processing, webhooks, cleanup                       | ✅     |
-| T9   | Enrollments + SP2 invitation hooks                                | 🔄     |
-| T10  | Student learning API (`/me/courses`, locks, progress)             | ⏳     |
+| T9   | Enrollments + SP2 invitation hooks                                | ✅     |
+| T10  | Student learning API (`/me/courses`, locks, progress)             | 🔄     |
 | —    | Merge SP2 into SP3                                                | ⏳     |
 | T11  | Web: course list, create dialog, settings                         | ⏳     |
 | T12  | Web: structure editor (drag and drop), upload engine              | ⏳     |
