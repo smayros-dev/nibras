@@ -16,7 +16,7 @@ Legend: ✅ done · 🔄 in progress · ⏳ to do · 🙋 owner action
 | Rename TT → Nibras              | `main`                     | ✅ merged          |
 | SP1.6 Security hardening        | `main`                     | ✅ merged (T0–T12) |
 | SP2 Students and invitations    | `sp2/students-invitations` | 🔄 T15 of T0–T16   |
-| SP3 Courses, content and media  | `sp3/courses-media`        | 🔄 T8 of T0–T18    |
+| SP3 Courses, content and media  | `sp3/courses-media`        | 🔄 T9 of T0–T18    |
 | SP4–SP11                        | —                          | ⏳ not planned yet |
 
 Specs and plans: [`docs/superpowers/specs/`](docs/superpowers/specs/),
@@ -75,8 +75,8 @@ Specs and plans: [`docs/superpowers/specs/`](docs/superpowers/specs/),
 | T5   | Courses API: CRUD, optimistic locking, lifecycle                  | ✅     |
 | T6   | Modules and lessons API, reorder                                  | ✅     |
 | T7   | Media API: resumable upload, checks, playback, webhooks           | ✅     |
-| T8   | Worker: media processing, webhooks, cleanup                       | 🔄     |
-| T9   | Enrollments + SP2 invitation hooks                                | ⏳     |
+| T8   | Worker: media processing, webhooks, cleanup                       | ✅     |
+| T9   | Enrollments + SP2 invitation hooks                                | 🔄     |
 | T10  | Student learning API (`/me/courses`, locks, progress)             | ⏳     |
 | —    | Merge SP2 into SP3                                                | ⏳     |
 | T11  | Web: course list, create dialog, settings                         | ⏳     |
