@@ -1,5 +1,8 @@
 import { Test } from '@nestjs/testing';
 import {
+  COURSE_PURGE_JOB,
+  COURSE_PURGE_SCHEDULER_ID,
+  COURSE_PURGE_SCHEDULER_PATTERN,
   DAILY_SCHEDULER_PATTERN,
   GUARDIAN_CONSENT_EXPIRE_JOB,
   GUARDIAN_CONSENT_EXPIRE_SCHEDULER_ID,
@@ -48,7 +51,7 @@ describe('job schedulers (AC-INV-12; SP3 media cleanup)', () => {
     await obliterateAllQueues();
   });
 
-  it('declares the two daily compliance schedulers and the hourly media cleanup', () => {
+  it('declares the daily compliance schedulers (expiries, course purge) and the hourly media cleanup', () => {
     expect(SCHEDULERS).toEqual([
       {
         id: GUARDIAN_CONSENT_EXPIRE_SCHEDULER_ID,
@@ -63,6 +66,12 @@ describe('job schedulers (AC-INV-12; SP3 media cleanup)', () => {
         pattern: DAILY_SCHEDULER_PATTERN,
       },
       {
+        id: COURSE_PURGE_SCHEDULER_ID,
+        queue: QUEUES.compliance,
+        jobName: COURSE_PURGE_JOB,
+        pattern: COURSE_PURGE_SCHEDULER_PATTERN,
+      },
+      {
         id: MEDIA_CLEANUP_SCHEDULER_ID,
         queue: QUEUES.media,
         jobName: MEDIA_CLEANUP_JOB,
@@ -71,8 +80,14 @@ describe('job schedulers (AC-INV-12; SP3 media cleanup)', () => {
     ]);
   });
 
-  it('after bootstrap, compliance has the two schedulers at 03:00 UTC and media the hourly cleanup; a second bootstrap does not duplicate them', async () => {
+  it('after bootstrap, compliance has the two expiries at 03:00 UTC and the course purge at 03:30, media the hourly cleanup; a second bootstrap does not duplicate them', async () => {
     const expected = [
+      {
+        key: COURSE_PURGE_SCHEDULER_ID,
+        name: COURSE_PURGE_JOB,
+        pattern: COURSE_PURGE_SCHEDULER_PATTERN,
+        tz: 'UTC',
+      },
       {
         key: GUARDIAN_CONSENT_EXPIRE_SCHEDULER_ID,
         name: GUARDIAN_CONSENT_EXPIRE_JOB,
@@ -93,7 +108,7 @@ describe('job schedulers (AC-INV-12; SP3 media cleanup)', () => {
       const schedulers = (await compliance.getJobSchedulers()).sort(byKey);
       // `expected` is in key order.
       expect(schedulers).toEqual(expected.map((e) => expect.objectContaining(e)));
-      expect(schedulers).toHaveLength(2);
+      expect(schedulers).toHaveLength(3);
       const template = await compliance.getJobScheduler(GUARDIAN_CONSENT_EXPIRE_SCHEDULER_ID);
       expect(template?.template?.opts).toMatchObject({ attempts: 3 });
       expect(await media.getJobSchedulers()).toEqual([
@@ -110,9 +125,9 @@ describe('job schedulers (AC-INV-12; SP3 media cleanup)', () => {
 
     const second = await boot();
     try {
-      expect(await compliance.getJobSchedulersCount()).toBe(2);
+      expect(await compliance.getJobSchedulersCount()).toBe(3);
       // One pending (delayed) occurrence per scheduler, never two.
-      expect(await compliance.getDelayedCount()).toBe(2);
+      expect(await compliance.getDelayedCount()).toBe(3);
       expect(await media.getJobSchedulersCount()).toBe(1);
       expect(await media.getDelayedCount()).toBe(1);
     } finally {

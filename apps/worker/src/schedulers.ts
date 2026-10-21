@@ -1,5 +1,8 @@
 import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
 import {
+  COURSE_PURGE_JOB,
+  COURSE_PURGE_SCHEDULER_ID,
+  COURSE_PURGE_SCHEDULER_PATTERN,
   DAILY_SCHEDULER_PATTERN,
   DEFAULT_JOB_OPTIONS,
   GUARDIAN_CONSENT_EXPIRE_JOB,
@@ -39,6 +42,13 @@ export const SCHEDULERS: readonly SchedulerDefinition[] = [
     queue: QUEUES.compliance,
     jobName: INVITATION_EXPIRE_JOB,
     pattern: DAILY_SCHEDULER_PATTERN,
+  },
+  // SP3: courses soft-deleted more than 30 days ago, daily at 03:30 UTC.
+  {
+    id: COURSE_PURGE_SCHEDULER_ID,
+    queue: QUEUES.compliance,
+    jobName: COURSE_PURGE_JOB,
+    pattern: COURSE_PURGE_SCHEDULER_PATTERN,
   },
   // SP3: abandoned uploads and processing timeouts, every hour at minute 15.
   {

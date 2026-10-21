@@ -93,8 +93,10 @@ export type AuditAction =
   | 'media.deleted'
   | 'enrollment.created'
   | 'enrollment.revoked'
-  // Written by the worker (`writeSystemAudit`, actor SYSTEM): processing, cleanup, webhooks.
+  // Written by the worker (`writeSystemAudit`, actor SYSTEM): processing, cleanup, webhooks,
+  // the daily course purge.
   | 'media.failed'
+  | 'course.purged'
   | typeof CROSS_TENANT_AUDIT_ACTION;
 
 export interface AuditEntry {

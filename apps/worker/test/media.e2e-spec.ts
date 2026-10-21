@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import {
+  COURSE_PURGE_JOB,
   HOURLY_SCHEDULER_PATTERN,
   MEDIA_CLEANUP_JOB,
   MEDIA_CLEANUP_SCHEDULER_ID,
@@ -503,6 +504,136 @@ describe('media.process (spec §4.3, AC-MED-02/07)', () => {
       reconciled: 0,
     });
     expect(ctx.email.sent).toHaveLength(0);
+  });
+
+  it('course.purge_deleted: a course deleted > 30 days ago is hard-deleted with its structure and enrollments; media only it used become DELETING with a media.delete job; shared media and recent deletions stay', async () => {
+    const { owner, ws } = await teacherWorkspace();
+    const day = 24 * HOUR;
+    const course = (title: string, deletedAt: Date | null, coverMediaId?: string) =>
+      db.course.create({
+        data: {
+          workspaceId: ws.id,
+          ownerUserId: owner.id,
+          title,
+          language: 'fr',
+          status: deletedAt ? 'ARCHIVED' : 'PUBLISHED',
+          deletedAt,
+          coverMediaId: coverMediaId ?? null,
+        },
+      });
+    const ready = async (kind: 'PDF' | 'IMAGE', filename: string) => {
+      const a = await processingAsset(ctx.storage, ws, owner, {
+        kind,
+        bytes: kind === 'PDF' ? PDF_BYTES : PNG_1X1,
+        mimeType: kind === 'PDF' ? 'application/pdf' : 'image/png',
+        filename,
+      });
+      return db.mediaAsset.update({ where: { id: a.id }, data: { status: 'READY' } });
+    };
+    const own = await ready('PDF', 'own.pdf');
+    const inline = await ready('IMAGE', 'inline.png');
+    const sharedPdf = await ready('PDF', 'shared.pdf');
+    const sharedCover = await ready('IMAGE', 'cover.png');
+
+    const old = await course('Ancien', new Date(Date.now() - 31 * day), sharedCover.id);
+    const recent = await course('Récent', new Date(Date.now() - 10 * day));
+    const live = await course('Vivant', null, sharedCover.id);
+    const lessons = async (
+      c: { id: string },
+      position: number,
+      pdfId: string,
+      imageId?: string,
+    ) => {
+      const m = await db.module.create({
+        data: { workspaceId: ws.id, courseId: c.id, title: 'M', position },
+      });
+      await db.lesson.create({
+        data: {
+          workspaceId: ws.id,
+          moduleId: m.id,
+          title: 'PDF',
+          type: 'PDF',
+          position: 1,
+          mediaAssetId: pdfId,
+        },
+      });
+      if (imageId) {
+        await db.lesson.create({
+          data: {
+            workspaceId: ws.id,
+            moduleId: m.id,
+            title: 'Texte',
+            type: 'TEXT',
+            position: 2,
+            content: {
+              type: 'doc',
+              content: [{ type: 'image', attrs: { mediaId: imageId, alt: null } }],
+            },
+          },
+        });
+      }
+    };
+    await lessons(old, 1, own.id, inline.id);
+    await lessons(old, 2, sharedPdf.id);
+    await lessons(live, 1, sharedPdf.id);
+    const student = await db.user.create({
+      data: { email: `purge-${Date.now()}@example.com`, firstName: 'S', lastName: 'T' },
+    });
+    await db.enrollment.create({
+      data: {
+        workspaceId: ws.id,
+        courseId: old.id,
+        studentUserId: student.id,
+        status: 'ACTIVE',
+        assignedByUserId: owner.id,
+        source: 'MANUAL',
+        activatedAt: new Date(),
+      },
+    });
+
+    const result = await ctx.registry.dispatch(QUEUES.compliance, {
+      name: COURSE_PURGE_JOB,
+      id: 'purge-1',
+      data: {},
+    } as unknown as Job);
+    expect(result).toEqual({ purged: 1, mediaQueued: 2 });
+
+    expect(await db.course.findUnique({ where: { id: old.id } })).toBeNull();
+    expect(await db.module.count({ where: { courseId: old.id } })).toBe(0);
+    expect(await db.enrollment.count({ where: { courseId: old.id } })).toBe(0);
+    expect(await db.course.findUnique({ where: { id: recent.id } })).not.toBeNull();
+    expect(await reload(own.id)).toMatchObject({ status: 'DELETING' });
+    expect(await reload(inline.id)).toMatchObject({ status: 'DELETING' });
+    expect(await reload(sharedPdf.id)).toMatchObject({ status: 'READY' });
+    expect(await reload(sharedCover.id)).toMatchObject({ status: 'READY' });
+
+    const media = new Queue(QUEUES.media, { connection: redisOpts });
+    try {
+      for (const a of [own, inline]) {
+        const job = await media.getJob(mediaDeleteJobId(a.id));
+        expect(job).toMatchObject({
+          name: MEDIA_DELETE_JOB,
+          data: { mediaId: a.id, workspaceId: ws.id },
+        });
+        await run(ctx.registry, fakeJob(MEDIA_DELETE_JOB, job!.id!, job!.data));
+        expect(await reload(a.id)).toBeNull();
+      }
+    } finally {
+      await media.close();
+    }
+    await expectQuotaInvariant(ws.id);
+    expect(
+      await db.auditLog.findFirst({ where: { action: 'course.purged', entityId: old.id } }),
+    ).toMatchObject({ workspaceId: ws.id, actorRole: 'SYSTEM' });
+
+    // A second run finds nothing.
+    expect(
+      await ctx.registry.dispatch(QUEUES.compliance, {
+        name: COURSE_PURGE_JOB,
+        id: 'purge-2',
+        data: {},
+      } as unknown as Job),
+    ).toEqual({ purged: 0, mediaQueued: 0 });
   });
 
   it('scheduler media-cleanup-abandoned is upserted hourly', async () => {
