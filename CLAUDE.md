@@ -11,7 +11,7 @@ brainstorming → spec → `superpowers:writing-plans` → `superpowers:subagent
 Install once: `/plugin marketplace add obra/superpowers-marketplace` then `/plugin install superpowers@superpowers-marketplace`.
 
 ## Model policy (owner decision)
-- **Planning** (specs, PRD changes, implementation plans, architecture decisions): use **Fable** (`model: "fable"`).
+- **Planning** (specs, PRD changes, implementation plans, architecture decisions): use **Opus** (`model: "opus"`). Do not use Fable (owner decision 2026-10-21, to limit token use).
 - **Implementation subagents** (implementer, task reviewer, re-reviewer, fixers, final reviewer): use **Opus** (`model: "opus"`).
 - Always pass the model explicitly when dispatching a subagent.
 
