@@ -1,8 +1,12 @@
 import { CONSENT_VERSIONS, type CurrentConsentType } from '@nibras/contracts';
-import { request as playwrightRequest } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { TEST_CONSENT_TERMS_VERSION, postRegister, postTransient, uniqueEmail } from '../helpers';
+import { request as playwrightRequest, type APIRequestContext } from '@playwright/test';
+import {
+  TEST_CONSENT_TERMS_VERSION,
+  apiLogin,
+  postRegister,
+  postTransient,
+  uniqueEmail,
+} from '../helpers';
 import { extractLink, extractOtpCode, waitForEmail } from './mailpit';
 import { totpCode } from './totp';
 
@@ -13,7 +17,7 @@ export interface SeededUser {
   email: string;
   password: string;
   firstName: string;
-  /** The account id (needed to seed memberships and to target API rows). */
+  /** The account id (needed to target API rows: assignments, reports, members). */
   userId: string;
   /** TOTP secret, when `totp` was requested. */
   secret?: string;
@@ -149,46 +153,54 @@ export async function seedUser(opts: SeedOptions = {}): Promise<SeededUser> {
   }
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A request context signed in as the inviter, or the inviter's credentials (signed in here). */
+export type Inviter = APIRequestContext | { email: string; password: string; secret?: string };
 
-/** Minimal `.env` reader (KEY=VALUE lines) so `psql` works without a docker daemon (CI). */
-function systemDbUrl(): string {
-  const envFile = new URL('../../../../.env', import.meta.url);
-  let env: NodeJS.ProcessEnv = process.env;
-  if (existsSync(envFile)) {
-    env = { ...process.env };
-    for (const line of readFileSync(envFile, 'utf8').split('\n')) {
-      const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
-      if (match && match[1]) env[match[1]] = match[2]!.replace(/^["']|["']$/g, '');
-    }
-  }
-  const url = env.DATABASE_URL_SYSTEM;
-  if (!url) throw new Error('addOrgMember: DATABASE_URL_SYSTEM is not set');
-  return url;
+/** A birth date 30 years ago (`YYYY-MM-DD`): an adult student (D-P3, minor = under 18). */
+function adultBirthDate(): string {
+  const d = new Date();
+  d.setUTCFullYear(d.getUTCFullYear() - 30);
+  return d.toISOString().slice(0, 10);
 }
 
 /**
- * SP1 ruling (plan Task 21): the public API has no "add member" route yet (students and teachers
- * join by invitation in SP2), so the e2e inserts the membership row directly as the postgres
- * superuser (bypasses RLS). Roles: TEACHER, ADMIN or STUDENT. Local docker runs through
- * `docker exec`; CI (service container, no docker daemon) falls back to a direct `psql`.
+ * Seeds an ACTIVE membership through the real invitation flow (SP2 T14; replaces the SP1 psql
+ * insert): the inviter — a verified teacher (D-O6) with `student.invite`, plus staff management
+ * for TEACHER / ADMIN in an organisation — `POST`s `/workspaces/{wid}/invitations`, the emailed
+ * link's token comes from Mailpit, and the member, signed in on his own context, accepts with
+ * `{ mode: 'JOIN' }` (a STUDENT also sends an adult birth date). Returns the invitation id.
  */
-export function addOrgMember(
+export async function joinByInvitation(
+  inviter: Inviter,
   wid: string,
-  userId: string,
+  member: { email: string; password: string; secret?: string },
   role: 'TEACHER' | 'ADMIN' | 'STUDENT' = 'TEACHER',
-): void {
-  if (!UUID.test(wid) || !UUID.test(userId)) throw new Error('addOrgMember: uuids required');
-  const sql = `INSERT INTO membership (id, workspace_id, user_id, role, status, joined_at, created_at, updated_at) VALUES (gen_random_uuid(), '${wid}', '${userId}', '${role}', 'ACTIVE', now(), now(), now()) ON CONFLICT (workspace_id, user_id) DO NOTHING;`;
+): Promise<string> {
+  const own = 'post' in inviter ? null : await playwrightRequest.newContext({ baseURL: BASE });
+  const memberCtx = await playwrightRequest.newContext({ baseURL: BASE });
   try {
-    execFileSync(
-      'docker',
-      ['exec', 'nibras-postgres-1', 'psql', '-U', 'postgres', '-d', 'nibras', '-c', sql],
-      {
-        stdio: 'pipe',
-      },
-    );
-  } catch {
-    execFileSync('psql', [systemDbUrl(), '-c', sql], { stdio: 'pipe' });
+    const inviterCtx = own ?? (inviter as APIRequestContext);
+    if (own) await apiLogin(own, inviter as { email: string; password: string; secret?: string });
+    const res = await inviterCtx.post(`/api/v1/workspaces/${wid}/invitations`, {
+      data: { email: member.email, role },
+    });
+    if (res.status() !== 201) throw new Error(`invite ${res.status()}: ${await res.text()}`);
+    const { id } = (await res.json()) as { id: string };
+
+    const mail = await waitForEmail(member.email, '/invite/');
+    const link = extractLink(mail.html, '/invite/');
+    const token = link ? new URL(link).pathname.split('/').pop() : undefined;
+    if (!token) throw new Error('no /invite/ link in the invitation email');
+
+    await apiLogin(memberCtx, member);
+    const accept = await memberCtx.post(`/api/v1/invitations/${token}/accept`, {
+      data: { mode: 'JOIN', ...(role === 'STUDENT' ? { birthDate: adultBirthDate() } : {}) },
+    });
+    if (accept.status() !== 201)
+      throw new Error(`accept ${accept.status()}: ${await accept.text()}`);
+    return id;
+  } finally {
+    await memberCtx.dispose();
+    await own?.dispose();
   }
 }

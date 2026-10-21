@@ -24,18 +24,13 @@ import { useState } from 'react';
 import { Link } from '../i18n/navigation';
 import { api, asApiResult } from '../lib/api';
 import { apiErrorMessage, issuesToFieldErrors } from '../lib/api-error';
+import {
+  EMAIL_CONFLICTS,
+  missingVerificationSteps,
+  VERIFICATION_STEP_LABELS,
+} from '../lib/invite-errors';
 import { useAbortableQuery } from '../lib/paged-fetch';
 import { useErrorFocus } from '../lib/use-error-focus';
-
-/** `409` codes about the invited address: shown on the email field. */
-const EMAIL_CONFLICTS = ['ALREADY_MEMBER', 'INVITATION_PENDING'];
-
-/** The labels of the verification steps (`403 TEACHER_NOT_VERIFIED` `details.missing`). */
-const STEP_LABELS: Record<TeacherVerificationStep, string> = {
-  EMAIL: 'settings.verification.email',
-  PHONE: 'settings.verification.phone',
-  CODE_OF_CONDUCT: 'settings.verification.coc',
-};
 
 const FIELDS = ['email', 'firstName', 'lastName', 'guardianEmail', 'birthDate', 'message'];
 
@@ -167,14 +162,12 @@ function InviteStudentForm({
     }
     const { data, error } = result;
     if (error || !data) {
-      const body = error as { code?: string; details?: { missing?: unknown } } | undefined;
-      if (body?.code === 'TEACHER_NOT_VERIFIED') {
-        const steps = Array.isArray(body.details?.missing)
-          ? (body.details.missing as TeacherVerificationStep[]).filter((s) => s in STEP_LABELS)
-          : [];
+      const steps = missingVerificationSteps(error);
+      if (steps) {
         setMissing(steps);
         return;
       }
+      const body = error as { code?: string } | undefined;
       if (body?.code && EMAIL_CONFLICTS.includes(body.code)) {
         setFieldErrors({ email: apiErrorMessage(t, error) });
         return;
@@ -206,7 +199,7 @@ function InviteStudentForm({
         <Alert ref={alertRef} tabIndex={-1} variant="danger">
           <p>
             {t('invitations.notVerified', {
-              steps: missing.map((step) => t(STEP_LABELS[step])).join(', '),
+              steps: missing.map((step) => t(VERIFICATION_STEP_LABELS[step])).join(', '),
             })}
           </p>
           <Link href="/app/settings/verification" className="font-medium text-primary underline">

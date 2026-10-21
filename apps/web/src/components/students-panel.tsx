@@ -289,7 +289,7 @@ export function StudentsPanel({
                       icon={<UserRound />}
                       onSelect={() => router.push(`/app/w/${wid}/students/${s.userId}`)}
                     >
-                      {t('students.profile')}
+                      {t('students.openProfile')}
                     </DropdownMenu.Item>
                     {canDecide ? (
                       <>

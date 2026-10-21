@@ -21,6 +21,7 @@ import {
   EmptyState,
   Field,
   Input,
+  PageHeader,
   Select,
   SkeletonTable,
   Table,
@@ -28,9 +29,11 @@ import {
   useToast,
   type BadgeVariant,
 } from '@nibras/ui';
-import { Flag, MoreHorizontal, UserMinus, Users } from 'lucide-react';
+import { Flag, MoreHorizontal, UserMinus, UserPlus, Users } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
+import { InvitationsList, useOpenInvitations } from './invitations-list';
+import { InviteStaffDialog } from './invite-staff-dialog';
 import { ReportAbuseButton } from './report-abuse-button';
 import { apiErrorMessage } from '../lib/api-error';
 import { api, asApiResult } from '../lib/api';
@@ -68,8 +71,9 @@ const STUDENT_SIDE_ROLES: readonly MembershipRole[] = ['STUDENT', 'GUARDIAN'];
  * SUSPENDED/DELETING workspace refuses every write (423): no write action is offered there, and
  * reports go to the account-level queue instead of the workspace's. The API stays the authority
  * (403 → toast). Filters are debounced and abortable (`useAbortableQuery`). For an ORGANIZATION,
- * the teacher ↔ student assignments are listed by name (PRD §11.2); students join by invitation
- * in SP2, so the list is empty in SP1.
+ * the teacher ↔ student assignments are listed by name (PRD §11.2), and staff management (`all`)
+ * adds **+ Inviter un professeur / un admin** (`InviteStaffDialog`, SP2 §8.2.2) and the open
+ * TEACHER / ADMIN invitations (`InvitationsList`, Renvoyer / Modifier / Révoquer).
  */
 export function MembersPanel({
   wid,
@@ -90,6 +94,11 @@ export function MembersPanel({
   const grant = { role: detail.myRole, canTeach: detail.myCanTeach, workspaceType: detail.type };
   const canManageStaff = writable && grantFor(grant, 'workspace.staff.manage') !== 'none';
   const canRemoveStudents = writable && grantFor(grant, 'student.remove') !== 'none';
+  /** Staff invitations: organisations only, and only with `workspace.staff.manage` = `all`. */
+  const seesStaffInvitations = isOrg && grantFor(grant, 'workspace.staff.manage') === 'all';
+  const canInviteStaff = writable && seesStaffInvitations;
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [invitationsVersion, setInvitationsVersion] = useState(0);
 
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<MembershipRole | ''>('');
@@ -199,7 +208,24 @@ export function MembersPanel({
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="text-xl font-semibold text-fg">{t('members.title')}</h2>
+      <PageHeader
+        as="h2"
+        title={t('members.title')}
+        actions={
+          canInviteStaff ? (
+            <Button
+              variant="primary"
+              onClick={(event) => {
+                returnFocus.remember(event.currentTarget);
+                setInviteOpen(true);
+              }}
+            >
+              <UserPlus aria-hidden="true" className="size-4" />
+              {t('members.inviteStaff')}
+            </Button>
+          ) : undefined
+        }
+      />
 
       <div
         role="group"
@@ -402,7 +428,6 @@ export function MembersPanel({
         <Card aria-labelledby="assignments-title">
           <Card.Header>
             <Card.Title id="assignments-title">{t('members.assignments')}</Card.Title>
-            <Card.Description>{t('members.noStudents')}</Card.Description>
           </Card.Header>
           <ul className="flex flex-col gap-1 text-sm" data-testid="assignments-list">
             {(assignments.data ?? []).map((a) => {
@@ -421,6 +446,21 @@ export function MembersPanel({
             ) : null}
           </ul>
         </Card>
+      ) : null}
+
+      {seesStaffInvitations ? (
+        // Remounted (refetched) after each new invitation.
+        <StaffInvitations key={invitationsVersion} wid={wid} canManage={canInviteStaff} />
+      ) : null}
+
+      {canInviteStaff ? (
+        <InviteStaffDialog
+          wid={wid}
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          onInvited={() => setInvitationsVersion((v) => v + 1)}
+          onCloseAutoFocus={returnFocus.onCloseAutoFocus}
+        />
       ) : null}
 
       <AlertDialog.Root
@@ -477,5 +517,42 @@ export function MembersPanel({
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * « Invitations en attente » of an organisation's staff (TEACHER / ADMIN, `PENDING` + `EXPIRED`):
+ * mounted only for `workspace.staff.manage` = `all` (the API hides staff rows otherwise).
+ */
+function StaffInvitations({ wid, canManage }: { wid: string; canManage: boolean }) {
+  const t = useTranslations();
+  const invitations = useOpenInvitations(wid, 'STAFF', '', t);
+  const items = invitations.data;
+
+  return (
+    <Card padding="none" aria-labelledby="staff-invitations-title" role="region">
+      <Card.Header className="p-4 sm:p-6">
+        <Card.Title id="staff-invitations-title">{t('invitations.title')}</Card.Title>
+      </Card.Header>
+      {invitations.error ? (
+        <Alert variant="danger" className="m-4">
+          {invitations.error}
+        </Alert>
+      ) : items === undefined ? (
+        <SkeletonTable className="p-4" cols={4} />
+      ) : items.length === 0 ? (
+        <p className="px-4 pb-4 text-sm text-fg-muted sm:px-6 sm:pb-6">
+          {t('members.noStaffInvitations')}
+        </p>
+      ) : (
+        <InvitationsList
+          wid={wid}
+          items={items}
+          canManage={canManage}
+          onChanged={invitations.reload}
+          caption={t('invitations.title')}
+        />
+      )}
+    </Card>
   );
 }

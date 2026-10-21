@@ -1,6 +1,7 @@
 import { request as playwrightRequest, type Page } from '@playwright/test';
 import { appUrl, expect, t, test, toast, uiLogin, uniqueEmail } from './helpers';
 import { fill, RAW_KEY, seedTeacher, yearsAgo, type Teacher } from './helpers/invitations';
+import { joinByInvitation, seedUser } from './helpers/seed';
 
 /**
  * Plan SP2 Task 13: the students page (AC-INV-01/04/05/08 UI). A verified teacher (D-O6) signs in
@@ -193,6 +194,55 @@ test.describe('students page (SP2 plan Task 13)', () => {
       await expect(
         page.getByRole('link', { name: t(locale, 'workspace.navStudents') }).first(),
       ).toHaveAttribute('aria-current', 'page');
+    } finally {
+      await teacher.ctx.dispose();
+    }
+  });
+  test('profile skeleton (T14): Profil opens the student page with identity, membership and the empty sections; no guardian card for an adult', async ({
+    page,
+    uiLocale: locale,
+  }) => {
+    const teacher = await seedTeacher();
+    try {
+      const student = await seedUser();
+      await joinByInvitation(teacher.ctx, teacher.wid, student, 'STUDENT');
+      await openStudents(page, locale, teacher);
+      const studentRow = row(page, student.email);
+      await studentRow
+        .getByRole('button', {
+          name: fill(t(locale, 'students.rowActions'), { name: `${student.firstName} Ben Ali` }),
+        })
+        .click();
+      await page.getByRole('menuitem', { name: t(locale, 'students.openProfile') }).click();
+      await expect(page).toHaveURL(
+        appUrl(`/${locale}/app/w/${teacher.wid}/students/${student.userId}`),
+        { timeout: 15_000 },
+      );
+
+      await expect(
+        page.getByRole('heading', { level: 2, name: `${student.firstName} Ben Ali` }),
+      ).toBeVisible();
+      const identity = page.getByRole('region', { name: t(locale, 'students.profile.identity') });
+      await expect(identity.getByText(student.email)).toBeVisible();
+      await expect(
+        page.getByRole('region', { name: t(locale, 'students.profile.membership') }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('region', { name: t(locale, 'students.profile.guardian') }),
+      ).toHaveCount(0);
+      for (const section of ['courses', 'sessions', 'reports', 'activity']) {
+        await expect(
+          page.getByRole('heading', { name: t(locale, `students.profile.${section}`) }),
+        ).toBeVisible();
+      }
+      // The breadcrumb leads back to the list; the Étudiants tab stays marked.
+      await expect(
+        page
+          .getByRole('navigation', { name: t(locale, 'students.profile.breadcrumbs') })
+          .getByRole('link', { name: t(locale, 'workspace.navStudents') }),
+      ).toHaveAttribute('href', `/${locale}/app/w/${teacher.wid}/students`);
+      await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
+      expect(await page.locator('body').innerText()).not.toMatch(RAW_KEY);
     } finally {
       await teacher.ctx.dispose();
     }

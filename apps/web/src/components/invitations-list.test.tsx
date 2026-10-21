@@ -158,4 +158,24 @@ describe('InvitationsList', () => {
       }),
     ).not.toBeInTheDocument();
   });
+  it('a staff invitation (T14) edits the names only: no guardian field, none sent', async () => {
+    const staff = invitation('inv3', 'karim@example.com', { role: 'TEACHER' });
+    renderWithIntl(
+      <InvitationsList wid="w1" items={[staff]} canManage onChanged={onChanged} caption="Staff" />,
+    );
+    const { ue, menu } = await openMenu('karim@example.com');
+    await ue.click(within(menu).getByRole('menuitem', { name: tr('fr', 'invitations.edit') }));
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).queryByLabelText(tr('fr', 'invitations.guardianEmail')),
+    ).not.toBeInTheDocument();
+    await ue.type(within(dialog).getByLabelText(tr('fr', 'invitations.firstName')), 'Karim');
+    await ue.click(within(dialog).getByRole('button', { name: tr('fr', 'invitations.save') }));
+    await waitFor(() =>
+      expect(api.PATCH).toHaveBeenCalledWith('/workspaces/{wid}/invitations/{id}', {
+        params: { path: { wid: 'w1', id: 'inv3' } },
+        body: { firstName: 'Karim' },
+      }),
+    );
+  });
 });

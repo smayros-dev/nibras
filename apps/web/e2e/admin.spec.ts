@@ -1,6 +1,6 @@
 import { request as playwrightRequest } from '@playwright/test';
 import { appUrl, t, test, toast, uiLogin, apiLogin, expect } from './helpers';
-import { addOrgMember, seedUser } from './helpers/seed';
+import { joinByInvitation, seedUser } from './helpers/seed';
 import { retryOn429 } from './helpers/retry';
 import { seedSuperAdmin } from './helpers/super-admin';
 
@@ -69,9 +69,9 @@ test.describe('super-admin console (plan Task 22)', () => {
   }) => {
     // Three logins and several admin pages: under dev-server load this outgrows the default budget.
     test.slow();
-    const owner = await seedUser({ organization: true, totp: true });
+    const owner = await seedUser({ organization: true, totp: true, verifiedTeacher: true });
     const teacher = await seedUser();
-    addOrgMember(owner.orgWorkspaceId!, teacher.userId, 'TEACHER');
+    await joinByInvitation(owner, owner.orgWorkspaceId!, teacher, 'TEACHER');
 
     // Two reports about the same teacher, created by the owner through the workspace API.
     const ctx = await playwrightRequest.newContext({ baseURL: BASE });

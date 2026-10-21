@@ -321,7 +321,7 @@ export function InvitationsList({
   );
 }
 
-/** Names and guardian email of a `PENDING` invitation (`PATCH …/invitations/{id}`). */
+/** Names (and, for a student, guardian email) of a `PENDING` invitation (`PATCH …/invitations/{id}`). */
 function EditInvitationForm({
   wid,
   invitation,
@@ -339,6 +339,8 @@ function EditInvitationForm({
   const [formError, setFormError] = useState<string | null>(null);
   const { formRef, alertRef } = useErrorFocus(fieldErrors, formError);
   const id = `invitation-${invitation.id}`;
+  /** A guardian belongs to a student invitation only (staff rows edit the names). */
+  const isStudent = invitation.role === 'STUDENT';
 
   const save = useSubmit(async () => {
     setFieldErrors({});
@@ -349,11 +351,13 @@ function EditInvitationForm({
     const body: UpdateInvitationInput = {
       ...(firstName.trim() ? { firstName: firstName.trim() } : {}),
       ...(lastName.trim() ? { lastName: lastName.trim() } : {}),
-      ...(guardian
-        ? { guardianEmail: guardian }
-        : invitation.guardianEmail
-          ? { guardianEmail: null }
-          : {}),
+      ...(!isStudent
+        ? {}
+        : guardian
+          ? { guardianEmail: guardian }
+          : invitation.guardianEmail
+            ? { guardianEmail: null }
+            : {}),
     };
     let error: unknown;
     try {
@@ -416,21 +420,23 @@ function EditInvitationForm({
           onChange={(e) => setLastName(e.target.value)}
         />
       </Field>
-      <Field
-        htmlFor={`${id}-guardian`}
-        label={t('invitations.guardianEmail')}
-        description={t('invitations.guardianHint')}
-        error={fieldErrors.guardianEmail}
-      >
-        <Input
-          id={`${id}-guardian`}
-          name="guardianEmail"
-          type="email"
-          autoComplete="off"
-          value={guardianEmail}
-          onChange={(e) => setGuardianEmail(e.target.value)}
-        />
-      </Field>
+      {isStudent ? (
+        <Field
+          htmlFor={`${id}-guardian`}
+          label={t('invitations.guardianEmail')}
+          description={t('invitations.guardianHint')}
+          error={fieldErrors.guardianEmail}
+        >
+          <Input
+            id={`${id}-guardian`}
+            name="guardianEmail"
+            type="email"
+            autoComplete="off"
+            value={guardianEmail}
+            onChange={(e) => setGuardianEmail(e.target.value)}
+          />
+        </Field>
+      ) : null}
       <Dialog.Footer>
         <Dialog.Close asChild>
           <Button variant="secondary">{t('common.cancel')}</Button>

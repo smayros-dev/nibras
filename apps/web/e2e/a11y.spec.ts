@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page, TestInfo } from '@playwright/test';
 import { expect, test, uiLogin } from './helpers';
-import { addOrgMember, seedUser } from './helpers/seed';
+import { joinByInvitation, seedUser } from './helpers/seed';
 
 /**
  * Spec §8 / audit #15: axe WCAG 2 A/AA on the main pages, in the project's locale (fr, ar) on
@@ -46,10 +46,11 @@ test.describe('accessibility (axe wcag2a/aa)', () => {
     page,
     uiLocale: locale,
   }, testInfo) => {
-    const owner = await seedUser({ totp: true, organization: true });
+    // A verified owner (D-O6) invites the teacher, who joins through the invitation.
+    const owner = await seedUser({ totp: true, organization: true, verifiedTeacher: true });
     const member = await seedUser();
     const wid = owner.orgWorkspaceId!;
-    addOrgMember(wid, member.userId, 'TEACHER');
+    await joinByInvitation(owner, wid, member, 'TEACHER');
     await uiLogin(page, locale, owner);
     await audit(page, testInfo, 'app');
     await page.goto(`/${locale}/app/settings/profile`);

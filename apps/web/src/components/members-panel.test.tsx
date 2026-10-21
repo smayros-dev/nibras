@@ -1,6 +1,12 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Assignment, MemberSummary, MembershipRole, WorkspaceDetail } from '@nibras/contracts';
+import type {
+  Assignment,
+  InvitationSummary,
+  MemberSummary,
+  MembershipRole,
+  WorkspaceDetail,
+} from '@nibras/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithIntl, tr } from '../test/render';
 import { MembersPanel } from './members-panel';
@@ -57,6 +63,26 @@ const ASSIGNMENTS: Assignment[] = [
   },
 ];
 
+const STAFF_INVITATION: InvitationSummary = {
+  id: 'inv-staff',
+  email: 'nadia@example.com',
+  role: 'TEACHER',
+  firstName: null,
+  lastName: null,
+  guardianEmail: null,
+  status: 'PENDING',
+  expiresAt: '2026-10-25T08:00:00.000Z',
+  invitedByUserId: OWNER,
+  invitedByName: 'Amina Test',
+  teacherUserId: null,
+  courseIds: [],
+  resentCount: 0,
+  lastSentAt: '2026-10-18T08:00:00.000Z',
+  acceptedAt: null,
+  revokedAt: null,
+  createdAt: '2026-10-18T08:00:00.000Z',
+};
+
 function detail(
   myRole: MembershipRole,
   extra: Partial<Pick<WorkspaceDetail, 'status' | 'type'>> = {},
@@ -96,11 +122,21 @@ const rowActions = (first: string, locale: 'fr' | 'ar' = 'fr') =>
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset();
-  api.GET.mockImplementation(async (path: string) =>
-    path === '/workspaces/{wid}/assignments'
-      ? { data: { items: ASSIGNMENTS, nextCursor: null } }
-      : { data: { items: MEMBERS, nextCursor: null } },
+  api.GET.mockImplementation(
+    async (path: string, opts?: { params?: { query?: { status?: string } } }) => {
+      if (path === '/workspaces/{wid}/assignments')
+        return { data: { items: ASSIGNMENTS, nextCursor: null } };
+      if (path === '/workspaces/{wid}/invitations')
+        return {
+          data: {
+            items: opts?.params?.query?.status === 'PENDING' ? [STAFF_INVITATION] : [],
+            nextCursor: null,
+          },
+        };
+      return { data: { items: MEMBERS, nextCursor: null } };
+    },
   );
+  api.POST.mockResolvedValue({ data: STAFF_INVITATION });
   api.PATCH.mockResolvedValue({ data: {} });
   api.DELETE.mockResolvedValue({ data: undefined });
 });
@@ -318,7 +354,9 @@ describe('MembersPanel', () => {
   it('row action triggers have unique accessible names', async () => {
     renderPanel('OWNER');
     await screen.findByTestId(`member-${TEACHER}`);
-    const triggers = screen.getAllByRole('button', {
+    // The members table only (the staff invitations have their own row menus).
+    const table = screen.getByRole('table', { name: tr('fr', 'members.title') });
+    const triggers = within(table).getAllByRole('button', {
       name: new RegExp(tr('fr', 'members.rowActions').replace('{name}', '.+')),
     });
     const names = triggers.map((el) => el.getAttribute('aria-label'));
@@ -326,5 +364,81 @@ describe('MembersPanel', () => {
     expect(names).toHaveLength(MEMBERS.length - 1);
     expect(new Set(names).size).toBe(names.length);
     for (const first of ['Karim', 'Sara', 'Yasmine']) expect(names).toContain(rowActions(first));
+  });
+  it('offers the staff invitation to an organisation OWNER / ADMIN only (SP2 T14)', async () => {
+    const inviteStaff = () =>
+      screen.queryByRole('button', { name: tr('fr', 'members.inviteStaff') });
+    const { unmount } = renderPanel('OWNER');
+    expect(
+      await screen.findByRole('button', { name: tr('fr', 'members.inviteStaff') }),
+    ).toBeVisible();
+    unmount();
+    const admin = renderPanel('ADMIN');
+    expect(
+      await screen.findByRole('button', { name: tr('fr', 'members.inviteStaff') }),
+    ).toBeVisible();
+    admin.unmount();
+    // An organisation TEACHER has no staff management; a personal workspace has no staff.
+    const teacher = renderPanel('TEACHER');
+    await screen.findByTestId(`member-${TEACHER}`);
+    expect(inviteStaff()).not.toBeInTheDocument();
+    teacher.unmount();
+    const personal = renderPanel('OWNER', 'fr', { type: 'PERSONAL' });
+    await screen.findByTestId(`member-${TEACHER}`);
+    expect(inviteStaff()).not.toBeInTheDocument();
+    personal.unmount();
+    // A suspended organisation is read-only (423): no invitation either.
+    renderPanel('OWNER', 'fr', { status: 'SUSPENDED' });
+    await screen.findByTestId(`member-${TEACHER}`);
+    expect(inviteStaff()).not.toBeInTheDocument();
+  });
+
+  it('lists the pending staff invitations; a TEACHER never requests them', async () => {
+    const { unmount } = renderPanel('OWNER');
+    const section = await screen.findByRole('region', { name: tr('fr', 'invitations.title') });
+    expect(await within(section).findByText('nadia@example.com')).toBeVisible();
+    expect(
+      within(section).getByRole('button', {
+        name: tr('fr', 'invitations.rowActions').replace('{email}', 'nadia@example.com'),
+      }),
+    ).toBeInTheDocument();
+    unmount();
+
+    api.GET.mockClear();
+    renderPanel('TEACHER');
+    await screen.findByTestId(`member-${TEACHER}`);
+    expect(api.GET.mock.calls.map(([path]) => path)).not.toContain('/workspaces/{wid}/invitations');
+    expect(
+      screen.queryByRole('region', { name: tr('fr', 'invitations.title') }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('the staff dialog posts a TEACHER invitation and reloads the pending list', async () => {
+    renderPanel('OWNER');
+    const ue = userEvent.setup();
+    await ue.click(await screen.findByRole('button', { name: tr('fr', 'members.inviteStaff') }));
+    const dialog = await screen.findByRole('dialog', {
+      name: tr('fr', 'members.inviteStaffTitle'),
+    });
+    const before = api.GET.mock.calls.filter(([p]) => p === '/workspaces/{wid}/invitations').length;
+    await ue.type(
+      within(dialog).getByRole('textbox', { name: tr('fr', 'members.inviteStaffEmail') }),
+      'nadia@example.com',
+    );
+    await ue.click(within(dialog).getByRole('button', { name: tr('fr', 'invitations.submit') }));
+    await waitFor(() =>
+      expect(api.POST).toHaveBeenCalledWith('/workspaces/{wid}/invitations', {
+        params: { path: { wid: 'w1' } },
+        body: { email: 'nadia@example.com', role: 'TEACHER', courseIds: [] },
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        api.GET.mock.calls.filter(([p]) => p === '/workspaces/{wid}/invitations').length,
+      ).toBeGreaterThan(before),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    // Focus returns to the opener.
+    expect(screen.getByRole('button', { name: tr('fr', 'members.inviteStaff') })).toHaveFocus();
   });
 });
