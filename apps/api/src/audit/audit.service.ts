@@ -88,6 +88,9 @@ export type AuditAction =
   | 'lesson.updated'
   | 'lesson.deleted'
   | 'lesson.reordered'
+  | 'media.upload_created'
+  | 'media.completed'
+  | 'media.deleted'
   | typeof CROSS_TENANT_AUDIT_ACTION;
 
 export interface AuditEntry {

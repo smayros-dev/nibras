@@ -143,3 +143,22 @@ export async function expectStructureInvariant(db: PrismaClient, courseId: strin
     }
   }
 }
+
+/**
+ * The quota invariant (SP3, spec D17): `Workspace.storageUsedBytes` equals the sum of
+ * `countedBytes` over the workspace's media assets (a DELETING row still counts until the worker
+ * removes it; UPLOADING and FAILED rows count 0).
+ */
+export async function expectQuotaInvariant(db: PrismaClient, wid: string): Promise<void> {
+  const { storageUsedBytes } = await db.workspace.findUniqueOrThrow({
+    where: { id: wid },
+    select: { storageUsedBytes: true },
+  });
+  const counted = await db.mediaAsset.aggregate({
+    where: { workspaceId: wid },
+    _sum: { countedBytes: true },
+  });
+  expect(storageUsedBytes, `workspace ${wid}: storageUsedBytes = Σ countedBytes`).toBe(
+    counted._sum.countedBytes ?? 0n,
+  );
+}

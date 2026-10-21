@@ -25,3 +25,25 @@ export const auditWriteFailures = new Counter({
   labelNames: ['action'] as const,
   registers: [metricsRegistry],
 });
+
+/**
+ * Playback / inline URLs handed out (SP3, D13: logged and metered, never audited), by kind
+ * (`HLS`, `MP4`, `PDF`). A spike is the bearer-token sharing signal next to the 30/h window.
+ */
+export const mediaPlaybackIssued = new Counter({
+  name: 'media_playback_issued_total',
+  help: 'Media playback URLs issued, by kind',
+  labelNames: ['kind'] as const,
+  registers: [metricsRegistry],
+});
+
+/**
+ * Upload outcomes (SP3): `created` (ticket), `completed`, and the refusals at `complete`
+ * (`invalid_signature`, `kind_mismatch`, `quota_exceeded`, `size_mismatch`), by media kind.
+ */
+export const mediaUploads = new Counter({
+  name: 'media_uploads_total',
+  help: 'Media upload tickets and completions, by kind and outcome',
+  labelNames: ['kind', 'outcome'] as const,
+  registers: [metricsRegistry],
+});

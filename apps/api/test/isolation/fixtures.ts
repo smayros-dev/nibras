@@ -12,6 +12,7 @@ import {
   type User,
   type Workspace,
 } from '@nibras/db';
+import { createS3StorageProviderFromEnv, storageKeyFor } from '@nibras/providers';
 import { expect } from 'vitest';
 import type { RouteInfo } from '../../src/openapi/export';
 import {
@@ -78,6 +79,10 @@ export interface Tenant {
   lesson: Lesson;
   /** SP3 T6: a READY VIDEO uploaded by `owner` (a valid lesson media inside this workspace only). */
   video: MediaAsset;
+  /** SP3 T7: a READY PDF uploaded by `owner` (playback and download). */
+  pdf: MediaAsset;
+  /** SP3 T7: an UPLOADING PDF of `owner` with a real multipart upload open in the test bucket. */
+  upload: MediaAsset;
 }
 
 export interface TenantPair {
@@ -133,6 +138,8 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
   const module = await createModule(course);
   const lesson = await createLesson(module, { type: 'TEXT' });
   const video = await createMediaAsset(workspace, owner, { kind: 'VIDEO' });
+  const pdf = await createMediaAsset(workspace, owner, { kind: 'PDF' });
+  const upload = await createPendingUpload(workspace, owner);
   return {
     workspace,
     owner,
@@ -152,7 +159,31 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     module,
     lesson,
     video,
+    pdf,
+    upload,
   };
+}
+
+/**
+ * An UPLOADING PDF whose multipart upload exists in this package's test bucket (MinIO, spec
+ * D10), so `GET …/media/{mediaId}/upload` lists its parts like a real resume.
+ */
+async function createPendingUpload(workspace: Workspace, owner: User): Promise<MediaAsset> {
+  const asset = await createMediaAsset(workspace, owner, { kind: 'PDF', status: 'UPLOADING' });
+  const storageKey = storageKeyFor({
+    workspaceId: workspace.id,
+    kind: 'PDF',
+    mediaId: asset.id,
+    filename: 'cours.pdf',
+  });
+  const { uploadId } = await createS3StorageProviderFromEnv(process.env).createMultipartUpload(
+    storageKey,
+    'application/pdf',
+  );
+  return systemPrisma().mediaAsset.update({
+    where: { id: asset.id },
+    data: { storageKey, uploadId, uploadUrlExpiresAt: new Date(Date.now() + 3600_000) },
+  });
 }
 
 async function systemAudit(workspace: Workspace, actor: User): Promise<string> {
@@ -199,6 +230,8 @@ export function foreignIds(p: TenantPair): string[] {
     b.module.id,
     b.lesson.id,
     b.video.id,
+    b.pdf.id,
+    b.upload.id,
   ];
 }
 
@@ -227,6 +260,12 @@ const PARAMS: Record<string, (t: Tenant) => string> = {
   // SP3 T6: the course's module and its TEXT lesson.
   ':mid': (t) => t.module.id,
   ':lid': (t) => t.lesson.id,
+  // SP3 T7: a READY image of the tenant; the actions that need another state name their own row.
+  ':mediaId': (t) => t.coverImage.id,
+  'media/:mediaId/upload': (t) => t.upload.id,
+  'media/:mediaId/complete': (t) => t.upload.id,
+  'media/:mediaId/playback': (t) => t.pdf.id,
+  'media/:mediaId/download': (t) => t.pdf.id,
 };
 
 /** B's id for each path param: an ACTIVE OWNER of A calling with it gets `404 NOT_FOUND`. */
@@ -312,6 +351,8 @@ export const FOREIGN_QUERIES: Record<string, (p: TenantPair) => Record<string, s
   'GET /api/v1/workspaces/:wid/invitations': (p) => ({ cursor: p.b.invitation.id }),
   // SP3: a course id of this workspace (`courses.service.ts`, Prisma cursor).
   'GET /api/v1/workspaces/:wid/courses': (p) => ({ cursor: p.b.course.id }),
+  // SP3 T7: a media id of this workspace (`media.service.ts`, Prisma cursor).
+  'GET /api/v1/workspaces/:wid/media': (p) => ({ cursor: p.b.coverImage.id }),
   // Not here: `GET …/assignments` pages with `id > cursor` inside `tenantDb(wid)`; a foreign id
   // only positions the scan over A's rows (nothing of B is read or revealed), so it stays `200`.
 };
@@ -475,6 +516,12 @@ export const BODYLESS_WRITE_ROUTES: Set<string> = new Set<string>([
   // SP3 T6. No body; deletes the path's module (`:mid`) or lesson (`:lid`).
   'DELETE /api/v1/workspaces/:wid/modules/:mid',
   'DELETE /api/v1/workspaces/:wid/lessons/:lid',
+  // SP3 T7. `kind`, `filename`, `mimeType`, `sizeBytes`: no id (the asset is created in `:wid`).
+  'POST /api/v1/workspaces/:wid/media/uploads',
+  // Part numbers and ETags only: the asset is the path's `:mediaId` (B's id → 404).
+  'POST /api/v1/workspaces/:wid/media/:mediaId/complete',
+  // No body; deletes the path's asset.
+  'DELETE /api/v1/workspaces/:wid/media/:mediaId',
 ]);
 
 /** A key that never appears, at any depth, in an organisation-facing abuse-report response. */

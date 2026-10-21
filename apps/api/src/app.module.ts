@@ -19,6 +19,7 @@ import { InvitationsModule } from './invitations/invitations.module';
 import { InviteLinksModule } from './invite-links/invite-links.module';
 import { ConsentModule } from './me/consent.module';
 import { MeModule } from './me/me.module';
+import { MediaModule } from './media/media.module';
 import { MembersModule } from './members/members.module';
 import { VerificationModule } from './me/verification.module';
 import { MetricsMiddleware } from './observability/metrics.middleware';
@@ -58,6 +59,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     AdminModule,
     CoursesModule,
     StructureModule,
+    MediaModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
     TenancyModule,
     RateLimitModule,

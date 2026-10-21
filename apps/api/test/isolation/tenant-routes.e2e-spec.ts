@@ -136,8 +136,27 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         'GET /api/v1/workspaces/:wid/lessons/:lid',
         'PATCH /api/v1/workspaces/:wid/lessons/:lid',
         'DELETE /api/v1/workspaces/:wid/lessons/:lid',
+        // SP3 T7: media.
+        'GET /api/v1/workspaces/:wid/media',
+        'POST /api/v1/workspaces/:wid/media/uploads',
+        'GET /api/v1/workspaces/:wid/media/:mediaId',
+        'DELETE /api/v1/workspaces/:wid/media/:mediaId',
+        'GET /api/v1/workspaces/:wid/media/:mediaId/upload',
+        'POST /api/v1/workspaces/:wid/media/:mediaId/complete',
+        'GET /api/v1/workspaces/:wid/media/:mediaId/playback',
+        'GET /api/v1/workspaces/:wid/media/:mediaId/download',
       ]),
     );
+  });
+
+  it('the public media webhook is not a tenant route (SP3 T7)', () => {
+    const all = listRoutes(ctx.app).map((r) => `${r.method} ${r.path}`);
+    expect(all).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^POST (\/api\/v1)?\/webhooks\/media\/:provider$/),
+      ]),
+    );
+    expect(routes.map((r) => r.path).filter((p) => p.includes('/webhooks/'))).toEqual([]);
   });
 
   it('the /me guardian resend and the public guardian routes are not tenant routes (D12)', () => {
