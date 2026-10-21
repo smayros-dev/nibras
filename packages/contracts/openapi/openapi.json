@@ -2010,8 +2010,10 @@
               "LYCEE",
               "SUPERIEUR",
               "ADULTE",
-              "AUTRE"
+              "AUTRE",
+              null
             ],
+            "nullable": true,
             "type": "string"
           },
           "sequentialLessons": {

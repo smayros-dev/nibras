@@ -278,12 +278,15 @@ describe('courses: CRUD, If-Match, scopes, reassign (SP3 T5)', () => {
       level: 'LYCEE',
       description: { type: 'doc' },
     });
+    // The level can be cleared again (« Non précisé »).
+    const cleared = await a.patch(url).set('If-Match', '4').send({ level: null }).expect(200);
+    expect(cleared.body).toMatchObject({ level: null, version: 5 });
     // Validation: nothing to update, unknown key, rich text outside the whitelist.
-    await a.patch(url).set('If-Match', '"4"').send({}).expect(422);
-    await a.patch(url).set('If-Match', '"4"').send({ status: 'PUBLISHED' }).expect(422);
+    await a.patch(url).set('If-Match', '"5"').send({}).expect(422);
+    await a.patch(url).set('If-Match', '"5"').send({ status: 'PUBLISHED' }).expect(422);
     await a
       .patch(url)
-      .set('If-Match', '"4"')
+      .set('If-Match', '"5"')
       .send({ description: { type: 'doc', content: [{ type: 'script' }] } })
       .expect(422);
 
@@ -291,11 +294,13 @@ describe('courses: CRUD, If-Match, scopes, reassign (SP3 T5)', () => {
       where: { action: 'course.updated', entityId: course.id },
       orderBy: { createdAt: 'asc' },
     });
-    expect(audits).toHaveLength(3);
+    expect(audits).toHaveLength(4);
     expect(audits[0]!.before).toMatchObject({ title: 'A' });
     expect(audits[0]!.after).toMatchObject({ title: 'B' });
     expect(audits[2]!.after).toMatchObject({ estimatedMinutes: 90, level: 'LYCEE' });
-    expect((await db.course.findUniqueOrThrow({ where: { id: course.id } })).version).toBe(4);
+    expect(audits[3]!.before).toMatchObject({ level: 'LYCEE' });
+    expect(audits[3]!.after).toMatchObject({ level: null });
+    expect((await db.course.findUniqueOrThrow({ where: { id: course.id } })).version).toBe(5);
 
     // A deleted course, an unknown one: 404 before the version check.
     await a

@@ -2172,8 +2172,8 @@ export interface components {
             estimatedMinutes?: number | null;
             /** @enum {string} */
             language?: "fr" | "ar" | "en";
-            /** @enum {string} */
-            level?: "PRIMAIRE" | "COLLEGE" | "LYCEE" | "SUPERIEUR" | "ADULTE" | "AUTRE";
+            /** @enum {string|null} */
+            level?: "PRIMAIRE" | "COLLEGE" | "LYCEE" | "SUPERIEUR" | "ADULTE" | "AUTRE" | null;
             sequentialLessons?: boolean;
             title?: string;
         };

@@ -85,6 +85,19 @@ describe('CourseSettingsForm', () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalledWith(saved));
   });
 
+  it('« Non précisé » clears the level (null)', async () => {
+    api.PATCH.mockResolvedValue({ data: course({ level: null, version: 4 }) });
+    renderForm();
+    const ue = userEvent.setup();
+    await ue.selectOptions(
+      screen.getByRole('combobox', { name: tr('fr', 'courses.fieldLevel') }),
+      tr('fr', 'courses.levelNone'),
+    );
+    await ue.click(save());
+    await waitFor(() => expect(api.PATCH).toHaveBeenCalled());
+    expect(api.PATCH.mock.calls[0]![1].body).toEqual({ level: null });
+  });
+
   it('sends the description as a rich-text document and an empty duration as null', async () => {
     api.PATCH.mockResolvedValue({ data: course({ version: 4 }) });
     renderForm(course({ estimatedMinutesOverride: 90 }));

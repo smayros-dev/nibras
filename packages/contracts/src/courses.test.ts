@@ -78,6 +78,8 @@ describe('course inputs', () => {
   it('UpdateCourseSchema refuses {} and does not default the language', () => {
     expect(UpdateCourseSchema.safeParse({}).success).toBe(false);
     expect(UpdateCourseSchema.parse({ title: 'B' })).toEqual({ title: 'B' });
+    expect(UpdateCourseSchema.parse({ level: null })).toEqual({ level: null });
+    expect(CreateCourseSchema.safeParse({ title: 'A', level: null }).success).toBe(false);
     expect(UpdateCourseSchema.safeParse({ ownerUserId: UUID }).success).toBe(false);
   });
 

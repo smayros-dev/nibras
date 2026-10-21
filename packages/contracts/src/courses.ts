@@ -34,6 +34,8 @@ export const UpdateCourseSchema = z
   .object({
     ...courseFields,
     title: courseFields.title.optional(),
+    /** `null` clears the level (« Non précisé »). */
+    level: z.enum(COURSE_LEVELS).nullable().optional(),
     language: LocaleSchema.optional(),
   })
   .strict()

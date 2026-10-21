@@ -61,8 +61,8 @@ function changes(v: Values, course: CourseDetail): UpdateCourseInput {
     out.description = v.description;
   }
   if (v.category.trim() !== before.category) out.category = v.category.trim();
-  // The level cannot be cleared (the schema has no `null`): « Non précisé » only while unset.
-  if (v.level !== '' && v.level !== before.level) out.level = v.level;
+  // « Non précisé » ('') clears the level (`null`).
+  if (v.level !== before.level) out.level = v.level === '' ? null : v.level;
   if (v.language !== before.language) out.language = v.language;
   if (v.estimated.trim() !== before.estimated) {
     out.estimatedMinutes = v.estimated.trim() === '' ? null : Number(v.estimated);
@@ -220,7 +220,7 @@ export function CourseSettingsForm({
               value={values.level}
               onChange={(e) => set('level', e.target.value as CourseLevel | '')}
             >
-              {course.level === null ? <option value="">{t('courses.levelNone')}</option> : null}
+              <option value="">{t('courses.levelNone')}</option>
               {COURSE_LEVELS.map((l) => (
                 <option key={l} value={l}>
                   {t(`courses.level_${l}`)}
