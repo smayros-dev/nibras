@@ -5,6 +5,7 @@ import {
   type Enrollment,
   type GuardianLink,
   type Invitation,
+  type InvitationImport,
   type InviteLink,
   type Lesson,
   type MediaAsset,
@@ -21,6 +22,7 @@ import {
   createAbuseReport,
   createCourse,
   createEnrollment,
+  createImport,
   createInvitation,
   createInviteLink,
   createLesson,
@@ -87,6 +89,8 @@ export interface Tenant {
   upload: MediaAsset;
   /** SP3 T9: `student`'s ACTIVE enrollment in `course`. */
   enrollment: Enrollment;
+  /** SP2 T10: a QUEUED CSV import of this workspace, started by the OWNER. */
+  import: InvitationImport;
 }
 
 export interface TenantPair {
@@ -130,6 +134,11 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     status: 'PENDING_APPROVAL',
     user: { firstName: `Pending${tag}` },
   });
+  const csvImport = await createImport({
+    workspace,
+    createdBy: owner,
+    rows: [{ line: 2, email: `import-${tag.toLowerCase()}@example.com` }],
+  });
   const consent = await createStudent({
     workspace,
     status: 'PENDING_GUARDIAN_CONSENT',
@@ -167,6 +176,7 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
     pdf,
     upload,
     enrollment,
+    import: csvImport,
   };
 }
 
@@ -239,6 +249,7 @@ export function foreignIds(p: TenantPair): string[] {
     b.pdf.id,
     b.upload.id,
     b.enrollment.id,
+    b.import.id,
   ];
 }
 
@@ -275,6 +286,11 @@ const PARAMS: Record<string, (t: Tenant) => string> = {
   'media/:mediaId/download': (t) => t.pdf.id,
   // SP3 T9: the enrolled student of the tenant's course.
   'enrollments/:uid': (t) => t.enrollment.studentUserId,
+  // SP2 T8: the same minor for the profile and the guardian email change (B's one could have
+  // its guardian email replaced inside B, the most sensitive write of the students routes).
+  'students/:uid': (t) => t.consentStudent.id,
+  // SP2 T10: a CSV import (status and report).
+  'invitations/import/:importId': (t) => t.import.id,
 };
 
 /** B's id for each path param: an ACTIVE OWNER of A calling with it gets `404 NOT_FOUND`. */
@@ -365,6 +381,8 @@ export const FOREIGN_QUERIES: Record<string, (p: TenantPair) => Record<string, s
   // SP3 T9: an enrollment id of this workspace (`enrollments.service.ts`, Prisma cursor).
   'GET /api/v1/workspaces/:wid/courses/:cid/enrollments': (p) => ({ cursor: p.b.enrollment.id }),
   'GET /api/v1/workspaces/:wid/courses/:cid/progress': (p) => ({ cursor: p.b.enrollment.id }),
+  // SP2 T8: the members cursor naming a STUDENT of this workspace (`students.service.ts`).
+  'GET /api/v1/workspaces/:wid/students': (p) => ({ cursor: membersCursor(p.b.consentStudent) }),
   // Not here: `GET …/assignments` pages with `id > cursor` inside `tenantDb(wid)`; a foreign id
   // only positions the scan over A's rows (nothing of B is read or revealed), so it stays `200`.
 };
@@ -503,6 +521,12 @@ export const FOREIGN_BODIES: Record<
     params: 'local',
     body: (p) => ({ studentUserIds: [p.b.student.id] }),
   },
+  // SP2 T8: no id in the body (a guardian email); the path is B's consent-waiting minor, whose
+  // guardian link must keep its address and tokens.
+  'PATCH /api/v1/workspaces/:wid/students/:uid': {
+    params: 'foreign',
+    body: () => ({ guardianEmail: 'probe-guardian@example.com' }),
+  },
 };
 
 /**
@@ -547,6 +571,8 @@ export const BODYLESS_WRITE_ROUTES: Set<string> = new Set<string>([
   'DELETE /api/v1/workspaces/:wid/media/:mediaId',
   // SP3 T9. Optional `reason` (free text); the course and the student are the path's.
   'DELETE /api/v1/workspaces/:wid/courses/:cid/enrollments/:uid',
+  // SP2 T10: the CSV body carries emails only, no ids.
+  'POST /api/v1/workspaces/:wid/invitations/import',
 ]);
 
 /** A key that never appears, at any depth, in an organisation-facing abuse-report response. */

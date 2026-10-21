@@ -42,6 +42,7 @@ async function warmRoutes() {
     '/fr/app/settings/security',
     // Compiles the [wid] workspace tree (redirects to login, but the route is compiled).
     '/fr/app/w/00000000-0000-0000-0000-000000000000',
+    '/fr/app/w/00000000-0000-0000-0000-000000000000/students',
     '/fr/app/w/00000000-0000-0000-0000-000000000000/members',
     '/fr/app/w/00000000-0000-0000-0000-000000000000/audit-log',
     // Compiles the super-admin console (404 for anonymous, but the route tree is compiled).
@@ -50,6 +51,12 @@ async function warmRoutes() {
     '/fr/admin/abuse-reports',
     '/fr/admin/abuse-reports/00000000-0000-0000-0000-000000000000',
     '/fr/admin/health',
+    // SP2 public token pages (an unknown token / code renders the "unavailable" card).
+    '/fr/invite/warmup',
+    '/fr/join/WARMUP00',
+    '/fr/guardian-consent/warmup',
+    '/fr/guardian/warmup',
+    '/fr/legal/minors',
   ];
   for (const route of routes) {
     // Best effort: a reset while the dev server compiles must not abort globalSetup —

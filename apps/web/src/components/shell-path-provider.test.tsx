@@ -16,6 +16,7 @@ vi.mock('next/link', () => ({
 const w1 = {
   workspace: { id: 'w1', name: 'Espace de Mohamed', slug: 'm', type: 'PERSONAL', status: 'ACTIVE' },
   role: 'OWNER',
+  status: 'ACTIVE',
 } as MyWorkspace;
 
 const sections = buildNavModel({

@@ -145,6 +145,14 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         'POST /api/v1/workspaces/:wid/media/:mediaId/complete',
         'GET /api/v1/workspaces/:wid/media/:mediaId/playback',
         'GET /api/v1/workspaces/:wid/media/:mediaId/download',
+        // SP2 T8: students list, profile skeleton, guardian email.
+        'GET /api/v1/workspaces/:wid/students',
+        'GET /api/v1/workspaces/:wid/students/:uid/profile',
+        'PATCH /api/v1/workspaces/:wid/students/:uid',
+        // SP2 T10: CSV import.
+        'POST /api/v1/workspaces/:wid/invitations/import',
+        'GET /api/v1/workspaces/:wid/invitations/import/:importId',
+        'GET /api/v1/workspaces/:wid/invitations/import/:importId/report',
       ]),
     );
   });
@@ -290,6 +298,12 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       where: { id: p.b.consentLink.id },
     });
     expect(bGuardian.consentTokenHash).toBe(p.b.consentLink.consentTokenHash);
+    expect(bGuardian.guardianEmail).toBe(p.b.consentLink.guardianEmail);
+    expect(bGuardian.sessionsViewTokenHash).toBe(p.b.consentLink.sessionsViewTokenHash);
+    const bImport = await ctx.db.invitationImport.findUniqueOrThrow({
+      where: { id: p.b.import.id },
+    });
+    expect(bImport.status).toBe('QUEUED');
 
     const known = new Set(routes.map(key));
     expect(Object.keys(FOREIGN_QUERIES).length).toBeGreaterThanOrEqual(3);
@@ -321,6 +335,7 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       modules: await ctx.db.module.count(),
       lessons: await ctx.db.lesson.count(),
       enrollments: await ctx.db.enrollment.count(),
+      imports: await ctx.db.invitationImport.count(),
     });
     const before = await counts();
 

@@ -80,7 +80,8 @@ describe('observability', () => {
     expect(res.text).toMatch(
       /http_request_duration_seconds_count\{method="GET",route="\/api\/v1\/__obs\/items\/:id",status="200"\} \d+/,
     );
-    expect(res.text).not.toContain('12345');
+    // Only label values matter: a metric value (a duration sum, a byte count) may contain the digits.
+    expect(res.text).not.toMatch(/="[^"]*12345[^"]*"/);
   });
 
   it('records the final status of failed requests', async () => {

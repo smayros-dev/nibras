@@ -12,9 +12,8 @@ import {
 const S = 'JBSWY3DPEHPK3PXP';
 
 /**
- * The students list / profile `courses` and `progressPercent` (spec §4.5, PRD §8.3.1). SP2's
- * students API is not on this branch yet: the service is exercised directly and wired into
- * `students.service.ts` after the SP2 merge.
+ * The students list / profile `courses` and `progressPercent` (spec §4.5, PRD §8.3.1), exercised
+ * directly; `students.service.ts` calls it (the HTTP case lives in `students.e2e-spec.ts`).
  */
 describe('StudentCoursesService: courses and progress of the students list and profile (SP3 T9)', () => {
   let ctx: TestContext;

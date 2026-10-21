@@ -33,8 +33,12 @@ export const DEFAULT_JOB_OPTIONS: DefaultJobOptions = {
 
 /** Job name of the CSV invitation import on `QUEUES.imports`. */
 export const INVITATIONS_IMPORT_JOB = 'invitations.import_csv';
-/** BullMQ job id of an import (one job per `InvitationImport` row: idempotent enqueueing). */
-export const importJobId = (importId: string): string => `import:${importId}`;
+/**
+ * BullMQ job id of an import (one job per `InvitationImport` row: idempotent enqueueing). Three
+ * `:`-separated parts like `abuse:{id}:notify`: BullMQ refuses a custom id with any other number
+ * of `:` (« Custom Id cannot contain : », kept for its legacy repeatable-job keys).
+ */
+export const importJobId = (importId: string): string => `import:${importId}:csv`;
 /** Payload of `invitations.import_csv`: ids only (the rows live in `InvitationImport.rows`). */
 export interface InvitationsImportJob {
   importId: string;

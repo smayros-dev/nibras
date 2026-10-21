@@ -3,13 +3,14 @@ import type { Page } from '@playwright/test';
 import { appUrl, expect, plainText, t, test, toast, apiLogin, uniqueEmail } from './helpers';
 import { request as playwrightRequest } from '@playwright/test';
 import { extractLink, extractOtpCode, waitForEmail } from './helpers/mailpit';
-import { addOrgMember, seedUser } from './helpers/seed';
+import { joinByInvitation, seedUser } from './helpers/seed';
 import { totpCode } from './helpers/totp';
 
 /**
  * Plan Task 23: one full journey per locale on a mobile viewport — register, verify email and
- * phone, accept the code of conduct, create an organisation, enrol 2FA, assign a role, then the
- * globalSetup-seeded super-admin suspends and reactivates the workspace (banner comes and goes).
+ * phone, accept the code of conduct, create an organisation, enrol 2FA, invite a teacher and
+ * change his role, then the globalSetup-seeded super-admin suspends and reactivates the workspace
+ * (banner comes and goes).
  * Both locales run sequentially in one test: two parallel journeys starve the dev servers.
  */
 
@@ -126,9 +127,10 @@ async function runJourney(page: Page, locale: string) {
   const wid = new URL(page.url()).pathname.split('/').pop();
   expect(wid).toBeTruthy();
 
-  // 4. Invitations are SP2: assign a role to a seeded member instead (promote to ADMIN).
+  // 4. A teacher joins by invitation (the verified owner's browser session invites through the
+  // API, the teacher accepts on his own), then the owner promotes him to ADMIN.
   const member = await seedUser();
-  addOrgMember(wid!, member.userId, 'TEACHER');
+  await joinByInvitation(page.request, wid!, member, 'TEACHER');
   await page.goto(`/${locale}/app/w/${wid}/members`);
   const memberRow = page.getByRole('row').filter({ hasText: member.email });
   await expect(memberRow).toBeVisible();

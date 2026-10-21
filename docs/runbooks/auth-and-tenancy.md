@@ -97,7 +97,8 @@ Every email lands in Mailpit (http://localhost:8025):
 ## Audit actions
 
 Every mutation writes an `AuditLog` row (`action`, actor, entity, before/after JSON) through
-`AuditService.log`. Actions (SP1, `apps/api/src/audit/audit.service.ts`):
+`AuditService.log` (the worker writes its own `SYSTEM` rows through `writeSystemAudit`). Actions
+(SP1 + SP2, `apps/api/src/audit/audit.service.ts`):
 
 | Prefix           | Meaning                                                                                                                                                                                                                |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -106,9 +107,14 @@ Every mutation writes an `AuditLog` row (`action`, actor, entity, before/after J
 | `phone.*`        | phone verified (OTP)                                                                                                                                                                                                   |
 | `consent.*`      | TERMS/PRIVACY/CODE_OF_CONDUCT granted or revoked                                                                                                                                                                       |
 | `workspace.*`    | created, updated, settings updated, ownership transferred, suspended/unsuspended, deleted, quota changed                                                                                                               |
-| `member.*`       | added, removed, role changed                                                                                                                                                                                           |
+| `member.*`       | added, removed, role changed, approved / rejected (group-code approval queue, SP2)                                                                                                                                     |
 | `assignment.*`   | course/session assignment created or deleted                                                                                                                                                                           |
 | `abuse_report.*` | report created or updated (status/resolution)                                                                                                                                                                          |
+| `invitation.*`   | created, updated, resent, revoked, accepted, expired (`SYSTEM`, daily job) — rows carry the invitee email, never the token (SP2)                                                                                       |
+| `invite_link.*`  | created, updated (incl. disabled), used (one row per accepted code) (SP2)                                                                                                                                              |
+| `student.*`      | updated (guardian email changed by a teacher) (SP2)                                                                                                                                                                    |
+| `guardian.*`     | consent requested, granted, refused, revoked, expired (`SYSTEM`), email changed — per workspace (SP2)                                                                                                                  |
+| `invitations.*`  | import started / completed (`SYSTEM`, `requestId = job:<id>`) (SP2)                                                                                                                                                    |
 
 Writes are fire-and-forget: a failed audit write increments `audit_write_failures_total` and
 never blocks the business operation.
@@ -126,6 +132,27 @@ a send and its progress write, the retry can email those users twice. A failed e
 logged (`abuse report notifications not enqueued`, with the report id) and the request still
 succeeds: the report is in the super-admin queue. A job that exhausted its attempts stays in
 BullMQ's failed set (`removeOnFail: 5000`) with the worker's `job failed` log lines.
+
+## Scheduled jobs
+
+The worker registers BullMQ job schedulers on boot (`apps/worker/src/schedulers.ts`,
+`queue.upsertJobScheduler`): idempotent by id, so a restart or a second replica never adds a
+second occurrence (boot log `job scheduler upserted <id>`). Each occurrence runs with the default
+job options (3 attempts, exponential backoff). Their audit rows have `actorRole = 'SYSTEM'` and
+`requestId = job:<job id>`, and every processed row logs its `workspace_id` (PRD §13.3).
+
+| Scheduler id              | Queue        | Job                       | Pattern (UTC) | Effect                                                                                                                                                                                                                                                                                                |
+| ------------------------- | ------------ | ------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guardian-consent-expire` | `compliance` | `guardian_consent.expire` | `0 3 * * *`   | `PENDING` guardian links whose 14-day consent link ran out: token cleared (status stays `PENDING`, a resend re-arms it), a `PENDING_GUARDIAN_CONSENT` membership of that workspace → `SUSPENDED_NO_CONSENT`, audit `guardian.consent_expired`, email to the student and the teacher. No purge (D-O5). |
+| `invitation-expire`       | `compliance` | `invitation.expire`       | `0 3 * * *`   | stored `PENDING` invitations past `expiresAt` → `EXPIRED` (releases the one-pending-invitation-per-address index), audit `invitation.expired`; no email.                                                                                                                                              |
+
+A failed expiry email does not stop the run: the other links are processed, the failed recipients
+are kept in the job progress (`unsent`) and the job fails so BullMQ retries it; the retry only
+re-sends those (unless the link was re-armed or decided meanwhile) and resumes after `lastId`. If
+the worker dies between a link's suspension and its emails, that notice is not re-sent (the link
+is no longer selected); the student's waiting panel and the students page still show the state.
+To run a job immediately, add `guardian_consent.expire` or `invitation.expire` (empty payload) to
+the `compliance` queue, or wait for 03:00 UTC.
 
 ## Tenant isolation suite
 

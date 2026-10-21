@@ -1,7 +1,12 @@
 import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
 import {
+  DAILY_SCHEDULER_PATTERN,
   DEFAULT_JOB_OPTIONS,
+  GUARDIAN_CONSENT_EXPIRE_JOB,
+  GUARDIAN_CONSENT_EXPIRE_SCHEDULER_ID,
   HOURLY_SCHEDULER_PATTERN,
+  INVITATION_EXPIRE_JOB,
+  INVITATION_EXPIRE_SCHEDULER_ID,
   MEDIA_CLEANUP_JOB,
   MEDIA_CLEANUP_SCHEDULER_ID,
   QUEUES,
@@ -22,6 +27,19 @@ export interface SchedulerDefinition {
 
 /** The repeatable jobs the worker owns. */
 export const SCHEDULERS: readonly SchedulerDefinition[] = [
+  // SP2: guardian consent and invitation expiry, daily at `DAILY_SCHEDULER_PATTERN` (03:00 UTC).
+  {
+    id: GUARDIAN_CONSENT_EXPIRE_SCHEDULER_ID,
+    queue: QUEUES.compliance,
+    jobName: GUARDIAN_CONSENT_EXPIRE_JOB,
+    pattern: DAILY_SCHEDULER_PATTERN,
+  },
+  {
+    id: INVITATION_EXPIRE_SCHEDULER_ID,
+    queue: QUEUES.compliance,
+    jobName: INVITATION_EXPIRE_JOB,
+    pattern: DAILY_SCHEDULER_PATTERN,
+  },
   // SP3: abandoned uploads and processing timeouts, every hour at minute 15.
   {
     id: MEDIA_CLEANUP_SCHEDULER_ID,

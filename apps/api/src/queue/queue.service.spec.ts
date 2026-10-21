@@ -1,8 +1,8 @@
-import type { QueueName } from '@nibras/contracts';
+import { importJobId, type QueueName } from '@nibras/contracts';
 import type { Queue } from 'bullmq';
 import { describe, expect, it, vi } from 'vitest';
 import { redisConnection } from './queue.module';
-import { FakeQueueService, QueueService } from './queue.service';
+import { assertBullmqJobId, FakeQueueService, QueueService } from './queue.service';
 
 describe('QueueService', () => {
   it('adds the job to the named queue with the per-job options', async () => {
@@ -33,6 +33,18 @@ describe('FakeQueueService', () => {
     ]);
     fake.clear();
     expect(fake.jobs).toEqual([]);
+  });
+
+  it('refuses the job ids BullMQ refuses (integer, or a `:` count other than three parts)', async () => {
+    const fake = new FakeQueueService();
+    await expect(fake.add('imports', 'x', null, { jobId: '42' })).rejects.toThrow(/integers/);
+    await expect(fake.add('imports', 'x', null, { jobId: 'import:abc' })).rejects.toThrow(
+      /cannot contain :/,
+    );
+    await fake.add('imports', 'x', null, { jobId: 'import:abc:csv' });
+    await fake.add('compliance', 'y', null, { jobId: 'plain-id' });
+    expect(fake.jobs).toHaveLength(2);
+    expect(() => assertBullmqJobId(importJobId('0192-id'))).not.toThrow();
   });
 });
 

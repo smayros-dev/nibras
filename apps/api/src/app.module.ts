@@ -16,6 +16,7 @@ import { DbModule } from './db/db.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { HealthModule } from './health/health.module';
 import { GuardianModule } from './guardian/guardian.module';
+import { ImportsModule } from './imports/imports.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { InviteLinksModule } from './invite-links/invite-links.module';
 import { ConsentModule } from './me/consent.module';
@@ -29,6 +30,7 @@ import { ProvidersModule } from './providers/providers.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
 import { StructureModule } from './structure/structure.module';
+import { StudentsModule } from './students/students.module';
 import { PermissionGuard } from './tenancy/permission.guard';
 import { SuperAdminGuard } from './tenancy/super-admin.guard';
 import { TeacherVerifiedGuard } from './tenancy/teacher-verified.guard';
@@ -53,9 +55,12 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     MeModule,
     WorkspacesModule,
     MembersModule,
+    // Before InvitationsModule: `invitations/import/…` must be matched ahead of `invitations/:id`.
+    ImportsModule,
     InvitationsModule,
     InviteLinksModule,
     GuardianModule,
+    StudentsModule,
     AbuseReportsModule,
     AdminModule,
     CoursesModule,

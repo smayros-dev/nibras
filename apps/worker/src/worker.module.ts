@@ -16,6 +16,8 @@ import { HealthServer } from './health-server';
 import { createLogger, PinoNestLogger, WORKER_LOGGER } from './logger';
 import { AbuseProcessor } from './processors/abuse.processor';
 import { CourseNotifyProcessor } from './processors/course-notify.processor';
+import { ExpiryProcessor } from './processors/expiry.processor';
+import { ImportsProcessor } from './processors/imports.processor';
 import { MediaProcessor } from './processors/media.processor';
 import { PingProcessor } from './processors/ping.processor';
 import type { StorageProvider } from '@nibras/providers';
@@ -59,6 +61,8 @@ export class WorkerModule implements OnApplicationShutdown {
         AbuseProcessor,
         MediaProcessor,
         CourseNotifyProcessor,
+        ExpiryProcessor,
+        ImportsProcessor,
         Schedulers,
       ],
       exports: [

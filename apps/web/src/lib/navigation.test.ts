@@ -7,6 +7,7 @@ const t = (key: string) => key;
 const w1 = {
   workspace: { id: 'w1', name: 'Espace de Mohamed', slug: 'm', type: 'PERSONAL', status: 'ACTIVE' },
   role: 'OWNER',
+  status: 'ACTIVE',
 } as MyWorkspace;
 
 /** Every route `buildNavModel` may link to (locale-less), mirroring `src/app/[locale]`. */
@@ -14,7 +15,7 @@ const EXISTING_ROUTES = [
   /^\/app$/,
   /^\/app\/settings\/(profile|security|verification|consents|workspaces)$/,
   /^\/app\/w\/[^/]+$/,
-  /^\/app\/w\/[^/]+\/(members|audit-log)$/,
+  /^\/app\/w\/[^/]+\/(students|members|audit-log)$/,
   /^\/admin\/(workspaces|abuse-reports|health)$/,
 ];
 
@@ -41,6 +42,25 @@ function currentAt(sections: NavSection[], pathname: string, locale = 'fr') {
 }
 
 describe('buildNavModel', () => {
+  it('a membership that is not active gets only its waiting page (SP2)', () => {
+    const pending = {
+      ...w1,
+      workspace: { ...w1.workspace, id: 'w2', name: 'École Atlas' },
+      role: 'STUDENT',
+      status: 'PENDING_GUARDIAN_CONSENT',
+    } as MyWorkspace;
+    const sections = model({ workspaces: [w1, pending] });
+    const section = sections.find((s) => s.id === 'workspace-w2')!;
+    expect(section.label).toBe('École Atlas');
+    expect(section.visibleUnder).toBe('/fr/app/w/w2');
+    expect(section.items.map((i) => [i.id, i.href, i.label])).toEqual([
+      ['workspace-w2-pending', '/fr/app/w/w2', 'pending.navItem'],
+    ]);
+    expect(currentAt(sections, '/app/w/w2')).toBe('workspace-w2-pending');
+    // The active workspace keeps its full section.
+    expect(sections.find((s) => s.id === 'workspace-w1')!.items).toHaveLength(4);
+  });
+
   it('links only existing routes, the workspace section shown only inside it', () => {
     const sections = model();
     expect(sections.map((s) => s.id)).toEqual(['main', 'workspace-w1']);
@@ -61,6 +81,31 @@ describe('buildNavModel', () => {
         path,
       ).toBe(true);
     }
+  });
+
+  it('adds Étudiants between settings and members for OWNER/ADMIN/TEACHER, not for a STUDENT (SP2)', () => {
+    const as = (id: string, role: MyWorkspace['role']) =>
+      ({ ...w1, workspace: { ...w1.workspace, id }, role }) as MyWorkspace;
+    const sections = model({
+      workspaces: [as('w1', 'OWNER'), as('w2', 'ADMIN'), as('w3', 'TEACHER'), as('w4', 'STUDENT')],
+    });
+    const ids = (wid: string) =>
+      sections.find((s) => s.id === `workspace-${wid}`)!.items.map((i) => i.id);
+    for (const wid of ['w1', 'w2', 'w3']) {
+      expect(ids(wid)).toEqual([
+        `workspace-${wid}-settings`,
+        `workspace-${wid}-students`,
+        `workspace-${wid}-members`,
+        `workspace-${wid}-audit`,
+      ]);
+    }
+    expect(ids('w4')).not.toContain('workspace-w4-students');
+    const students = sections[1]!.items.find((i) => i.id === 'workspace-w1-students')!;
+    expect([students.href, students.label]).toEqual([
+      '/fr/app/w/w1/students',
+      'workspace.navStudents',
+    ]);
+    expect(currentAt(sections, '/app/w/w1/students')).toBe('workspace-w1-students');
   });
 
   it('has no workspace section without workspaces', () => {

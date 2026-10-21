@@ -212,11 +212,12 @@ is in [`docs/runbooks/staging.md`](docs/runbooks/staging.md).
 
 ## Documentation
 
-| Document                                                                 | Content                                  |
-| ------------------------------------------------------------------------ | ---------------------------------------- |
-| [`PRD.md`](PRD.md)                                                       | Product requirements (French)            |
-| [`docs/runbooks/local-dev.md`](docs/runbooks/local-dev.md)               | Local development and tests              |
-| [`docs/runbooks/staging.md`](docs/runbooks/staging.md)                   | Deployment                               |
-| [`docs/runbooks/auth-and-tenancy.md`](docs/runbooks/auth-and-tenancy.md) | Auth, tenancy and super-admin operations |
-| [`docs/runbooks/frontend.md`](docs/runbooks/frontend.md)                 | Frontend conventions, design system, PWA |
-| [`docs/superpowers/`](docs/superpowers/)                                 | Design specs and implementation plans    |
+| Document                                                                 | Content                                                                |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [`PRD.md`](PRD.md)                                                       | Product requirements (French)                                          |
+| [`GUIDE.md`](GUIDE.md)                                                   | User guide (French): roles, accounts, students, invitations, guardians |
+| [`docs/runbooks/local-dev.md`](docs/runbooks/local-dev.md)               | Local development and tests                                            |
+| [`docs/runbooks/staging.md`](docs/runbooks/staging.md)                   | Deployment                                                             |
+| [`docs/runbooks/auth-and-tenancy.md`](docs/runbooks/auth-and-tenancy.md) | Auth, tenancy and super-admin operations                               |
+| [`docs/runbooks/frontend.md`](docs/runbooks/frontend.md)                 | Frontend conventions, design system, PWA                               |
+| [`docs/superpowers/`](docs/superpowers/)                                 | Design specs and implementation plans                                  |

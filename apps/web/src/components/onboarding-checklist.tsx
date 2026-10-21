@@ -13,8 +13,10 @@ export interface OnboardingChecklistProps {
 
 /**
  * PRD §8.1.3: *Votre espace est prêt à {done}/5* on the dashboard while incomplete, with a
- * progress bar. Hidden for users with no PERSONAL workspace and no teaching membership. The last
- * three items link to routes later plans create; they render as text with a *Bientôt* badge.
+ * progress bar. Hidden for users with no PERSONAL workspace and no teaching membership. *Inviter
+ * mes étudiants* links to the personal workspace's students page (SP2; a *Bientôt* badge without
+ * one); the course and session items link to routes later plans create and render as text with a
+ * *Bientôt* badge.
  */
 export async function OnboardingChecklist({
   emailVerified,
@@ -27,14 +29,22 @@ export async function OnboardingChecklist({
     (m) => m.workspace.type === 'PERSONAL' || ['OWNER', 'ADMIN', 'TEACHER'].includes(m.role),
   );
   if (!eligible) return null;
+  const personal = workspaces.find(
+    (m) => m.workspace.type === 'PERSONAL' && m.role === 'OWNER' && m.status === 'ACTIVE',
+  );
 
   const items = [
     { key: 'profile', done: profileComplete, href: '/app/settings/profile', live: true },
     { key: 'verifyEmail', done: emailVerified, href: '/app/settings/verification', live: true },
     { key: 'firstCourse', done: false, href: '/app/courses/new', live: false },
-    { key: 'inviteStudents', done: false, href: '/app/students', live: false },
+    {
+      key: 'inviteStudents',
+      done: false,
+      href: personal ? `/app/w/${personal.workspace.id}/students` : '/app/students',
+      live: personal !== undefined,
+    },
     { key: 'firstSession', done: false, href: '/app/sessions/new', live: false },
-  ] as const;
+  ];
   const done = items.filter((item) => item.done).length;
   if (done === items.length) return null;
   const title = t('onboarding.title', { done, total: items.length });
