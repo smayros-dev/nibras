@@ -114,7 +114,10 @@ function statusInvalid(status: CourseStatus, details: Record<string, unknown>): 
 }
 
 /** Minutes a lesson counts for: its own estimate, else its media's duration rounded up. */
-function lessonMinutes(l: LessonStatsRow): number {
+export function lessonMinutes(l: {
+  estimatedMinutes: number | null;
+  mediaAsset: { durationS: number | null } | null;
+}): number {
   if (l.estimatedMinutes !== null) return l.estimatedMinutes;
   const seconds = l.mediaAsset?.durationS;
   return seconds ? Math.ceil(seconds / 60) : 0;

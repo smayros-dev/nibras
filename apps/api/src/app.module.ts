@@ -19,6 +19,7 @@ import { GuardianModule } from './guardian/guardian.module';
 import { ImportsModule } from './imports/imports.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { InviteLinksModule } from './invite-links/invite-links.module';
+import { LearnModule } from './learn/learn.module';
 import { ConsentModule } from './me/consent.module';
 import { MeModule } from './me/me.module';
 import { MediaModule } from './media/media.module';
@@ -67,6 +68,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     StructureModule,
     MediaModule,
     EnrollmentsModule,
+    LearnModule,
     // WorkspaceContextGuard and PermissionGuard for the global guard chain below.
     TenancyModule,
     RateLimitModule,

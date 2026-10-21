@@ -4391,6 +4391,43 @@
         ]
       }
     },
+    "/me/courses": {
+      "get": {
+        "operationId": "LearnController_courses",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Learn"
+        ]
+      }
+    },
+    "/me/courses/{cid}": {
+      "get": {
+        "operationId": "LearnController_course",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Learn"
+        ]
+      }
+    },
     "/me/email-change": {
       "post": {
         "operationId": "MeController_requestEmailChange",
@@ -4412,6 +4449,144 @@
         },
         "tags": [
           "Me"
+        ]
+      }
+    },
+    "/me/lessons/{lid}": {
+      "get": {
+        "operationId": "LearnController_lesson",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Learn"
+        ]
+      }
+    },
+    "/me/lessons/{lid}/complete": {
+      "post": {
+        "operationId": "LearnController_complete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Learn"
+        ]
+      }
+    },
+    "/me/lessons/{lid}/download": {
+      "get": {
+        "operationId": "LearnController_download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Learn"
+        ]
+      }
+    },
+    "/me/lessons/{lid}/opened": {
+      "post": {
+        "operationId": "LearnController_opened",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Learn"
+        ]
+      }
+    },
+    "/me/lessons/{lid}/playback": {
+      "get": {
+        "operationId": "LearnController_playback",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Learn"
+        ]
+      }
+    },
+    "/me/lessons/{lid}/uncomplete": {
+      "post": {
+        "operationId": "LearnController_uncomplete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Learn"
         ]
       }
     },
