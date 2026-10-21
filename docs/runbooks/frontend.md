@@ -133,8 +133,8 @@ Production (`NODE_ENV !== 'development'`):
 
 ```
 default-src 'self'; script-src 'self' 'nonce-<n>' 'strict-dynamic'; style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self';
-media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';
+img-src 'self' data: blob: <media>; font-src 'self'; connect-src 'self' <media>; worker-src 'self' blob:;
+manifest-src 'self'; media-src 'self' blob: <media>; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';
 upgrade-insecure-requests
 ```
 
@@ -155,12 +155,23 @@ Development adds `'unsafe-eval'` to `script-src` (React's dev tooling) and `ws: 
 
 ### Allowing a new origin
 
-Upcoming: **LiveKit (SP6)** needs its `wss://` URL in `connect-src`; the **managed VOD (SP3)**
-needs its playback/CDN origin in `media-src` (and its thumbnail host in `img-src` if posters come
-from there).
+**Media origins (SP3).** `MEDIA_ORIGINS` (space- or comma-separated `http(s)` origins; anything
+else is dropped by `parseOrigins`) is read once by `proxy.ts` at start-up and added to
+`connect-src` (presigned upload `PUT`s, pdf.js fetching the inline PDF, hls.js fetching manifests
+and segments), `media-src` (native MP4/HLS playback) and `img-src` (VOD thumbnails) — nowhere
+else. Locally and in CI it is the MinIO endpoint (`http://localhost:9000`); in production the
+object store's public endpoint plus the Cloudflare Stream customer subdomain. It is a runtime
+variable of the web server (also listed in `turbo.json` `build.env` and the CI workflow).
+`worker-src 'self' blob:`: pdf.js's worker is bundled under `_next/static` (never a CDN) and
+hls.js runs its transmuxer in a `blob:` worker. The players load hls.js / pdf.js with a plain
+`import()` inside an effect (never `next/dynamic` around an app component: Turbopack then
+duplicates shared app modules into every route), and an MP4 never loads hls.js.
+
+Upcoming: **LiveKit (SP6)** needs its `wss://` URL in `connect-src`.
 
 1. Add it to the narrowest directive in `buildCsp` (e.g. a VOD CDN → `media-src`, LiveKit →
-   `connect-src` with its `wss:` URL), never to `default-src`, never `*`.
+   `connect-src` with its `wss:` URL; a media host → `MEDIA_ORIGINS`), never to `default-src`,
+   never `*`.
 2. Add the expectation to `src/lib/security-headers.test.ts`.
 3. Scripts: with `'strict-dynamic'`, host allow-lists are ignored by modern browsers; load a
    third-party script through `next/script` with `nonce={(await headers()).get('x-nonce')}`.

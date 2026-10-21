@@ -2,21 +2,17 @@
 
 import type { MyCourseDetail, MyLessonDetail, ProgressActionResult } from '@nibras/contracts';
 import { Alert, PageHeader } from '@nibras/ui';
-import { FileText, PlayCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState, type ReactNode } from 'react';
 import { Link } from '../../i18n/navigation';
 import { ProgressBar } from '../courses/progress-bar';
 import { CompleteButton } from './complete-button';
 import { LessonNav } from './lesson-nav';
+import { LessonMedia } from './lesson-media';
 import { LessonState, type LearnError } from './lesson-state';
+import type { PlaybackSource } from './playback-session';
 
-/**
- * Where T16's players fetch their grant: the student's `/me/lessons/{lid}/playback`, or the
- * teacher's `/workspaces/{wid}/media/{mediaId}/playback` in the preview.
- */
-export type PlaybackSource =
-  { kind: 'learner'; lessonId: string } | { kind: 'teacher'; wid: string; mediaId: string | null };
+export type { PlaybackSource } from './playback-session';
 
 export interface LessonShellProps {
   mode: 'student' | 'preview';
@@ -28,15 +24,17 @@ export interface LessonShellProps {
   /** Student mode: the course's status (ARCHIVED = frozen progress) and percent. */
   course?: { status: MyCourseDetail['course']['status']; progressPercent: number };
   source: PlaybackSource;
+  /** The viewer's email, shown in the media watermark (D-O8; the teacher's own in the preview). */
+  viewerEmail: string;
   /** A text lesson's body, rendered by the server page (`LessonText`). */
   children?: ReactNode;
 }
 
 /**
  * A lesson page (PRD §8.6): breadcrumbs course › module, the title and the course percent, then the
- * body by type — text (the server-rendered child), video or PDF (T16's players mount in the media
- * slot), « en cours de traitement » while the media is processed — then completion and
- * previous/next. A refusal of the API renders its `LessonState` instead. `preview` (the teacher):
+ * body by type — text (the server-rendered child), video or PDF (`LessonMedia`: the player or
+ * the viewer, watermarked with the viewer's email), « en cours de traitement » while the media is
+ * processed — then completion and previous/next. A refusal of the API renders its `LessonState` instead. `preview` (the teacher):
  * no completion, no progress, nothing posted.
  */
 export function LessonShell({
@@ -46,6 +44,7 @@ export function LessonShell({
   error,
   course,
   source,
+  viewerEmail,
   children,
 }: LessonShellProps) {
   const t = useTranslations();
@@ -85,18 +84,16 @@ export function LessonShell({
   } else if (lesson.type === 'TEXT') {
     body = children;
   } else {
-    // T16 mounts the video player / PDF viewer here (`next/dynamic`, `ssr: false`), fed by
-    // `detail.playback` and renewed through `source`; the watermark overlays this element.
-    const Icon = lesson.type === 'VIDEO' ? PlayCircle : FileText;
     body = (
-      <div
-        data-testid="lesson-media"
-        data-kind={lesson.type}
-        data-source={source.kind}
-        className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-md border border-border bg-bg-subtle text-fg-muted"
-      >
-        <Icon aria-hidden="true" className="size-10" />
-        <p className="text-sm">{t('learn.mediaPending')}</p>
+      <div data-testid="lesson-media" data-kind={lesson.type} data-source={source.kind}>
+        <LessonMedia
+          type={lesson.type}
+          source={source}
+          initial={detail.playback}
+          title={lesson.title}
+          watermarkText={viewerEmail}
+          allowDownload={lesson.allowDownload}
+        />
       </div>
     );
   }

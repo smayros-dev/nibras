@@ -11,27 +11,31 @@
  * - Styles: `'unsafe-inline'` because SSR'd `style=""` attributes (Radix, React) cannot carry a
  *   nonce — documented residual risk, contained by the same-origin `connect/img/font-src`.
  * - `img-src data: blob:` for the 2FA QR code and the recovery-code download.
- * - `connect-src 'self'`: the API is same-origin (`/api` rewrite); dev adds the HMR websocket;
- *   `connectOrigins` adds the object store's public origin(s) (`MEDIA_ORIGINS`), which the
- *   browser `PUT`s upload parts to directly through presigned URLs (SP3 T12; T16 extends
- *   `MEDIA_ORIGINS` to playback).
- * - `worker-src`/`manifest-src 'self'` for the PWA service worker and manifest.
+ * - `connect-src 'self'`: the API is same-origin (`/api` rewrite); dev adds the HMR websocket.
+ * - `mediaOrigins` (`MEDIA_ORIGINS`: the object store's public origin, the managed VOD's
+ *   playback/thumbnail origins) go to `connect-src` (presigned upload `PUT`s, pdf.js fetching the
+ *   inline PDF, hls.js fetching the manifest and segments), `media-src` (native MP4/HLS playback)
+ *   and `img-src` (VOD thumbnails) — never to `default-src` or `script-src`.
+ * - `worker-src 'self' blob:`: the PWA service worker and the pdf.js worker are same-origin
+ *   (`_next/static`); hls.js runs its transmuxer in a `blob:` worker.
+ * - `manifest-src 'self'` for the PWA manifest.
  */
 export function buildCsp(
   nonce: string,
-  { dev, connectOrigins = [] }: { dev: boolean; connectOrigins?: readonly string[] },
+  { dev, mediaOrigins = [] }: { dev: boolean; mediaOrigins?: readonly string[] },
 ): string {
-  const connect = ["'self'", ...connectOrigins, ...(dev ? ['ws:', 'wss:'] : [])].join(' ');
+  const media = mediaOrigins.map((origin) => ` ${origin}`).join('');
+  const connect = ["'self'", ...mediaOrigins, ...(dev ? ['ws:', 'wss:'] : [])].join(' ');
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    `img-src 'self' data: blob:${media}`,
     "font-src 'self'",
     `connect-src ${connect}`,
-    "worker-src 'self'",
+    "worker-src 'self' blob:",
     "manifest-src 'self'",
-    "media-src 'self' blob:",
+    `media-src 'self' blob:${media}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

@@ -1437,8 +1437,30 @@
     "lessonNav": "Lesson navigation",
     "previous": "Previous lesson",
     "next": "Next lesson",
-    "mediaPending": "The player for this media is on its way.",
     "preview": "Student preview",
-    "previewNotice": "Preview: the course as your students see it, without locks or progress."
+    "previewNotice": "Preview: the course as your students see it, without locks or progress.",
+    "media": {
+      "player": "Video player: {title}",
+      "document": "PDF document: {title}",
+      "pages": "Document pages",
+      "play": "Play",
+      "pause": "Pause",
+      "seek": "Playback position",
+      "position": "{current} of {total}",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "volume": "Volume",
+      "speed": "Playback speed",
+      "fullscreen": "Full screen",
+      "exitFullscreen": "Exit full screen",
+      "keys": "Shortcuts: Space to play or pause, left and right arrows to go back or forward 10 seconds, F for full screen.",
+      "loading": "Loading the media",
+      "error": "This media could not be loaded. Reload the page to try again.",
+      "page": "Page",
+      "pageOf": "of {total}",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "download": "Download"
+    }
   }
 }

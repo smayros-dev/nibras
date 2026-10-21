@@ -6,6 +6,7 @@ import { LessonShell } from '../../../../../../../../components/learn/lesson-she
 import { LessonText } from '../../../../../../../../components/learn/lesson-text';
 import { routing } from '../../../../../../../../i18n/routing';
 import { asApiResult, serverApi } from '../../../../../../../../lib/api';
+import { getSession } from '../../../../../../../../lib/session';
 
 /**
  * A student's lesson (PRD §8.6): `GET /me/lessons/{lid}` with the course (`GET /me/courses/{cid}`:
@@ -22,13 +23,14 @@ export default async function LessonPage({
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
   const client = await serverApi();
-  const [lessonResult, courseResult] = await Promise.all([
+  const [lessonResult, courseResult, user] = await Promise.all([
     client
       .GET('/me/lessons/{lid}', { params: { path: { lid } } })
       .then((r) => asApiResult<MyLessonDetail>(r)),
     client
       .GET('/me/courses/{cid}', { params: { path: { cid } } })
       .then((r) => asApiResult<MyCourseDetail>(r)),
+    getSession(),
   ]);
   const error = courseResult.error ?? lessonResult.error;
   if (error?.code === 'NOT_FOUND') notFound();
@@ -39,7 +41,15 @@ export default async function LessonPage({
   const courseHref = `/app/courses/${cid}`;
   const source = { kind: 'learner', lessonId: lid } as const;
   if (error || !detail || !course) {
-    return <LessonShell mode="student" courseHref={courseHref} error={error} source={source} />;
+    return (
+      <LessonShell
+        mode="student"
+        courseHref={courseHref}
+        error={error}
+        source={source}
+        viewerEmail=""
+      />
+    );
   }
   return (
     <LessonShell
@@ -48,6 +58,7 @@ export default async function LessonPage({
       detail={detail}
       course={{ status: course.course.status, progressPercent: course.progressPercent }}
       source={source}
+      viewerEmail={user?.email ?? ''}
     >
       {detail.lesson.type === 'TEXT' ? (
         <LessonText content={detail.content} images={detail.images} />

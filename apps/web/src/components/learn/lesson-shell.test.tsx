@@ -33,6 +33,7 @@ const STUDENT: Omit<LessonShellProps, 'detail' | 'error'> = {
   courseHref: '/app/courses/c1',
   course: { status: 'PUBLISHED', progressPercent: 40 },
   source: { kind: 'learner', lessonId: 'l1' },
+  viewerEmail: 'lina@example.tn',
 };
 
 function renderShell(props: Partial<LessonShellProps> = {}) {
@@ -221,6 +222,9 @@ describe('LessonShell — lesson', () => {
       }),
     });
     expect(screen.getByTestId('lesson-media')).toHaveAttribute('data-kind', 'VIDEO');
+    // The player replaced the placeholder, watermarked with the viewer's email.
+    expect(screen.getByTestId('video')).toBeInTheDocument();
+    expect(screen.getByTestId('watermark')).toHaveTextContent('lina@example.tn');
     expect(screen.queryByText('Corps de la leçon')).not.toBeInTheDocument();
     expect(api.POST).not.toHaveBeenCalled();
   });

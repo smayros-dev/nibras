@@ -1437,8 +1437,30 @@
     "lessonNav": "Navigation entre les leçons",
     "previous": "Leçon précédente",
     "next": "Leçon suivante",
-    "mediaPending": "Le lecteur de ce média arrive.",
     "preview": "Aperçu étudiant",
-    "previewNotice": "Aperçu : le cours tel que vos étudiants le voient, sans verrous ni progression."
+    "previewNotice": "Aperçu : le cours tel que vos étudiants le voient, sans verrous ni progression.",
+    "media": {
+      "player": "Lecteur vidéo : {title}",
+      "document": "Document PDF : {title}",
+      "pages": "Pages du document",
+      "play": "Lire",
+      "pause": "Pause",
+      "seek": "Position de lecture",
+      "position": "{current} sur {total}",
+      "mute": "Couper le son",
+      "unmute": "Rétablir le son",
+      "volume": "Volume",
+      "speed": "Vitesse de lecture",
+      "fullscreen": "Plein écran",
+      "exitFullscreen": "Quitter le plein écran",
+      "keys": "Raccourcis : Espace pour lire ou mettre en pause, flèches gauche et droite pour reculer ou avancer de 10 secondes, F pour le plein écran.",
+      "loading": "Chargement du média",
+      "error": "Impossible de charger ce média. Rechargez la page pour réessayer.",
+      "page": "Page",
+      "pageOf": "sur {total}",
+      "zoomIn": "Zoom avant",
+      "zoomOut": "Zoom arrière",
+      "download": "Télécharger"
+    }
   }
 }

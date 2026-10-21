@@ -6,8 +6,11 @@ import { buildCsp, newNonce, parseOrigins, securityHeaders } from './lib/securit
 
 const handleI18nRouting = createMiddleware(routing);
 
-/** Object-store origins the browser uploads to (presigned PUTs), read once at start-up. */
-const MEDIA_CONNECT_ORIGINS = parseOrigins(process.env.MEDIA_ORIGINS);
+/**
+ * Media origins (`MEDIA_ORIGINS`): the object store and the managed VOD the browser uploads to and
+ * plays from (presigned URLs, signed manifests), read once at start-up.
+ */
+const MEDIA_ORIGINS = parseOrigins(process.env.MEDIA_ORIGINS);
 
 const VALID_LOCALES = routing.locales as readonly string[];
 const LOCALE_PREFIX = new RegExp(`^/(?:${VALID_LOCALES.join('|')})(?=/|$)`);
@@ -33,7 +36,7 @@ export default function proxy(request: NextRequest) {
 
   const dev = process.env.NODE_ENV === 'development';
   const nonce = newNonce();
-  const csp = buildCsp(nonce, { dev, connectOrigins: MEDIA_CONNECT_ORIGINS });
+  const csp = buildCsp(nonce, { dev, mediaOrigins: MEDIA_ORIGINS });
 
   const headers = new Headers(request.headers);
   // Always overwritten, so a client cannot choose the nonce.

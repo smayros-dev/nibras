@@ -74,6 +74,8 @@ jobs:
       CLOUDFLARE_STREAM_SIGNING_KEY_ID: ''
       CLOUDFLARE_STREAM_SIGNING_KEY_PEM: ''
       CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN: ''
+      # The web CSP's media origins (connect/media/img-src): the MinIO above, as browsers reach it.
+      MEDIA_ORIGINS: http://localhost:9000
     services:
       postgres:
         image: postgres:17
@@ -197,6 +199,8 @@ jobs:
       CLOUDFLARE_STREAM_SIGNING_KEY_ID: ''
       CLOUDFLARE_STREAM_SIGNING_KEY_PEM: ''
       CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN: ''
+      # The web CSP's media origins (connect/media/img-src): the MinIO above, as browsers reach it.
+      MEDIA_ORIGINS: http://localhost:9000
     services:
       postgres:
         image: postgres:17
