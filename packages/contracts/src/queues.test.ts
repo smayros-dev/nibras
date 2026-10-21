@@ -13,7 +13,7 @@ import {
 describe('SP2 job constants', () => {
   it('spells the job names, scheduler ids and the import job id as the plan does', () => {
     expect(INVITATIONS_IMPORT_JOB).toBe('invitations.import_csv');
-    expect(importJobId('abc')).toBe('import:abc');
+    expect(importJobId('abc')).toBe('import:abc:csv');
     expect(GUARDIAN_CONSENT_EXPIRE_JOB).toBe('guardian_consent.expire');
     expect(INVITATION_EXPIRE_JOB).toBe('invitation.expire');
     expect(GUARDIAN_CONSENT_EXPIRE_SCHEDULER_ID).toBe('guardian-consent-expire');

@@ -94,7 +94,7 @@ export class ImportsService {
    * under the workspace row lock, one `QUEUED | RUNNING` import per workspace (else `409
    * IMPORT_IN_PROGRESS`) and the `InvitationImport` with the valid rows and the invalid lines as
    * its initial report. Then the job `{ importId, workspaceId }` (ids only) with the idempotent
-   * `jobId` `import:{id}`; an enqueue failure marks the import `FAILED` so it never blocks the
+   * `jobId` `import:{id}:csv`; an enqueue failure marks the import `FAILED` so it never blocks the
    * workspace. Audits `invitations.import_started`.
    */
   async confirm(ctx: MemberCtx, input: ImportRequestInput): Promise<ImportAccepted> {

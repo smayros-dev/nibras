@@ -123,7 +123,7 @@ describe('CSV import API: preview, confirm, status, report (AC-INV-07)', () => {
     expect(res.body.validRows).toBe(3);
   });
 
-  it('confirm → 202 importId, InvitationImport QUEUED with 95 rows, job { importId, workspaceId } with jobId import:{id}, audit invitations.import_started; a second confirm while QUEUED → 409 IMPORT_IN_PROGRESS; status endpoint; report csv has a BOM and 5 lines before the worker runs', async () => {
+  it('confirm → 202 importId, InvitationImport QUEUED with 95 rows, job { importId, workspaceId } with jobId import:{id}:csv, audit invitations.import_started; a second confirm while QUEUED → 409 IMPORT_IN_PROGRESS; status endpoint; report csv has a BOM and 5 lines before the worker runs', async () => {
     const { teacher, workspace } = await personal();
     const a = await agent(teacher);
     const { csv } = acFile();

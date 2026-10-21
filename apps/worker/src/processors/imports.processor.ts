@@ -91,7 +91,7 @@ const errType = (err: unknown) => ({ type: err instanceof Error ? err.name : typ
 
 /**
  * `invitations.import_csv` on `imports` (AC-INV-07; design §4.5, Review Focus 5), enqueued by the
- * API's confirm with `{ importId, workspaceId }` (ids only) and `jobId = import:{id}`.
+ * API's confirm with `{ importId, workspaceId }` (ids only) and `jobId = import:{id}:csv`.
  *
  * Per row, from `processedRows`: a live membership of the address → `ALREADY_MEMBER`; a stored
  * `PENDING` invitation → `ALREADY_INVITED`; else the invitation is created (token generated here,
