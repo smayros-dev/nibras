@@ -4,7 +4,8 @@ How to run the platform on a developer machine (Windows 11 + Git Bash or PowerSh
 This page covers what SP0 (monorepo & infrastructure) delivers; later plans append to it.
 Frontend conventions (tokens, components, nav, i18n guards, first-load budget, CSP, PWA,
 rebranding) are in [frontend.md](frontend.md). The security rules (secrets, scanners, images,
-GitHub settings) are summarised in [security.md](security.md).
+GitHub settings) are summarised in [security.md](security.md). Courses, media uploads and playback
+(SP3, MinIO buckets, `VIDEO_PROVIDER`): [courses-and-media.md](courses-and-media.md).
 
 ## Prerequisites
 

@@ -89,7 +89,7 @@ the preview; without `dryRun` it answers `202 { importId }` and queues the job.
 - Limits: 1 MiB (body over the limit → `413 PAYLOAD_TOO_LARGE`; `content` over 1 MiB → `422`;
   the API's JSON body limit is raised to 1 MiB for every route), 500 data rows (`413 IMPORT_TOO_LARGE`), no valid row → `422 IMPORT_NO_VALID_ROWS`, one
   `QUEUED | RUNNING` import per workspace → `409 IMPORT_IN_PROGRESS`.
-- Outcomes: `OK`, warnings `OK_COURSES_IGNORED` (course codes are dropped until SP3) and
+- Outcomes: `OK`, warnings `OK_COURSES_IGNORED` (course codes are dropped: SP3 has no course code, Q4) and
   `OK_GUARDIAN_AT_ACCEPT` (minor without guardian email: asked at acceptance); invalid
   `INVALID_EMAIL`, `DUPLICATE_IN_FILE`, `ALREADY_MEMBER`, `ALREADY_INVITED`, `INVALID_BIRTH_DATE`,
   `INVALID_GUARDIAN_EMAIL`; worker results `CREATED`, `FAILED` (email failed — the invitation
@@ -117,13 +117,13 @@ Events (`apps/api/src/members/events.ts`, EventEmitter2, in-process): `Invitatio
 
 ## Hooks for later plans
 
-| Plan | Fills                                                                                                                                                                     |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SP3  | `courseIds` of invitations / invite links → `Enrollment` at acceptance; CSV `course_codes` validated against real course codes; student `courses`                         |
-| SP4  | students list `progressPercent`, `lastActivityAt`; profile `progress`, `activity`                                                                                         |
-| SP5  | guardian page `sessions` (AC-SAFE-06), cancel future participations on `MembershipDeactivatedEvent`; a `sessions` job from the worker's consent expiry; `Idempotency-Key` |
-| SP6  | `attendanceRate`; disconnect rooms ≤ 60 s on `MembershipDeactivatedEvent` (AC-INV-11)                                                                                     |
-| SP7  | the emails move to `Notification` / `NotificationDelivery` (template keys are stable); in-app `INVITATION_ACCEPTED` replaces the inviter email                            |
+| Plan | Fills                                                                                                                                                                                                                                                                 |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SP3  | **Done:** `courseIds` of invitations / invite links → `Enrollment` at acceptance; student `courses` and `progressPercent` (manual subset); removal/rejection revokes enrollments. CSV `course_codes` stay ignored (Q4) — [courses-and-media.md](courses-and-media.md) |
+| SP4  | students list `progressPercent`, `lastActivityAt`; profile `progress`, `activity`                                                                                                                                                                                     |
+| SP5  | guardian page `sessions` (AC-SAFE-06), cancel future participations on `MembershipDeactivatedEvent`; a `sessions` job from the worker's consent expiry; `Idempotency-Key`                                                                                             |
+| SP6  | `attendanceRate`; disconnect rooms ≤ 60 s on `MembershipDeactivatedEvent` (AC-INV-11)                                                                                                                                                                                 |
+| SP7  | the emails move to `Notification` / `NotificationDelivery` (template keys are stable); in-app `INVITATION_ACCEPTED` replaces the inviter email                                                                                                                        |
 
 ## Troubleshooting
 

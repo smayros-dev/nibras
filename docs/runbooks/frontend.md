@@ -3,7 +3,8 @@
 Spec: `docs/superpowers/specs/2026-10-17-sp1.5-frontend-ui-design.md`; PRD §8.16.1 (i18n/RTL),
 §9 (navigation), §14.1 (budget), §14.5 (accessibility), §14.6 (PWA), §14.7 (headers). Day-to-day
 commands and the e2e modes are in [local-dev.md](local-dev.md); this page is how the frontend is
-built and how to change it safely.
+built and how to change it safely. Course editor, upload engine, players and watermark (SP3):
+[courses-and-media.md](courses-and-media.md).
 
 ## Map
 

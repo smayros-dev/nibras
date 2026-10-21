@@ -3,7 +3,8 @@
 Staging runs the three container images built by CI (`ghcr.io/<owner>/nibras-{web,api,worker}`) with
 Postgres, Redis and MinIO on a single Docker host, described by `infra/compose.staging.yml`. Staging runs on a local machine today; the production
 target is OVHcloud, with the same procedures. Security rules (per-service environment, image gate,
-host-key pinning, GitHub settings to enable): [security.md](security.md).
+host-key pinning, GitHub settings to enable): [security.md](security.md). Media storage, the
+`s3.<domain>` proxy host and Cloudflare Stream (SP3): [courses-and-media.md](courses-and-media.md).
 
 ## Pipeline
 
