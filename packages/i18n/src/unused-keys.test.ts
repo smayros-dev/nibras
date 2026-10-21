@@ -43,6 +43,12 @@ const DYNAMIC_KEYS: readonly string[] = [
   'courses.status_', // t(`courses.status_${status}`) — course status badge
   'courses.level_', // t(`courses.level_${level}`) — create dialog, course settings form
   'courses.blocker_', // t(`courses.blocker_${blocker}`) — course header (publish blockers)
+  'structure.type_', // t(`structure.type_${type}`) — lesson dialog, structure panel
+  'structure.unlock_', // t(`structure.unlock_${rule}`) — module dialog
+  'upload.title_', // t(`upload.title_${kind}`) — upload dialog
+  'upload.hint_', // t(`upload.hint_${kind}`) — upload dialog
+  'upload.status_', // t(`upload.status_${status}`) — media state chip, media picker
+  'upload.reason_', // t(`upload.reason_${reason}`) — media state chip
 ];
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');

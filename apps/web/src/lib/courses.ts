@@ -114,3 +114,13 @@ export function useCourse(): CourseState {
   if (!state) throw new Error('useCourse outside CourseProvider');
   return state;
 }
+
+/** A structure write sent with the given course version (`If-Match`). */
+export type CourseWrite = (version: number) => Promise<{ data?: unknown; error?: unknown }>;
+
+/**
+ * The outcome of a structure write run by the editor: done (the structure was reloaded), or the
+ * API error — `conflict` when it was a `409 VERSION_CONFLICT`, which the editor's conflict dialog
+ * now handles (the form closes and lets it).
+ */
+export type WriteOutcome = { ok: true } | { ok: false; conflict: boolean; error: unknown };

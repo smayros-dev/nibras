@@ -1,13 +1,6 @@
-import { Card, EmptyState } from '@nibras/ui';
-import { ListTree } from 'lucide-react';
-import { getTranslations } from 'next-intl/server';
+import { CourseStructure } from '../../../../../../../../components/courses/course-frame';
 
-/** The course's Structure tab: modules and lessons (the editor is SP3 T12). */
-export default async function CourseStructurePage() {
-  const t = await getTranslations();
-  return (
-    <Card>
-      <EmptyState as="h3" icon={<ListTree />} title={t('courses.structureSoon')} />
-    </Card>
-  );
+/** The course's Structure tab: modules and lessons (PRD §8.4.2–8.4.4; AC-CRS-04). */
+export default function CourseStructurePage() {
+  return <CourseStructure />;
 }

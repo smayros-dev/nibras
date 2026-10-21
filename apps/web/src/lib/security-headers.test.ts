@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCsp, newNonce, securityHeaders } from './security-headers';
+import { buildCsp, newNonce, parseOrigins, securityHeaders } from './security-headers';
 
 function directives(csp: string): Map<string, string> {
   return new Map(
@@ -35,6 +35,26 @@ describe('buildCsp', () => {
     expect(d.get('connect-src')).toBe("'self' ws: wss:");
     expect(d.has('upgrade-insecure-requests')).toBe(false);
     expect(d.get('frame-ancestors')).toBe("'none'");
+  });
+});
+
+describe('media origins (direct uploads to the object store)', () => {
+  it('adds the configured origins to connect-src only', () => {
+    const d = directives(
+      buildCsp('n', { dev: false, connectOrigins: ['https://media.example.com'] }),
+    );
+    expect(d.get('connect-src')).toBe("'self' https://media.example.com");
+    expect(d.get('default-src')).toBe("'self'");
+    expect(d.get('media-src')).toBe("'self' blob:");
+  });
+
+  it('parses MEDIA_ORIGINS into bare http(s) origins and drops anything else', () => {
+    expect(parseOrigins(undefined)).toEqual([]);
+    expect(
+      parseOrigins(
+        'http://localhost:9000, https://media.example.com/bucket/x  javascript:alert(1) * nope',
+      ),
+    ).toEqual(['http://localhost:9000', 'https://media.example.com']);
   });
 });
 

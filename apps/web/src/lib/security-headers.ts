@@ -11,17 +11,24 @@
  * - Styles: `'unsafe-inline'` because SSR'd `style=""` attributes (Radix, React) cannot carry a
  *   nonce — documented residual risk, contained by the same-origin `connect/img/font-src`.
  * - `img-src data: blob:` for the 2FA QR code and the recovery-code download.
- * - `connect-src 'self'`: the API is same-origin (`/api` rewrite); dev adds the HMR websocket.
+ * - `connect-src 'self'`: the API is same-origin (`/api` rewrite); dev adds the HMR websocket;
+ *   `connectOrigins` adds the object store's public origin(s) (`MEDIA_ORIGINS`), which the
+ *   browser `PUT`s upload parts to directly through presigned URLs (SP3 T12; T16 extends
+ *   `MEDIA_ORIGINS` to playback).
  * - `worker-src`/`manifest-src 'self'` for the PWA service worker and manifest.
  */
-export function buildCsp(nonce: string, { dev }: { dev: boolean }): string {
+export function buildCsp(
+  nonce: string,
+  { dev, connectOrigins = [] }: { dev: boolean; connectOrigins?: readonly string[] },
+): string {
+  const connect = ["'self'", ...connectOrigins, ...(dev ? ['ws:', 'wss:'] : [])].join(' ');
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    `connect-src 'self'${dev ? ' ws: wss:' : ''}`,
+    `connect-src ${connect}`,
     "worker-src 'self'",
     "manifest-src 'self'",
     "media-src 'self' blob:",
@@ -31,6 +38,26 @@ export function buildCsp(nonce: string, { dev }: { dev: boolean }): string {
     "frame-ancestors 'none'",
     ...(dev ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
+}
+
+/**
+ * `MEDIA_ORIGINS` (comma- or space-separated URLs) → bare `http(s)` origins; anything that is not
+ * an absolute http(s) URL (`*`, schemes, garbage) is dropped, so the policy never widens to it.
+ */
+export function parseOrigins(value: string | undefined): string[] {
+  const out: string[] = [];
+  for (const part of (value ?? '').split(/[\s,]+/)) {
+    if (!part) continue;
+    try {
+      const url = new URL(part);
+      if ((url.protocol === 'http:' || url.protocol === 'https:') && !out.includes(url.origin)) {
+        out.push(url.origin);
+      }
+    } catch {
+      // Not a URL: ignored.
+    }
+  }
+  return out;
 }
 
 /** Headers for every response; HSTS only in production (dev runs on plain http://localhost). */
