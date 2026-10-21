@@ -10,6 +10,7 @@ import { useCourse } from '../../lib/courses';
 import { localizedPath } from '../shell-path-provider';
 import { CourseHeader } from './course-header';
 import { CourseSettingsForm } from './course-settings-form';
+import { EnrollmentsPanel } from './enrollments-panel';
 
 /** The structure editor (dnd-kit, dialogs, upload engine) loads with the tab (PRD §14.1 budget). */
 const StructurePanel = lazy(() =>
@@ -102,5 +103,18 @@ export function CourseStructure() {
         onCourseChanged={() => void reload()}
       />
     </Suspense>
+  );
+}
+
+/** The Étudiants tab: `EnrollmentsPanel` on the held course (static: see its budget note). */
+export function CourseStudents() {
+  const { wid, writable, course, reload } = useCourse();
+  return (
+    <EnrollmentsPanel
+      wid={wid}
+      course={course}
+      writable={writable}
+      onChanged={() => void reload()}
+    />
   );
 }

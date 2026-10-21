@@ -1,13 +1,6 @@
-import { Card, EmptyState } from '@nibras/ui';
-import { GraduationCap } from 'lucide-react';
-import { getTranslations } from 'next-intl/server';
+import { CourseStudents } from '../../../../../../../../../components/courses/course-frame';
 
-/** The course's Étudiants tab: enrollments (the panel is SP3 T14). */
-export default async function CourseStudentsPage() {
-  const t = await getTranslations();
-  return (
-    <Card>
-      <EmptyState as="h3" icon={<GraduationCap />} title={t('courses.studentsSoon')} />
-    </Card>
-  );
+/** The course's Étudiants tab: enrollments and progress (PRD §8.5.1; AC-ENR-01/03 UI). */
+export default function CourseStudentsPage() {
+  return <CourseStudents />;
 }
