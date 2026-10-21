@@ -1,7 +1,7 @@
 # SP2 — Students & invitations design
 
 **Date:** 2026-10-18
-**Status:** Planned — plan: `docs/superpowers/plans/2026-10-18-sp2-students-invitations.md`; branch `sp2/students-invitations` (from `main` once `sp1.6/security-hardening` is merged)
+**Status:** Implemented (2026-10-21) — plan: `docs/superpowers/plans/2026-10-18-sp2-students-invitations.md`; branch `sp2/students-invitations`; runbook `docs/runbooks/students-and-invitations.md`; deviations in §12
 **Scope:** `packages/db` (4 tenant tables, 1 migration), `packages/contracts`, `packages/providers` (email templates), `packages/i18n`, `apps/api` (modules `invitations`, `invite-links`, `guardian`, `students`, `imports`), `apps/worker` (3 processors + job schedulers), `apps/web` (public invitation / join / guardian pages, students pages, staff invitations, CSV import, student waiting panel).
 **Authoritative spec:** `PRD.md` v2.1 — §4.1 D-O5, D-O6, D-O7; §4.2 D-P3, D-P18; §6.1–6.2; §7 (Étudiants rows); §8.1.1 (« J'ai une invitation », mineur), §8.1.4; §8.2.2 (invitation de professeurs et d'admins, affectation); §8.3.1–8.3.6; §8.11.1 (`INVITATION_*`, `GUARDIAN_CONSENT_*` rows); §9.1 (Étudiants : Tous · En attente · + Inviter · Importer CSV), §9.5 (Invitations, Consentement tuteur); §10.3, §10.4; §11.1, §11.2 (`Invitation`, `InviteLink`, `GuardianLink`, `Consent`); §12.1 (Invitations publiques, Membres approve/reject, Invitations, Étudiants); §13.5 (`imports`, `compliance` queues); §15.3 AC-INV-01…13; §15.16 AC-SAFE-06; §16.4 US-G01; §18 sub-project **2**.
 
@@ -153,7 +153,7 @@ POST /guardian-consent/{token}    { decision: 'GRANT' | 'REFUSE', guardianFirstN
 ```text
 POST /workspaces/{wid}/invitations/import?dryRun=true   { fileName, content }   content ≤ 1 MiB (JSON body; configureApp raises the JSON limit to 1 MiB), ≤ 500 data rows (413 IMPORT_TOO_LARGE)
    → ImportPreview { totalRows, validRows, rows: [{ line, email, firstName, lastName, guardianEmail, birthDate, courseCodes, outcome: 'OK' | 'INVALID_EMAIL' | 'DUPLICATE_IN_FILE' | 'ALREADY_MEMBER' | 'ALREADY_INVITED' | 'INVALID_BIRTH_DATE' | 'INVALID_GUARDIAN_EMAIL' | 'MISSING_GUARDIAN_EMAIL' | 'UNKNOWN_COURSE_CODE' }] }
-POST …/invitations/import                                 same body → 202 { importId }  (InvitationImport QUEUED, rows = the valid rows, job `invitations.import_csv` { importId, workspaceId }, jobId `import:{importId}`)
+POST …/invitations/import                                 same body → 202 { importId }  (InvitationImport QUEUED, rows = the valid rows, job `invitations.import_csv` { importId, workspaceId }, jobId `import:{importId}:csv`, §12)
 GET  …/invitations/import/{importId}                      → ImportStatus { status, totalRows, validRows, processedRows, createdCount, failedCount, report, finishedAt }
 GET  …/invitations/import/{importId}/report               → text/csv (line, email, outcome, message), Content-Disposition attachment
 ```
@@ -210,7 +210,7 @@ Sent inline by the API (single recipient, token-bearing links must not transit t
 
 | Queue        | Job                                                | Trigger                                                                                                                 | Idempotence                                                                                                                                                                                                                                                                                                                                                   |
 | ------------ | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `imports`    | `invitations.import_csv { importId, workspaceId }` | API confirm                                                                                                             | `jobId = import:{importId}`; resumes at `processedRows`; per-row `ALREADY_INVITED` guard                                                                                                                                                                                                                                                                      |
+| `imports`    | `invitations.import_csv { importId, workspaceId }` | API confirm                                                                                                             | `jobId = import:{importId}:csv` (§12); resumes at `processedRows`; per-row `ALREADY_INVITED` guard                                                                                                                                                                                                                                                                      |
 | `compliance` | `guardian_consent.expire {}`                       | BullMQ job scheduler, daily 03:00 UTC (`queue.upsertJobScheduler('guardian-consent-expire', { pattern })`, bullmq 5.81) | batches of 500 `GuardianLink` `PENDING` with `consentExpiresAt < now`: token cleared, membership → `SUSPENDED_NO_CONSENT` (only from `PENDING_GUARDIAN_CONSENT`), audit `guardian.consent_expired` (actor `SYSTEM`, `workspace_id` logged per row), emails student + teacher. **No purge, no user-level change** (AC-INV-12, D-O5). Re-running finds nothing. |
 | `compliance` | `invitation.expire {}`                             | same scheduler                                                                                                          | `PENDING` with `expiresAt < now` → `EXPIRED`, audit `invitation.expired`; no email                                                                                                                                                                                                                                                                            |
 
@@ -274,3 +274,35 @@ Accessibility (SP1.5 §8 DoD applied): axe serious/critical = 0 on the students 
 - **Q7** Organisation ADMINs see guardian emails of every student (scope `all`); a TEACHER sees them masked except for students he invited. Confirm.
 - **Q8** Legal deliverable: the « notice mineurs » (FR/AR/EN) linked from the consent page; SP2 ships a placeholder `/legal/minors` like `/legal/terms`. Owner to provide the text before any real guardian is emailed.
 - **Q9** `allow_personal_workspaces` interplay: an invited TEACHER who is also, later, invited as STUDENT elsewhere is fine (different workspaces). A STUDENT invited as TEACHER in the **same** workspace is refused (`ALREADY_MEMBER`, one membership per workspace, §6.2). Confirm nothing more is expected (role upgrade = remove + re-invite).
+
+## 12. Implementation notes and deviations
+
+Collected from the branch's commit bodies (`git log main..sp2/students-invitations`) and the final review.
+
+- **Import job id `import:{importId}:csv`** (§4.5, §7), not `import:{importId}`: BullMQ 5 rejects a custom id whose `:`-separated parts are not exactly three (« Custom Id cannot contain : »), so every real confirm answered `500` while the API e2e (on `FakeQueueService`) passed. `importJobId()` follows the `abuse:{id}:notify` form and `FakeQueueService.add` now applies BullMQ's rule.
+- **Token attempt limiter:** 10 failed lookups per 60 s per IP and scope (`invite`, `join`, `guardian`; `TOKEN_ATTEMPTS_PER_MIN`), as in §5 and §9; the « 20 / 10 min » of §4.3 is superseded.
+- **Import outcomes:** `MISSING_GUARDIAN_EMAIL` and `UNKNOWN_COURSE_CODE` are emitted as the warnings `OK_GUARDIAN_AT_ACCEPT` / `OK_COURSES_IGNORED` (rows stay valid); the worker adds `CREATED` and `FAILED`. `invitations.import_started` is written by the API with the importer as actor; only `invitations.import_completed` is `SYSTEM`. `csv-parse` is pinned at 6.1.0 in the API only (the worker reads the parsed rows from `InvitationImport.rows`).
+- **Resent invitation, old link:** answers `410 TOKEN_INVALID` (« Lien d'invitation invalide »), not « expiré » as worded in AC-INV-04 — the replaced hash is indistinguishable from an unknown token.
+- **Owner decision (T7):** a `REJECTED` student accepting an email invitation is reactivated like a `REMOVED` one; re-joining by group code stays `409 ALREADY_MEMBER`.
+- **Suspended workspaces:** invitation acceptance, join, grant and re-grant into a `SUSPENDED` / `DELETING` workspace answer `423 WORKSPACE_SUSPENDED`; refuse and revoke always work.
+- **Guardian email change:** refused with `409 CONSENT_ALREADY_DECIDED` while the link is `ACTIVE` (the consenting guardian must revoke first); otherwise both tokens of the previous guardian are cleared. Audit `guardian.email_changed` carries masked addresses, plus `student.updated`.
+- **Resend** refuses an `ACTIVE` link and a never-started (token-less, awaiting approval) one; it re-arms `REFUSED` / `REVOKED` links to `PENDING`.
+- **Group code + approval + minor (D5):** the guardian address waits on a token-less `PENDING` `GuardianLink` until approval.
+- **Templates:** `invitation.received_student` takes `hasMessage` and the granted templates take `teacherName`, so every template names the teacher; ICU select discriminators are passed unwrapped (no bidi isolation) so they select in every locale.
+- **Web:** a `403 CONSENT_REQUIRED` (app consents) on the workspace layout falls through to the `ConsentGate` instead of a `404`; invited staff land on `/app/settings/verification`; the CSV dialog is loaded with `React.lazy` (students route 240.3 kB first-load gzip; `next/dynamic` measured 243.2 kB).
+- **Reliability fix (T16):** the API observability test no longer fails when a metric value contains the request's id digits.
+
+### Owner questions
+
+Q1–Q9 (§11) were answered on 2026-10-18 with the defaults; Q8 (the « notice mineurs » text) is still owed before any real guardian is emailed — `/legal/minors` is a placeholder.
+
+### Follow-ups (FIX-LATER)
+
+- `Idempotency-Key` for invitation creation (SP5 introduces the header; the partial unique index turns a double click into `409` meanwhile).
+- Guardian page link expiry and a « resend my guardian link » path (Q5: no expiry today; a guardian who loses the page link can only be reached by a new request after revocation or a guardian-email change).
+- Per-workspace display name (Q1).
+- SP5/SP6 reaction to the worker-side consent expiry: no in-process `MembershipDeactivatedEvent` from the worker — the expiry processor will enqueue a `sessions` job.
+- The JSON body limit of 1 MiB applies to every route, not only the import (zod caps other bodies).
+- Inline emails on public routes: a slow SMTP relay stretches the accept request (bounded by the provider timeout) until SP7 moves delivery to `NotificationDelivery`.
+- Native Arabic review of the SP2 strings (PRD §22).
+
