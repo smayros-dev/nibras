@@ -72,13 +72,17 @@ export const COURSE_PUBLISHED_NOTIFY_JOB = 'course.published_notify';
 /** `QUEUES.compliance`, daily: hard-delete courses soft-deleted more than 30 days ago. */
 export const COURSE_PURGE_JOB = 'course.purge_deleted';
 
-/** BullMQ job ids (idempotent enqueueing: one live job per asset / event / publication). */
+/**
+ * BullMQ job ids (idempotent enqueueing: one live job per asset / event / publication). BullMQ
+ * accepts a custom id with no `:` or exactly three `:`-separated parts (see `assertBullmqJobId`).
+ */
 export const mediaProcessJobId = (mediaId: string): string => `media:${mediaId}:process`;
 export const mediaDeleteJobId = (mediaId: string): string => `media:${mediaId}:delete`;
-export const webhookProcessJobId = (webhookEventId: string): string => `webhook:${webhookEventId}`;
+export const webhookProcessJobId = (webhookEventId: string): string =>
+  `webhook:${webhookEventId}:process`;
 /** One notification job per publication (a re-publish has a new course version). */
 export const coursePublishedNotifyJobId = (courseId: string, version: number): string =>
-  `course:${courseId}:published:${version}`;
+  `course:${courseId}:published-v${version}`;
 
 /** BullMQ job scheduler ids (`upsertJobScheduler`). */
 export const MEDIA_CLEANUP_SCHEDULER_ID = 'media-cleanup-abandoned';

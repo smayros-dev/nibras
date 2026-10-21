@@ -59,8 +59,8 @@ describe('SP3 job constants', () => {
     expect(COURSE_PURGE_JOB).toBe('course.purge_deleted');
     expect(mediaProcessJobId('m1')).toBe('media:m1:process');
     expect(mediaDeleteJobId('m1')).toBe('media:m1:delete');
-    expect(webhookProcessJobId('e1')).toBe('webhook:e1');
-    expect(coursePublishedNotifyJobId('c1', 3)).toBe('course:c1:published:3');
+    expect(webhookProcessJobId('e1')).toBe('webhook:e1:process');
+    expect(coursePublishedNotifyJobId('c1', 3)).toBe('course:c1:published-v3');
     expect(MEDIA_CLEANUP_SCHEDULER_ID).toBe('media-cleanup-abandoned');
     expect(COURSE_PURGE_SCHEDULER_ID).toBe('course-purge-deleted');
     expect(HOURLY_SCHEDULER_PATTERN).toBe('15 * * * *');
