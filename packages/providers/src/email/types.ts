@@ -1,6 +1,6 @@
-import type { InvitableRole, Locale } from '@nibras/contracts';
+import type { InvitableRole, Locale, MediaFailureReason } from '@nibras/contracts';
 
-/** Every transactional email of SP1 and SP2; messages live in `@nibras/i18n` under `emails.<key>`. */
+/** Every transactional email of SP1, SP2 and SP3; messages live in `@nibras/i18n` under `emails.<key>`. */
 export const EMAIL_TEMPLATE_KEYS = [
   'auth.verify_email',
   'auth.password_reset',
@@ -33,6 +33,7 @@ export const EMAIL_TEMPLATE_KEYS = [
   'join.approved',
   'join.rejected',
   'imports.completed',
+  'media.failed',
 ] as const;
 
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number];
@@ -127,6 +128,11 @@ export type EmailParamsByKey = {
     failed: number;
     link: string;
   };
+  /**
+   * To the media owner when processing fails (worker, spec §4.3, AC-MED-03); `reason` selects the
+   * explanation; `link`: the course editor (or the workspace's course list).
+   */
+  'media.failed': Name & { filename: string; reason: MediaFailureReason; link: string };
 };
 
 /** ICU arguments of template `K`. */

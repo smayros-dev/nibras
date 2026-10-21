@@ -319,6 +319,14 @@
         "body": "Bonjour {firstName},\n\nL’import de votre fichier dans l’espace « {workspaceName} » est terminé. {created, plural, =0 {Aucune invitation n’a été envoyée.} one {# invitation a été envoyée.} other {# invitations ont été envoyées.}} {failed, plural, =0 {Aucun envoi n’a échoué.} one {# envoi a échoué : l’invitation existe et vous pouvez la renvoyer depuis l’onglet « En attente ».} other {# envois ont échoué : les invitations existent et vous pouvez les renvoyer depuis l’onglet « En attente ».}}\n\nLe rapport détaillé, ligne par ligne, est disponible depuis la page des étudiants.",
         "cta": "Voir les invitations en attente"
       }
+    },
+    "media": {
+      "failed": {
+        "subject": "Échec du traitement — {filename}",
+        "title": "Le traitement de votre fichier a échoué",
+        "body": "Bonjour {firstName},\n\nLe traitement de {filename} a échoué ({reason, select, ABANDONED {l’envoi n’a pas été terminé dans les 24 heures} TIMEOUT {délai de traitement dépassé} PROVIDER_ERROR {le service vidéo n’a pas pu traiter le fichier} INVALID_SIGNATURE {le fichier est illisible ou ne correspond pas à son type} ENCRYPTED {le PDF est protégé par un mot de passe} QUOTA_EXCEEDED {l’espace de stockage est plein} SIZE_MISMATCH {le fichier dépasse la taille ou la durée autorisée} other {erreur inconnue}}). Vous pouvez réessayer l’envoi depuis l’éditeur de cours.",
+        "cta": "Ouvrir mes cours"
+      }
     }
   },
   "sms": {

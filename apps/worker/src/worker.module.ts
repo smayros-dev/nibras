@@ -15,6 +15,7 @@ import { loadEnv, WORKER_ENV, type WorkerEnv } from './env';
 import { HealthServer } from './health-server';
 import { createLogger, PinoNestLogger, WORKER_LOGGER } from './logger';
 import { AbuseProcessor } from './processors/abuse.processor';
+import { MediaProcessor } from './processors/media.processor';
 import { PingProcessor } from './processors/ping.processor';
 import type { StorageProvider } from '@nibras/providers';
 
@@ -27,6 +28,7 @@ import {
   VIDEO_PROVIDER_TOKEN,
 } from './providers';
 import { ProcessorRegistry, QueueRegistry } from './queues';
+import { Schedulers } from './schedulers';
 import { WORKER_DB } from './worker-db';
 
 export { WORKER_DB } from './worker-db';
@@ -54,6 +56,8 @@ export class WorkerModule implements OnApplicationShutdown {
         HealthServer,
         PingProcessor,
         AbuseProcessor,
+        MediaProcessor,
+        Schedulers,
       ],
       exports: [
         WORKER_DB,

@@ -319,6 +319,14 @@
         "body": "Hello {firstName},\n\nThe import of your file into the “{workspaceName}” space is complete. {created, plural, =0 {No invitation was sent.} one {# invitation was sent.} other {# invitations were sent.}} {failed, plural, =0 {No email failed.} one {# email failed: the invitation exists and you can resend it from the “Pending” tab.} other {# emails failed: the invitations exist and you can resend them from the “Pending” tab.}}\n\nThe detailed line-by-line report is available from the students page.",
         "cta": "View pending invitations"
       }
+    },
+    "media": {
+      "failed": {
+        "subject": "Processing failed — {filename}",
+        "title": "Your file could not be processed",
+        "body": "Hello {firstName},\n\nProcessing of {filename} failed ({reason, select, ABANDONED {the upload was not finished within 24 hours} TIMEOUT {processing took too long} PROVIDER_ERROR {the video service could not process the file} INVALID_SIGNATURE {the file is unreadable or does not match its type} ENCRYPTED {the PDF is password-protected} QUOTA_EXCEEDED {the storage space is full} SIZE_MISMATCH {the file exceeds the allowed size or duration} other {unknown error}}). You can try uploading it again from the course editor.",
+        "cta": "Open my courses"
+      }
     }
   },
   "sms": {
