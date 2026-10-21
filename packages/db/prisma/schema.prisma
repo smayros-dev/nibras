@@ -99,6 +99,42 @@ enum VerificationPurpose {
   EMAIL_CHANGE_NEW
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum InviteLinkStatus {
+  ACTIVE
+  DISABLED
+  EXHAUSTED
+  EXPIRED
+}
+
+/// PRD §11.1 + REFUSED (SP2 D4: a guardian refusal writes no Consent row).
+enum GuardianLinkStatus {
+  PENDING
+  ACTIVE
+  REFUSED
+  REVOKED
+}
+
+/// PRD §8.3.5 « lien de parenté ».
+enum GuardianRelationship {
+  PARENT
+  LEGAL_GUARDIAN
+  OTHER
+}
+
+enum ImportStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 // ─── Identity & tenancy (PRD §11.2) ─────────────────────────────────────────────
 
 model User {
@@ -133,16 +169,20 @@ model User {
   createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
-  sessions           UserSession[]
-  verificationTokens VerificationToken[]
-  phoneOtps          PhoneOtp[]
-  ownedWorkspaces    Workspace[]                @relation("WorkspaceOwner")
-  memberships        Membership[]
-  teacherAssignments TeacherStudentAssignment[] @relation("AssignmentTeacher")
-  studentAssignments TeacherStudentAssignment[] @relation("AssignmentStudent")
-  teacherProfiles    TeacherProfile[]
-  consents           Consent[]
-  abuseReports       AbuseReport[]
+  sessions             UserSession[]
+  verificationTokens   VerificationToken[]
+  phoneOtps            PhoneOtp[]
+  ownedWorkspaces      Workspace[]                @relation("WorkspaceOwner")
+  memberships          Membership[]
+  teacherAssignments   TeacherStudentAssignment[] @relation("AssignmentTeacher")
+  studentAssignments   TeacherStudentAssignment[] @relation("AssignmentStudent")
+  teacherProfiles      TeacherProfile[]
+  consents             Consent[]
+  abuseReports         AbuseReport[]
+  invitationsSent      Invitation[]
+  inviteLinksCreated   InviteLink[]
+  studentGuardianLinks GuardianLink[]
+  invitationImports    InvitationImport[]
 
   // PRD index (email) is the UNIQUE index above.
   @@index([status])
@@ -254,6 +294,10 @@ model Workspace {
   memberships               Membership[]
   teacherStudentAssignments TeacherStudentAssignment[]
   teacherProfiles           TeacherProfile[]
+  invitations               Invitation[]
+  inviteLinks               InviteLink[]
+  guardianLinks             GuardianLink[]
+  invitationImports         InvitationImport[]
 
   @@index([ownerUserId])
   @@index([status])
@@ -348,11 +392,157 @@ model Consent {
   createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
-  user User @relation(fields: [userId], references: [id])
+  user          User           @relation(fields: [userId], references: [id])
+  guardianLinks GuardianLink[]
 
   @@index([userId, type])
   @@index([workspaceId, type])
   @@map("consent")
+}
+
+// ─── Students & invitations (PRD §11.2, SP2) ────────────────────────────────────
+
+/// 🏢 Email invitation (student or staff, SP2 D1). Only the SHA-256 of the link token is stored.
+/// The migration adds the partial unique index (workspace_id, email) WHERE status = 'PENDING'.
+model Invitation {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  workspaceId      String           @map("workspace_id") @db.Uuid
+  email            String           @db.Citext
+  /// STUDENT, TEACHER or ADMIN only (service rule).
+  role             MembershipRole
+  firstName        String?          @map("first_name")
+  lastName         String?          @map("last_name")
+  guardianEmail    String?          @map("guardian_email") @db.Citext
+  birthDate        DateTime?        @map("birth_date") @db.Date
+  tokenHash        String           @unique @map("token_hash")
+  expiresAt        DateTime         @map("expires_at") @db.Timestamptz
+  /// A stored PENDING past `expiresAt` is served as EXPIRED; the daily job flips it.
+  status           InvitationStatus
+  invitedByUserId  String           @map("invited_by_user_id") @db.Uuid
+  /// ≤ 500 characters (service rule).
+  message          String?
+  /// → Course (SP3); no FK until that table exists.
+  courseIds        String[]         @default([]) @map("course_ids") @db.Uuid
+  /// ORGANIZATION: the teacher the student is assigned to at acceptance.
+  teacherUserId    String?          @map("teacher_user_id") @db.Uuid
+  acceptedByUserId String?          @map("accepted_by_user_id") @db.Uuid
+  acceptedAt       DateTime?        @map("accepted_at") @db.Timestamptz
+  revokedAt        DateTime?        @map("revoked_at") @db.Timestamptz
+  resentCount      Int              @default(0) @map("resent_count")
+  lastSentAt       DateTime         @map("last_sent_at") @db.Timestamptz
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User      @relation(fields: [invitedByUserId], references: [id])
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, email])
+  @@index([invitedByUserId])
+  @@map("invitation")
+}
+
+/// 🏢 Group link / code (PRD §8.3.2). Codes are not bound to an address (D-P18).
+model InviteLink {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  workspaceId      String           @map("workspace_id") @db.Uuid
+  /// 8 characters from INVITE_CODE_ALPHABET (@nibras/contracts), stored upper-case.
+  code             String           @unique
+  /// ≤ 80 characters (service rule).
+  label            String?
+  /// Kept for §11.2 parity; the service forces STUDENT.
+  role             MembershipRole
+  createdByUserId  String           @map("created_by_user_id") @db.Uuid
+  teacherUserId    String?          @map("teacher_user_id") @db.Uuid
+  /// → Course (SP3); no FK until that table exists.
+  courseIds        String[]         @default([]) @map("course_ids") @db.Uuid
+  requiresApproval Boolean          @map("requires_approval")
+  maxUses          Int              @map("max_uses")
+  usesCount        Int              @default(0) @map("uses_count")
+  /// Past this instant the link is served as EXPIRED.
+  expiresAt        DateTime?        @map("expires_at") @db.Timestamptz
+  status           InviteLinkStatus
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User      @relation(fields: [createdByUserId], references: [id])
+
+  @@index([workspaceId, status])
+  // FK index: the composite key above leads with workspace_id.
+  @@index([createdByUserId])
+  @@map("invite_link")
+}
+
+/// 🏢 One per (student, workspace) (D-O5): the guardian's consent request and long-lived page.
+/// Only SHA-256 hashes of the two link tokens are stored.
+model GuardianLink {
+  id                    String                @id @default(uuid(7)) @db.Uuid
+  workspaceId           String                @map("workspace_id") @db.Uuid
+  studentUserId         String                @map("student_user_id") @db.Uuid
+  /// Null until the guardian account exists (P1); no FK until then.
+  guardianUserId        String?               @map("guardian_user_id") @db.Uuid
+  guardianEmail         String                @map("guardian_email") @db.Citext
+  guardianFirstName     String?               @map("guardian_first_name")
+  guardianLastName      String?               @map("guardian_last_name")
+  relationship          GuardianRelationship?
+  status                GuardianLinkStatus
+  /// The GUARDIAN_PARENTAL consent this link granted (null while pending, refused or revoked).
+  consentId             String?               @map("consent_id") @db.Uuid
+  /// The 14-day consent request link.
+  consentTokenHash      String?               @unique @map("consent_token_hash")
+  consentExpiresAt      DateTime?             @map("consent_expires_at") @db.Timestamptz
+  consentSentAt         DateTime?             @map("consent_sent_at") @db.Timestamptz
+  consentResentCount    Int                   @default(0) @map("consent_resent_count")
+  /// The long-lived guardian page link (§11.2 name), replaced at every re-grant.
+  sessionsViewTokenHash String?               @unique @map("sessions_view_token_hash")
+  decidedAt             DateTime?             @map("decided_at") @db.Timestamptz
+  revokedAt             DateTime?             @map("revoked_at") @db.Timestamptz
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  student   User      @relation(fields: [studentUserId], references: [id])
+  consent   Consent?  @relation(fields: [consentId], references: [id])
+
+  @@unique([studentUserId, workspaceId])
+  @@index([workspaceId, studentUserId])
+  @@index([guardianUserId])
+  @@index([guardianEmail])
+  @@index([consentId])
+  @@map("guardian_link")
+}
+
+/// 🏢 CSV import (PRD §8.3.4); rows are created and emailed by the worker (SP2 D10).
+model InvitationImport {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  workspaceId     String       @map("workspace_id") @db.Uuid
+  createdByUserId String       @map("created_by_user_id") @db.Uuid
+  /// ≤ 255 characters (service rule).
+  fileName        String       @map("file_name")
+  status          ImportStatus
+  /// Parsed valid rows the worker consumes: [{ line, email, firstName?, lastName?, guardianEmail?, birthDate?, courseCodes }].
+  rows            Json
+  /// Per-line outcome, filled progressively: [{ line, email, outcome, message? }].
+  report          Json
+  totalRows       Int          @map("total_rows")
+  validRows       Int          @map("valid_rows")
+  processedRows   Int          @default(0) @map("processed_rows")
+  createdCount    Int          @default(0) @map("created_count")
+  failedCount     Int          @default(0) @map("failed_count")
+  error           String?
+  startedAt       DateTime?    @map("started_at") @db.Timestamptz
+  finishedAt      DateTime?    @map("finished_at") @db.Timestamptz
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User      @relation(fields: [createdByUserId], references: [id])
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  // FK index: the composite key above leads with workspace_id.
+  @@index([createdByUserId])
+  @@map("invitation_import")
 }
 
 // ─── Compliance & platform (PRD §11.7) ──────────────────────────────────────────

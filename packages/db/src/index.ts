@@ -10,6 +10,7 @@ export {
 export { uuidv7 } from './uuid';
 export {
   CROSS_TENANT_AUDIT_ACTION,
+  CROSS_TENANT_LOOKUP_KEYS,
   CrossTenantFilterMissingError,
   CrossTenantOperationError,
   crossTenantDb,

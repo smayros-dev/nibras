@@ -1,13 +1,30 @@
 import { randomBytes } from 'node:crypto';
 import {
   CONSENT_VERSIONS,
+  GUARDIAN_CONSENT_TTL_MS,
+  GUARDIAN_CONSENT_VERSION,
+  INVITATION_TTL_MS,
+  INVITE_CODE_ALPHABET,
+  INVITE_CODE_LENGTH,
+  INVITE_LINK_DEFAULT_MAX_USES,
+  INVITE_LINK_DEFAULT_TTL_DAYS,
   defaultWorkspaceSettings,
+  generateOpaqueToken,
+  isMinor,
   type CurrentConsentType,
 } from '@nibras/contracts';
 import {
   systemPrisma,
   type AbuseReport,
   uuidv7,
+  type GuardianLink,
+  type GuardianLinkStatus,
+  type ImportStatus,
+  type Invitation,
+  type InvitationImport,
+  type InvitationStatus,
+  type InviteLink,
+  type InviteLinkStatus,
   type Locale,
   type Membership,
   type MembershipRole,
@@ -71,6 +88,8 @@ export interface CreateUserOptions {
    * (what registration grants), so the user clears the consents gate; `[]` for none.
    */
   consents: CurrentConsentType[];
+  /** `YYYY-MM-DD`; default none (SP1 users have no birth date). */
+  birthDate: string;
 }
 
 /**
@@ -94,6 +113,7 @@ export async function createUser(
       ...(o.phoneVerified && { phoneE164: '+21620000000', phoneVerifiedAt: now }),
       platformRole: o.platformRole ?? 'NONE',
       status: o.status ?? 'ACTIVE',
+      ...(o.birthDate !== undefined && { birthDate: dateOnly(o.birthDate) }),
       ...(o.totpSecret !== undefined && {
         totpSecretEnc: new SecretBox(env.TOTP_ENCRYPTION_KEY).seal(o.totpSecret),
         totpEnabledAt: now,
@@ -270,6 +290,309 @@ export async function grantConsents(
       ip: '127.0.0.1',
       userAgent: 'factory',
     })),
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// SP2: students, invitations, invite links, guardian links, imports.
+// ---------------------------------------------------------------------------------------------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** `YYYY-MM-DD` → the `@db.Date` value Prisma stores (UTC midnight). */
+function dateOnly(ymd: string): Date {
+  return new Date(`${ymd}T00:00:00.000Z`);
+}
+
+/** The UTC calendar date `years` years before `now`, as `YYYY-MM-DD`. */
+export function birthDateYearsAgo(years: number, now: Date = new Date()): string {
+  const d = new Date(now);
+  d.setUTCFullYear(d.getUTCFullYear() - years);
+  return d.toISOString().slice(0, 10);
+}
+
+/** A 12-year-old's birth date (a minor under `MINOR_AGE_THRESHOLD`). */
+export const minorBirthDate = (): string => birthDateYearsAgo(12);
+/** A 25-year-old's birth date. */
+export const adultBirthDate = (): string => birthDateYearsAgo(25);
+
+export interface CreateGuardianLinkOptions {
+  workspace: Pick<Workspace, 'id'>;
+  student: Pick<User, 'id'>;
+  status: GuardianLinkStatus;
+  /** Default `guardian-{uuid}@example.com`. */
+  guardianEmail?: string;
+  /** PENDING only: default now + `GUARDIAN_CONSENT_TTL_MS` (a past date makes it expired). */
+  consentExpiresAt?: Date;
+}
+
+/**
+ * The guardian link of (`student`, `workspace`), written directly (no audit, no email):
+ * - `PENDING`: a live 14-day consent token (`consentToken` raw, for the public consent page);
+ * - `ACTIVE`: an unrevoked `GUARDIAN_PARENTAL` consent for the workspace and a guardian page token
+ *   (`pageToken` raw);
+ * - `REVOKED`: the same consent, revoked, and a guardian page token (re-grant stays possible);
+ * - `REFUSED`: decided, no consent row and no token.
+ */
+export async function createGuardianLink(
+  o: CreateGuardianLinkOptions,
+): Promise<{ link: GuardianLink; consentToken?: string; pageToken?: string }> {
+  const db = systemPrisma();
+  const now = new Date();
+  const guardianEmail = o.guardianEmail ?? `guardian-${uuidv7()}@example.com`;
+  const base = {
+    workspaceId: o.workspace.id,
+    studentUserId: o.student.id,
+    guardianEmail,
+    status: o.status,
+    consentSentAt: now,
+  };
+
+  if (o.status === 'PENDING') {
+    const consent = generateOpaqueToken();
+    const link = await db.guardianLink.create({
+      data: {
+        ...base,
+        consentTokenHash: consent.hash,
+        consentExpiresAt: o.consentExpiresAt ?? new Date(now.getTime() + GUARDIAN_CONSENT_TTL_MS),
+      },
+    });
+    return { link, consentToken: consent.raw };
+  }
+  if (o.status === 'REFUSED') {
+    return { link: await db.guardianLink.create({ data: { ...base, decidedAt: now } }) };
+  }
+
+  const revokedAt = o.status === 'REVOKED' ? now : null;
+  const consentRow = await db.consent.create({
+    data: {
+      userId: o.student.id,
+      grantedByEmail: guardianEmail,
+      type: 'GUARDIAN_PARENTAL',
+      version: GUARDIAN_CONSENT_VERSION,
+      granted: true,
+      grantedAt: now,
+      revokedAt,
+      ip: '127.0.0.1',
+      userAgent: 'factory',
+      workspaceId: o.workspace.id,
+    },
+  });
+  const page = generateOpaqueToken();
+  const link = await db.guardianLink.create({
+    data: {
+      ...base,
+      consentId: consentRow.id,
+      sessionsViewTokenHash: page.hash,
+      decidedAt: now,
+      revokedAt,
+    },
+  });
+  return { link, pageToken: page.raw };
+}
+
+export interface CreateStudentOptions {
+  workspace: Pick<Workspace, 'id'>;
+  /** Default `ACTIVE`. */
+  status?: MembershipStatus;
+  /** Default `false`; `true` gives a 12-year-old's birth date unless `birthDate` is set. */
+  minor?: boolean;
+  /** `YYYY-MM-DD`; default a 25-year-old's (a 12-year-old's with `minor`). */
+  birthDate?: string;
+  invitedBy?: Pick<User, 'id'>;
+  guardianEmail?: string;
+  /**
+   * The minor's guardian link status. Default from the membership: `ACTIVE` → `ACTIVE`,
+   * `SUSPENDED_CONSENT_REVOKED` → `REVOKED`, any other → `PENDING`.
+   */
+  guardianStatus?: GuardianLinkStatus;
+  /** Extra user fields (email, names, locale…). */
+  user?: Partial<Omit<CreateUserOptions, 'birthDate'>>;
+}
+
+/**
+ * A STUDENT of `workspace` with a birth date. A minor (today, `isMinor`) also gets the guardian
+ * link of that workspace (see {@link createGuardianLink}); an `ACTIVE` minor always holds an
+ * unrevoked consent, so the fixture never breaks `expectMinorInvariant`.
+ */
+export async function createStudent(o: CreateStudentOptions): Promise<{
+  user: User & { password: string };
+  membership: Membership;
+  guardianLink?: GuardianLink;
+  consentToken?: string;
+  pageToken?: string;
+}> {
+  const status = o.status ?? 'ACTIVE';
+  const birthDate = o.birthDate ?? (o.minor ? minorBirthDate() : adultBirthDate());
+  const user = await createUser({ ...o.user, birthDate });
+  const membership = await addMember(o.workspace, user, 'STUDENT', {
+    status,
+    ...(o.invitedBy && { invitedByUserId: o.invitedBy.id }),
+  });
+  if (!isMinor(birthDate)) return { user, membership };
+
+  const defaultStatus: GuardianLinkStatus =
+    status === 'ACTIVE' ? 'ACTIVE' : status === 'SUSPENDED_CONSENT_REVOKED' ? 'REVOKED' : 'PENDING';
+  const g = await createGuardianLink({
+    workspace: o.workspace,
+    student: user,
+    status: o.guardianStatus ?? defaultStatus,
+    guardianEmail: o.guardianEmail,
+  });
+  return {
+    user,
+    membership,
+    guardianLink: g.link,
+    consentToken: g.consentToken,
+    pageToken: g.pageToken,
+  };
+}
+
+export interface CreateInvitationOptions {
+  workspace: Pick<Workspace, 'id'>;
+  invitedBy: Pick<User, 'id'>;
+  /** Default `invitee-{uuid}@example.com`. */
+  email?: string;
+  /** Default `STUDENT`. */
+  role?: MembershipRole;
+  /** Default `PENDING`. */
+  status?: InvitationStatus;
+  /** Default now + `INVITATION_TTL_MS` (a past date makes it expired). */
+  expiresAt?: Date;
+  guardianEmail?: string;
+  /** `YYYY-MM-DD`. */
+  birthDate?: string;
+  firstName?: string;
+  lastName?: string;
+  message?: string;
+  teacherUserId?: string;
+  /** `ACCEPTED` only. */
+  acceptedBy?: Pick<User, 'id'>;
+}
+
+/** An email invitation written directly (no audit, no email); `token` is the raw link token. */
+export async function createInvitation(
+  o: CreateInvitationOptions,
+): Promise<{ invitation: Invitation; token: string }> {
+  const now = new Date();
+  const status = o.status ?? 'PENDING';
+  const token = generateOpaqueToken();
+  const invitation = await systemPrisma().invitation.create({
+    data: {
+      workspaceId: o.workspace.id,
+      email: o.email ?? `invitee-${uuidv7()}@example.com`,
+      role: o.role ?? 'STUDENT',
+      firstName: o.firstName ?? null,
+      lastName: o.lastName ?? null,
+      guardianEmail: o.guardianEmail ?? null,
+      birthDate: o.birthDate === undefined ? null : dateOnly(o.birthDate),
+      tokenHash: token.hash,
+      expiresAt: o.expiresAt ?? new Date(now.getTime() + INVITATION_TTL_MS),
+      status,
+      invitedByUserId: o.invitedBy.id,
+      message: o.message ?? null,
+      teacherUserId: o.teacherUserId ?? null,
+      lastSentAt: now,
+      ...(status === 'ACCEPTED' && {
+        acceptedAt: now,
+        acceptedByUserId: o.acceptedBy?.id ?? null,
+      }),
+      ...(status === 'REVOKED' && { revokedAt: now }),
+    },
+  });
+  return { invitation, token: token.raw };
+}
+
+/** A random code of the invite-code alphabet (upper-case, like the API's codes). */
+function randomInviteCode(): string {
+  return Array.from(
+    randomBytes(INVITE_CODE_LENGTH),
+    (b) => INVITE_CODE_ALPHABET[b % INVITE_CODE_ALPHABET.length],
+  ).join('');
+}
+
+export interface CreateInviteLinkOptions {
+  workspace: Pick<Workspace, 'id'>;
+  createdBy: Pick<User, 'id'>;
+  /** Default `false`. */
+  requiresApproval?: boolean;
+  /** Default `INVITE_LINK_DEFAULT_MAX_USES`. */
+  maxUses?: number;
+  /** Default `0`. */
+  usesCount?: number;
+  /** Default `ACTIVE`. */
+  status?: InviteLinkStatus;
+  /** Default now + `INVITE_LINK_DEFAULT_TTL_DAYS`; `null` for no expiry. */
+  expiresAt?: Date | null;
+  label?: string;
+  teacherUserId?: string;
+}
+
+/** A group invite link (STUDENT) written directly; `code` is its 8-character code. */
+export async function createInviteLink(
+  o: CreateInviteLinkOptions,
+): Promise<{ link: InviteLink; code: string }> {
+  const code = randomInviteCode();
+  const link = await systemPrisma().inviteLink.create({
+    data: {
+      workspaceId: o.workspace.id,
+      code,
+      label: o.label ?? null,
+      role: 'STUDENT',
+      createdByUserId: o.createdBy.id,
+      teacherUserId: o.teacherUserId ?? null,
+      requiresApproval: o.requiresApproval ?? false,
+      maxUses: o.maxUses ?? INVITE_LINK_DEFAULT_MAX_USES,
+      usesCount: o.usesCount ?? 0,
+      expiresAt:
+        o.expiresAt === undefined
+          ? new Date(Date.now() + INVITE_LINK_DEFAULT_TTL_DAYS * DAY_MS)
+          : o.expiresAt,
+      status: o.status ?? 'ACTIVE',
+    },
+  });
+  return { link, code };
+}
+
+/** One parsed CSV row as the import stores it for the worker (`InvitationImport.rows`). */
+export interface ImportRowInput {
+  line: number;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  guardianEmail?: string | null;
+  birthDate?: string | null;
+  courseCodes?: string[];
+}
+
+/** A CSV import (`QUEUED` by default) holding `rows` as the preview would have stored them. */
+export function createImport(o: {
+  workspace: Pick<Workspace, 'id'>;
+  createdBy: Pick<User, 'id'>;
+  rows: ImportRowInput[];
+  status?: ImportStatus;
+  fileName?: string;
+}): Promise<InvitationImport> {
+  const rows = o.rows.map((r) => ({
+    line: r.line,
+    email: r.email,
+    firstName: r.firstName ?? null,
+    lastName: r.lastName ?? null,
+    guardianEmail: r.guardianEmail ?? null,
+    birthDate: r.birthDate ?? null,
+    courseCodes: r.courseCodes ?? [],
+  }));
+  return systemPrisma().invitationImport.create({
+    data: {
+      workspaceId: o.workspace.id,
+      createdByUserId: o.createdBy.id,
+      fileName: o.fileName ?? 'students.csv',
+      status: o.status ?? 'QUEUED',
+      rows,
+      report: [],
+      totalRows: rows.length,
+      validRows: rows.length,
+    },
   });
 }
 

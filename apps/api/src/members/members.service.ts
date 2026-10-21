@@ -72,15 +72,17 @@ function toSummary(m: MemberRow, scope: MemberCtx['scope']): MemberSummary {
   };
 }
 
-/** Position of a member in the listing order: last name, first name, user id. */
-type Cursor = [lastName: string, firstName: string, userId: string];
+/** Position of a member in the listing order: last name, first name, user id (members, students). */
+export type MemberCursor = [lastName: string, firstName: string, userId: string];
 
-function encodeCursor(m: MemberRow): string {
-  const c: Cursor = [m.user.lastName, m.user.firstName, m.userId];
+export function encodeMemberCursor(
+  m: Pick<Membership, 'userId'> & { user: Pick<User, 'firstName' | 'lastName'> },
+): string {
+  const c: MemberCursor = [m.user.lastName, m.user.firstName, m.userId];
   return Buffer.from(JSON.stringify(c)).toString('base64url');
 }
 
-function decodeCursor(raw: string): Cursor {
+export function decodeMemberCursor(raw: string): MemberCursor {
   try {
     const c: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
     if (
@@ -89,7 +91,7 @@ function decodeCursor(raw: string): Cursor {
       c.every((x) => typeof x === 'string') &&
       UUID.test(c[2] as string)
     ) {
-      return c as Cursor;
+      return c as MemberCursor;
     }
   } catch {
     // Falls through to the validation error.
@@ -98,13 +100,35 @@ function decodeCursor(raw: string): Cursor {
 }
 
 /** Rows strictly after `c` in (lastName, firstName, userId) order. */
-function after([lastName, firstName, userId]: Cursor): Prisma.MembershipWhereInput {
+export function afterMemberCursor([
+  lastName,
+  firstName,
+  userId,
+]: MemberCursor): Prisma.MembershipWhereInput {
   return {
     OR: [
       { user: { lastName: { gt: lastName } } },
       { user: { lastName, firstName: { gt: firstName } } },
       { user: { lastName, firstName }, userId: { gt: userId } },
     ],
+  };
+}
+
+/**
+ * Scope `own` (organisation TEACHER / ASSISTANT, AC-WS-02): the STUDENT members of
+ * `ctx.workspaceId` assigned to the caller or invited by him. Shared by the member directory, the
+ * students list and the guardian resend (SP2).
+ */
+export async function ownScope(
+  ctx: Pick<MemberCtx, 'workspaceId' | 'userId'>,
+): Promise<Prisma.MembershipWhereInput> {
+  const assigned = await tenantDb(ctx.workspaceId).teacherStudentAssignment.findMany({
+    where: { teacherUserId: ctx.userId },
+    select: { studentUserId: true },
+  });
+  return {
+    role: 'STUDENT',
+    OR: [{ userId: { in: assigned.map((a) => a.studentUserId) } }, { invitedByUserId: ctx.userId }],
   };
 }
 
@@ -151,7 +175,7 @@ export class MembersService {
         },
       });
     }
-    if (cursor) and.push(after(cursor));
+    if (cursor) and.push(afterMemberCursor(cursor));
 
     const rows = await tenantDb(ctx.workspaceId).membership.findMany({
       where: { AND: and },
@@ -162,7 +186,7 @@ export class MembersService {
     const items = rows.slice(0, q.limit);
     return {
       items: items.map((m) => toSummary(m, ctx.scope)),
-      nextCursor: rows.length > q.limit ? encodeCursor(items[items.length - 1]!) : null,
+      nextCursor: rows.length > q.limit ? encodeMemberCursor(items[items.length - 1]!) : null,
     };
   }
 
@@ -171,8 +195,8 @@ export class MembersService {
    * abuse-report cursors: a well-formed position taken from another workspace's listing → `422`
    * (SP1.6 F8), never a page of this one positioned by a foreign member.
    */
-  private async cursorIn(ctx: MemberCtx, raw: string): Promise<Cursor> {
-    const cursor = decodeCursor(raw);
+  private async cursorIn(ctx: MemberCtx, raw: string): Promise<MemberCursor> {
+    const cursor = decodeMemberCursor(raw);
     const row = await tenantDb(ctx.workspaceId).membership.findFirst({
       where: { userId: cursor[2] },
       select: { id: true },
@@ -315,19 +339,9 @@ export class MembersService {
     this.publishRemoved(new MembershipRemovedEvent(ctx.workspaceId, uid, target.role));
   }
 
-  /** Scope `own`: STUDENT members assigned to the caller or invited by him. */
-  private async ownScope(ctx: MemberCtx): Promise<Prisma.MembershipWhereInput> {
-    const assigned = await tenantDb(ctx.workspaceId).teacherStudentAssignment.findMany({
-      where: { teacherUserId: ctx.userId },
-      select: { studentUserId: true },
-    });
-    return {
-      role: 'STUDENT',
-      OR: [
-        { userId: { in: assigned.map((a) => a.studentUserId) } },
-        { invitedByUserId: ctx.userId },
-      ],
-    };
+  /** Scope `own`: see {@link ownScope}. */
+  ownScope(ctx: Pick<MemberCtx, 'workspaceId' | 'userId'>): Promise<Prisma.MembershipWhereInput> {
+    return ownScope(ctx);
   }
 
   /** Fire-and-forget: the removal is committed, a listener's failure is only logged. */

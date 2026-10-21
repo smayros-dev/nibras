@@ -1,6 +1,8 @@
 import { request as playwrightRequest } from '@playwright/test';
-import { apiLogin, appUrl, t, test, toast, uiLogin, expect } from './helpers';
-import { addOrgMember, seedUser } from './helpers/seed';
+import { apiLogin, appUrl, t, test, toast, uiLogin, uniqueEmail, expect } from './helpers';
+import { acceptConsentGate, fill } from './helpers/invitations';
+import { extractLink, waitForEmail } from './helpers/mailpit';
+import { joinByInvitation, seedUser } from './helpers/seed';
 import { suspendWorkspaceAsSuperAdmin } from './helpers/super-admin';
 
 /** Accessible name of a members-table row menu (`members.rowActions`). */
@@ -74,21 +76,19 @@ test.describe('workspaces (plan Task 21)', () => {
     page,
     uiLocale: locale,
   }) => {
-    const owner = await seedUser({ organization: true, totp: true });
+    const owner = await seedUser({ organization: true, totp: true, verifiedTeacher: true });
     const member = await seedUser();
-    addOrgMember(owner.orgWorkspaceId!, member.userId, 'TEACHER');
+    await joinByInvitation(owner, owner.orgWorkspaceId!, member, 'TEACHER');
     await uiLogin(page, locale, owner);
 
     await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}/members`);
     await expect(page.getByRole('heading', { name: t(locale, 'members.title') })).toBeVisible();
-    // Both members are listed (SP1: no public "add member" route — the seed inserted the row).
+    // Both members are listed (the teacher joined through an invitation).
     await expect(page.getByRole('row').filter({ hasText: owner.email })).toBeVisible();
     const memberRow = page.getByRole('row').filter({ hasText: member.email });
     await expect(memberRow).toBeVisible();
     await expect(page.getByLabel(t(locale, 'members.search'))).toBeVisible();
-    // SP1: students join by invitation (SP2), so the assignment panel shows the note.
     await expect(page.getByTestId('assignments-list')).toBeVisible();
-    await expect(page.getByText(t(locale, 'members.noStudents'))).toBeVisible();
 
     // Promote the TEACHER to ADMIN from the row menu (persisted, then visible after reload).
     await memberRow
@@ -130,10 +130,9 @@ test.describe('workspaces (plan Task 21)', () => {
     page,
     uiLocale: locale,
   }) => {
-    const owner = await seedUser({ organization: true, totp: true });
-    // SP1: no public "add member" route (SP2 invitations) — the seed inserts the row directly.
+    const owner = await seedUser({ organization: true, totp: true, verifiedTeacher: true });
     const member = await seedUser();
-    addOrgMember(owner.orgWorkspaceId!, member.userId);
+    await joinByInvitation(owner, owner.orgWorkspaceId!, member, 'TEACHER');
     await uiLogin(page, locale, owner);
 
     await page.goto(`/${locale}/app/w/${owner.orgWorkspaceId}/members`);
@@ -167,12 +166,12 @@ test.describe('workspaces (plan Task 21)', () => {
   });
 
   test('a TEACHER sees no role actions on the members page', async ({ page, uiLocale: locale }) => {
-    const owner = await seedUser({ organization: true, totp: true });
+    const owner = await seedUser({ organization: true, totp: true, verifiedTeacher: true });
     const teacher = await seedUser();
     const student = await seedUser();
-    addOrgMember(owner.orgWorkspaceId!, teacher.userId, 'TEACHER');
-    // SP1: students join by invitation in SP2 — the seed inserts the membership directly.
-    addOrgMember(owner.orgWorkspaceId!, student.userId, 'STUDENT');
+    // Both join through invitations (the student as an adult, so ACTIVE at once).
+    await joinByInvitation(owner, owner.orgWorkspaceId!, teacher, 'TEACHER');
+    await joinByInvitation(owner, owner.orgWorkspaceId!, student, 'STUDENT');
     // The owner assigns the student to the teacher through the API (`student.assign`).
     const ctx = await playwrightRequest.newContext({ baseURL: appUrl('') });
     try {
@@ -210,6 +209,81 @@ test.describe('workspaces (plan Task 21)', () => {
     await expect(
       page.getByRole('button', { name: t(locale, 'workspace.save'), exact: true }),
     ).toHaveCount(0);
+  });
+
+  test('an OWNER invites a teacher by email from the members page; the teacher accepts and appears in the members list; he has no personal workspace (AC-WS-08 UI)', async ({
+    page,
+    browser,
+    uiLocale: locale,
+  }) => {
+    // Several pages, an email round-trip and a second browser: headroom under dev-server load.
+    test.slow();
+    const owner = await seedUser({ organization: true, totp: true, verifiedTeacher: true });
+    const wid = owner.orgWorkspaceId!;
+    const teacherEmail = uniqueEmail();
+    await uiLogin(page, locale, owner);
+
+    // The owner invites from the members page (« + Inviter un professeur / un admin »).
+    await page.goto(`/${locale}/app/w/${wid}/members`);
+    await page.getByRole('button', { name: t(locale, 'members.inviteStaff') }).click();
+    const dialog = page.getByRole('dialog', { name: t(locale, 'members.inviteStaffTitle') });
+    // By role: the required field's <label> text carries the « * » marker (aria-hidden), so an
+    // exact getByLabel never matches; the accessible name does not include it.
+    await dialog
+      .getByRole('textbox', { name: t(locale, 'members.inviteStaffEmail'), exact: true })
+      .fill(teacherEmail);
+    await dialog.getByLabel(t(locale, 'members.role'), { exact: true }).selectOption('TEACHER');
+    await dialog.getByRole('button', { name: t(locale, 'invitations.submit') }).click();
+    await expect(
+      toast(page, locale, fill(t(locale, 'invitations.sent'), { email: teacherEmail })),
+    ).toBeVisible();
+    await expect(dialog).toBeHidden();
+    const pending = page.getByRole('region', { name: t(locale, 'invitations.title') });
+    await expect(pending.getByText(teacherEmail)).toBeVisible();
+
+    // The teacher opens the emailed link in his own browser and creates his account there.
+    const mail = await waitForEmail(teacherEmail, '/invite/');
+    const link = extractLink(mail.html, '/invite/');
+    const token = link ? new URL(link).pathname.split('/').pop() : undefined;
+    expect(token).toBeTruthy();
+    const teacherContext = await browser.newContext();
+    try {
+      const teacherPage = await teacherContext.newPage();
+      await teacherPage.goto(`/${locale}/invite/${token}`);
+      await teacherPage
+        .getByLabel(t(locale, 'auth.register.firstName'), { exact: true })
+        .fill('Sami');
+      await teacherPage
+        .getByLabel(t(locale, 'auth.register.lastName'), { exact: true })
+        .fill('Haddad');
+      await teacherPage
+        .getByLabel(t(locale, 'auth.register.password'), { exact: true })
+        .fill('un mot de passe assez long');
+      await teacherPage.getByRole('checkbox').check();
+      await teacherPage.getByRole('button', { name: t(locale, 'invite.registerSubmit') }).click();
+      // Staff land on the verification page (`acceptDestination`, T11): a teacher verifies
+      // before inviting (D-O6).
+      await expect(teacherPage).toHaveURL(appUrl(`/${locale}/app/settings/verification`), {
+        timeout: 15_000,
+      });
+      await acceptConsentGate(teacherPage, locale);
+
+      // D-O7: an invited teacher has no PERSONAL workspace — only the organisation.
+      const res = await teacherPage.request.get('/api/v1/me/workspaces');
+      expect(res.status()).toBe(200);
+      const list = (await res.json()) as { workspace: { id: string; type: string } }[];
+      expect(list.map((m) => m.workspace.type)).toEqual(['ORGANIZATION']);
+      expect(list[0]!.workspace.id).toBe(wid);
+    } finally {
+      await teacherContext.close();
+    }
+
+    // The owner sees him in the members list; the invitation is no longer pending.
+    await page.reload();
+    const row = page.getByRole('row').filter({ hasText: teacherEmail });
+    await expect(row).toBeVisible();
+    await expect(row.getByText(t(locale, 'members.role_TEACHER'), { exact: true })).toBeVisible();
+    await expect(pending.getByText(t(locale, 'members.noStaffInvitations'))).toBeVisible();
   });
 
   test('AC-WS-09 UI: suspended workspace shows the banner', async ({ page, uiLocale: locale }) => {

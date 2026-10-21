@@ -4,6 +4,7 @@ import { ApiError } from '../../common/api-error';
 import { RequestContext } from '../../common/request-context';
 import { ConsentService } from '../../me/consent.service';
 import { ALLOW_UNVERIFIED_KEY } from '../decorators/allow-unverified';
+import { isOptionalAuthRequest } from '../decorators/optional-auth';
 import { isPublicRequest } from '../decorators/public';
 import { requiresTwoFactor } from '../two-factor.policy';
 
@@ -22,6 +23,9 @@ import { requiresTwoFactor } from '../two-factor.policy';
  * 4. 2FA required (`requiresTwoFactor`: SUPER_ADMIN, organisation OWNER/ADMIN) and
  *    `totpEnabledAt == null` → `403 TWO_FACTOR_SETUP_REQUIRED` (AC-AUTH-05). Only users without
  *    TOTP pay the membership query.
+ * On an `@OptionalAuth()` route: no user → pass (anonymous); otherwise gate 1 only — gates 2–4
+ * are skipped (the emailed invitation link proves the mailbox; pending consents and 2FA setup are
+ * handled by the web once the invitation is accepted).
  * The user is the one `JwtAuthGuard` loaded for this request (read from the database per request).
  */
 @Injectable()
@@ -35,14 +39,17 @@ export class AccountGatesGuard implements CanActivate {
     const targets = [context.getHandler(), context.getClass()];
     if (isPublicRequest(this.reflector, context)) return true;
 
+    const optional = isOptionalAuthRequest(this.reflector, context);
     const user = RequestContext.get()?.user;
-    // Fails closed: a non-public route reached without an authenticated user.
     if (!user) {
+      if (optional) return true;
+      // Fails closed: a non-public route reached without an authenticated user.
       throw new ApiError(HttpStatus.UNAUTHORIZED, 'UNAUTHENTICATED', 'Authentication required');
     }
     if (user.status !== 'ACTIVE') {
       throw new ApiError(HttpStatus.FORBIDDEN, 'ACCOUNT_SUSPENDED', 'Account suspended');
     }
+    if (optional) return true;
     if (this.reflector.getAllAndOverride<boolean | undefined>(ALLOW_UNVERIFIED_KEY, targets)) {
       return true;
     }

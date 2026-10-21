@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { OnboardingChecklist } from '../../../../../components/onboarding-checklist';
 import { Link } from '../../../../../i18n/navigation';
 import { routing } from '../../../../../i18n/routing';
+import { membershipStatusBadge } from '../../../../../lib/membership-status';
 import { getSession } from '../../../../../lib/session';
 import { asApiResult, serverApi } from '../../../../../lib/api';
 
@@ -70,6 +71,11 @@ export default async function AppHomePage({ params }: { params: Promise<{ locale
                         : t('workspace.typePersonal')}
                     </Badge>
                     <Badge variant="brand">{t(`members.role_${m.role}`)}</Badge>
+                    {m.status === 'ACTIVE' ? null : (
+                      <Badge variant={membershipStatusBadge(m.status).variant}>
+                        {t(membershipStatusBadge(m.status).labelKey)}
+                      </Badge>
+                    )}
                   </span>
                 </li>
               ))}

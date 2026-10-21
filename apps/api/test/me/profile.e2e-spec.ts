@@ -162,6 +162,7 @@ describe('/me: profile, locale & timezone, workspaces', () => {
         role: 'TEACHER',
         canTeach: false,
         status: 'ACTIVE',
+        guardian: null,
       },
       {
         workspace: {
@@ -174,6 +175,7 @@ describe('/me: profile, locale & timezone, workspaces', () => {
         role: 'STUDENT',
         canTeach: false,
         status: 'PENDING_APPROVAL',
+        guardian: null,
       },
       {
         workspace: {
@@ -186,6 +188,7 @@ describe('/me: profile, locale & timezone, workspaces', () => {
         role: 'OWNER',
         canTeach: false,
         status: 'ACTIVE',
+        guardian: null,
       },
     ]);
 

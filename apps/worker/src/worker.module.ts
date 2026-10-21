@@ -15,9 +15,12 @@ import { loadEnv, WORKER_ENV, type WorkerEnv } from './env';
 import { HealthServer } from './health-server';
 import { createLogger, PinoNestLogger, WORKER_LOGGER } from './logger';
 import { AbuseProcessor } from './processors/abuse.processor';
+import { ExpiryProcessor } from './processors/expiry.processor';
+import { ImportsProcessor } from './processors/imports.processor';
 import { PingProcessor } from './processors/ping.processor';
 import { createEmailProvider, EMAIL_PROVIDER } from './providers';
 import { ProcessorRegistry, QueueRegistry } from './queues';
+import { Schedulers } from './schedulers';
 import { WORKER_DB } from './worker-db';
 
 export { WORKER_DB } from './worker-db';
@@ -39,6 +42,9 @@ export class WorkerModule implements OnApplicationShutdown {
         HealthServer,
         PingProcessor,
         AbuseProcessor,
+        ExpiryProcessor,
+        ImportsProcessor,
+        Schedulers,
       ],
       exports: [WORKER_DB, WORKER_LOGGER, EMAIL_PROVIDER, ProcessorRegistry, QueueRegistry],
     };

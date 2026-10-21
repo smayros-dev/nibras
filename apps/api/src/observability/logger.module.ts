@@ -30,13 +30,64 @@ interface SerializedRequest {
 }
 
 /**
+ * A path segment that is an opaque link token (32 random bytes as base64url, 43 characters: SP2
+ * invitation and guardian links travel in the path). UUIDs (36 characters) never match.
+ */
+const OPAQUE_TOKEN_SEGMENT = /\/[A-Za-z0-9_-]{43}(?=\/|$)/g;
+const OPAQUE_TOKEN = /^[A-Za-z0-9_-]{43}$/;
+
+/**
+ * The group invite code of the public join routes (`/join/{code}`, `/join/{code}/accept`): codes
+ * are 8 characters, so no shape tells them apart — the segment after `/join/` is masked whatever
+ * it holds, and so is the `code` route param of those routes.
+ */
+const JOIN_CODE_SEGMENT = /\/join\/[^/]+/g;
+const JOIN_ROUTE = /\/join\/[^/]+/;
+
+/** `params` with every opaque-token string masked (Express's `splat` lists the path segments). */
+function maskTokenParams(value: unknown): unknown {
+  if (typeof value === 'string') return OPAQUE_TOKEN.test(value) ? '[REDACTED]' : value;
+  if (Array.isArray(value)) return value.map(maskTokenParams);
+  if (value === null || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, maskTokenParams(v)]));
+}
+
+/** On a join route: the `code` param and the `splat` segment after `join` masked. */
+function maskJoinParams(value: unknown): unknown {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([k, v]) => {
+      if (k === 'code') return [k, '[REDACTED]'];
+      if (Array.isArray(v)) {
+        return [k, v.map((seg, i) => (i > 0 && v[i - 1] === 'join' ? '[REDACTED]' : seg))];
+      }
+      return [k, v];
+    }),
+  );
+}
+
+/**
  * The standard request fields minus the query string: query values (emails, tokens, codes) are
- * never logged, so `url` is the path only and `query` is dropped.
+ * never logged, so `url` is the path only and `query` is dropped; an opaque token or a group
+ * invite code in the path is replaced by `[REDACTED]`, in `url` and in `params` (where Express
+ * lists the path segments).
  */
 function serializeRequest(req: SerializedRequest): SerializedRequest {
   const { id, method, url, params, headers, remoteAddress, remotePort } = req;
-  const path = url.split('?', 1)[0] ?? '';
-  return { id, method, url: path, params, headers, remoteAddress, remotePort };
+  const raw = url.split('?', 1)[0] ?? '';
+  const path = raw
+    .replace(OPAQUE_TOKEN_SEGMENT, '/[REDACTED]')
+    .replace(JOIN_CODE_SEGMENT, '/join/[REDACTED]');
+  const masked = maskTokenParams(params);
+  return {
+    id,
+    method,
+    url: path,
+    params: JOIN_ROUTE.test(raw) ? maskJoinParams(masked) : masked,
+    headers,
+    remoteAddress,
+    remotePort,
+  };
 }
 
 /** pino-http options: JSON lines tagged `service: nibras-api` and `request_id`, secrets redacted. */

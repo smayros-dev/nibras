@@ -1,3 +1,4 @@
+import { isMinor } from '@nibras/contracts';
 import type { PrismaClient } from '@nibras/db';
 import { expect } from 'vitest';
 
@@ -21,4 +22,41 @@ export async function expectOneOwner(db: PrismaClient, wid: string): Promise<str
     owner!.userId,
   );
   return owner!.userId;
+}
+
+/**
+ * The minor invariant (SP2, D-O5 / D-P3): every `ACTIVE` STUDENT membership of `wid` whose user is
+ * a minor today (`isMinor(birthDate)`) has an unrevoked `GUARDIAN_PARENTAL` consent for
+ * (student, `wid`) and an `ACTIVE` guardian link. A student without a birth date is not a known
+ * minor (SP1 accounts). Call it in every spec that activates a student.
+ */
+export async function expectMinorInvariant(db: PrismaClient, wid: string): Promise<void> {
+  const active = await db.membership.findMany({
+    where: { workspaceId: wid, role: 'STUDENT', status: 'ACTIVE' },
+    select: { userId: true, user: { select: { birthDate: true } } },
+  });
+  const now = new Date();
+  for (const { userId, user } of active) {
+    if (!user.birthDate || !isMinor(user.birthDate.toISOString().slice(0, 10), now)) continue;
+    const consents = await db.consent.count({
+      where: {
+        userId,
+        workspaceId: wid,
+        type: 'GUARDIAN_PARENTAL',
+        granted: true,
+        revokedAt: null,
+      },
+    });
+    expect(
+      consents,
+      `ACTIVE minor ${userId} in ${wid} must hold an unrevoked GUARDIAN_PARENTAL consent`,
+    ).toBe(1);
+    const link = await db.guardianLink.findUnique({
+      where: { studentUserId_workspaceId: { studentUserId: userId, workspaceId: wid } },
+      select: { status: true },
+    });
+    expect(link?.status, `ACTIVE minor ${userId} in ${wid} must have an ACTIVE guardian link`).toBe(
+      'ACTIVE',
+    );
+  }
 }

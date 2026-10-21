@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { listRoutes, type RouteInfo } from '../../src/openapi/export';
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
 import { as, loginAs } from '../helpers/auth';
-import { addMember, createOrganization, createUser } from '../helpers/factories';
+import { addMember, createOrganization, createStudent, createUser } from '../helpers/factories';
 import { TENANT_ROUTE_EXEMPTIONS } from './exemptions';
 import {
   BODYLESS_WRITE_ROUTES,
@@ -29,7 +29,8 @@ import {
  *
  * SP1.6 F8 adds the members' side of the same guarantee, on the same enumeration: an ACTIVE OWNER
  * of A reaching B's rows by id (path params, cursors, bodies), inactive memberships (`403
- * MEMBERSHIP_INACTIVE`) and read-only workspaces (`423` on every write, never on a read). The ids
+ * GUARDIAN_CONSENT_REQUIRED` for a minor without parental consent, `403 MEMBERSHIP_INACTIVE`
+ * otherwise — SP2) and read-only workspaces (`423` on every write, never on a read). The ids
  * come from `fixtures.ts` (two organisations with disjoint users); a route whose param, cursor or
  * id-bearing body has no fixture fails the suite with a hint instead of being skipped.
  *
@@ -40,6 +41,11 @@ import {
 const PREFIX = '/api/v1';
 const TENANT = `${PREFIX}/workspaces/:wid`;
 const WRITE = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+/**
+ * The two loops that rebuild fixtures and log in once per route grow with every tenant route
+ * (~0.3 s each on the dev machine): they get their own budget instead of the 15 s default.
+ */
+const LOOP_TIMEOUT_MS = 90_000;
 
 describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => {
   let ctx: TestContext;
@@ -90,42 +96,89 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
         'GET /api/v1/workspaces/:wid/assignments',
         'GET /api/v1/workspaces/:wid/audit-log',
         'POST /api/v1/workspaces/:wid/abuse-reports',
+        // SP2 T4: email invitations.
+        'GET /api/v1/workspaces/:wid/invitations',
+        'POST /api/v1/workspaces/:wid/invitations',
+        'GET /api/v1/workspaces/:wid/invitations/:id',
+        'PATCH /api/v1/workspaces/:wid/invitations/:id',
+        'POST /api/v1/workspaces/:wid/invitations/:id/resend',
+        'DELETE /api/v1/workspaces/:wid/invitations/:id',
+        // SP2 T6: invite links (group codes) and the approval queue.
+        'GET /api/v1/workspaces/:wid/invite-links',
+        'POST /api/v1/workspaces/:wid/invite-links',
+        'PATCH /api/v1/workspaces/:wid/invite-links/:id',
+        'DELETE /api/v1/workspaces/:wid/invite-links/:id',
+        'POST /api/v1/workspaces/:wid/members/:uid/approve',
+        'POST /api/v1/workspaces/:wid/members/:uid/reject',
+        // SP2 T7: the teacher's guardian consent resend (the student's own resend lives under
+        // /me/workspaces/:wid and is not a tenant route, D12).
+        'POST /api/v1/workspaces/:wid/students/:uid/guardian/resend-consent',
+        // SP2 T8: students list, profile skeleton, guardian email.
+        'GET /api/v1/workspaces/:wid/students',
+        'GET /api/v1/workspaces/:wid/students/:uid/profile',
+        'PATCH /api/v1/workspaces/:wid/students/:uid',
+        // SP2 T10: CSV import.
+        'POST /api/v1/workspaces/:wid/invitations/import',
+        'GET /api/v1/workspaces/:wid/invitations/import/:importId',
+        'GET /api/v1/workspaces/:wid/invitations/import/:importId/report',
       ]),
     );
   });
 
-  it('every tenant route → 404 for an active TEACHER of another organisation (+ audit)', async () => {
-    for (const route of routes) {
-      await ctx.reset();
-      const { workspace: target } = await createOrganization({ owner: await createUser() });
-      const teacher = await createUser();
-      await createOrganization({ owner: await createUser(), teachers: [teacher] });
-      const label = `${route.method} ${route.path}`;
-
-      const res = await call(teacher, route, target.id);
-      expect(res.status, label).toBe(404);
-      expect(res.body.code, label).toBe('NOT_FOUND');
-      expect(
-        await ctx.db.auditLog.count({
-          where: { action: 'auth.forbidden_workspace', entityId: target.id },
-        }),
-        label,
-      ).toBe(1);
-    }
+  it('the /me guardian resend and the public guardian routes are not tenant routes (D12)', () => {
+    const all = listRoutes(ctx.app).map((r) => `${r.method} ${r.path}`);
+    expect(all).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^POST (\/api\/v1)?\/me\/workspaces\/:wid\/guardian\/resend-consent$/,
+        ),
+      ]),
+    );
+    expect(
+      routes.map((r) => r.path).filter((p) => /guardian-consent|\/guardian\/:token|\/me\//.test(p)),
+    ).toEqual([]);
   });
 
-  it('every tenant route → 404 for a user with no membership', async () => {
-    for (const route of routes) {
-      await ctx.reset();
-      const { workspace: target } = await createOrganization({ owner: await createUser() });
-      const outsider = await createUser();
-      const label = `${route.method} ${route.path}`;
+  it(
+    'every tenant route → 404 for an active TEACHER of another organisation (+ audit)',
+    async () => {
+      for (const route of routes) {
+        await ctx.reset();
+        const { workspace: target } = await createOrganization({ owner: await createUser() });
+        const teacher = await createUser();
+        await createOrganization({ owner: await createUser(), teachers: [teacher] });
+        const label = `${route.method} ${route.path}`;
 
-      const res = await call(outsider, route, target.id);
-      expect(res.status, label).toBe(404);
-      expect(res.body.code, label).toBe('NOT_FOUND');
-    }
-  });
+        const res = await call(teacher, route, target.id);
+        expect(res.status, label).toBe(404);
+        expect(res.body.code, label).toBe('NOT_FOUND');
+        expect(
+          await ctx.db.auditLog.count({
+            where: { action: 'auth.forbidden_workspace', entityId: target.id },
+          }),
+          label,
+        ).toBe(1);
+      }
+    },
+    LOOP_TIMEOUT_MS,
+  );
+
+  it(
+    'every tenant route → 404 for a user with no membership',
+    async () => {
+      for (const route of routes) {
+        await ctx.reset();
+        const { workspace: target } = await createOrganization({ owner: await createUser() });
+        const outsider = await createUser();
+        const label = `${route.method} ${route.path}`;
+
+        const res = await call(outsider, route, target.id);
+        expect(res.status, label).toBe(404);
+        expect(res.body.code, label).toBe('NOT_FOUND');
+      }
+    },
+    LOOP_TIMEOUT_MS,
+  );
 
   // ---- SP1.6 F8: an ACTIVE member of A reaching B, inactive members, read-only states ----
 
@@ -175,6 +228,34 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       expect(res.body.code, label).toBe('NOT_FOUND');
       expectNoForeignIds(res.body, label, p);
     }
+    // SP2: B's rows the foreign-path writes named are untouched.
+    const bInvitation = await ctx.db.invitation.findUniqueOrThrow({
+      where: { id: p.b.invitation.id },
+    });
+    expect(bInvitation.status).toBe('PENDING');
+    expect(bInvitation.tokenHash).toBe(p.b.invitation.tokenHash);
+    expect(bInvitation.firstName).toBe(p.b.invitation.firstName);
+    const bLink = await ctx.db.inviteLink.findUniqueOrThrow({ where: { id: p.b.inviteLink.id } });
+    expect(bLink.status).toBe('ACTIVE');
+    expect(bLink.label).toBe(p.b.inviteLink.label);
+    const bStatus = async (userId: string) =>
+      (
+        await ctx.db.membership.findFirstOrThrow({
+          where: { workspaceId: p.b.workspace.id, userId },
+        })
+      ).status;
+    expect(await bStatus(p.b.pendingStudent.id)).toBe('PENDING_APPROVAL');
+    expect(await bStatus(p.b.consentStudent.id)).toBe('PENDING_GUARDIAN_CONSENT');
+    const bGuardian = await ctx.db.guardianLink.findUniqueOrThrow({
+      where: { id: p.b.consentLink.id },
+    });
+    expect(bGuardian.consentTokenHash).toBe(p.b.consentLink.consentTokenHash);
+    expect(bGuardian.guardianEmail).toBe(p.b.consentLink.guardianEmail);
+    expect(bGuardian.sessionsViewTokenHash).toBe(p.b.consentLink.sessionsViewTokenHash);
+    const bImport = await ctx.db.invitationImport.findUniqueOrThrow({
+      where: { id: p.b.import.id },
+    });
+    expect(bImport.status).toBe('QUEUED');
 
     const known = new Set(routes.map(key));
     expect(Object.keys(FOREIGN_QUERIES).length).toBeGreaterThanOrEqual(3);
@@ -200,6 +281,9 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
       assignments: await ctx.db.teacherStudentAssignment.count(),
       reports: await ctx.db.abuseReport.count(),
       memberships: await ctx.db.membership.count(),
+      invitations: await ctx.db.invitation.count(),
+      inviteLinks: await ctx.db.inviteLink.count(),
+      imports: await ctx.db.invitationImport.count(),
     });
     const before = await counts();
 
@@ -250,6 +334,12 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     expect(
       await ctx.db.membership.count({ where: { workspaceId: wid, userId: { in: bIds } } }),
     ).toBe(0);
+    expect(
+      await ctx.db.invitation.count({ where: { workspaceId: wid, teacherUserId: { in: bIds } } }),
+    ).toBe(0);
+    expect(
+      await ctx.db.inviteLink.count({ where: { workspaceId: wid, teacherUserId: { in: bIds } } }),
+    ).toBe(0);
     // Nothing moved on either side: A keeps its owner, B's admin stays an ADMIN of B.
     expect((await ctx.db.workspace.findUniqueOrThrow({ where: { id: wid } })).ownerUserId).toBe(
       p.a.owner.id,
@@ -260,23 +350,27 @@ describe('tenant isolation over every /workspaces/{wid} route (SP1 DoD)', () => 
     expect(bAdmin.role).toBe('ADMIN');
   });
 
-  it('inactive memberships → 403 MEMBERSHIP_INACTIVE on every tenant route', async () => {
+  it('inactive memberships → 403 GUARDIAN_CONSENT_REQUIRED / MEMBERSHIP_INACTIVE on every tenant route', async () => {
     const p = await createTenantPair();
     const pending = await createUser();
-    const revoked = await createUser();
     await addMember(p.a.workspace, pending, 'TEACHER', { status: 'PENDING_APPROVAL' });
-    await addMember(p.a.workspace, revoked, 'STUDENT', { status: 'SUSPENDED_CONSENT_REVOKED' });
+    // A minor whose guardian revoked the consent (SP2): the consent code, not the generic one.
+    const { user: revoked } = await createStudent({
+      workspace: p.a.workspace,
+      status: 'SUSPENDED_CONSENT_REVOKED',
+      minor: true,
+    });
 
-    for (const [user, status] of [
-      [pending, 'PENDING_APPROVAL'],
-      [revoked, 'SUSPENDED_CONSENT_REVOKED'],
+    for (const [user, status, code] of [
+      [pending, 'PENDING_APPROVAL', 'MEMBERSHIP_INACTIVE'],
+      [revoked, 'SUSPENDED_CONSENT_REVOKED', 'GUARDIAN_CONSENT_REQUIRED'],
     ] as const) {
       const agent = await agentFor(user);
       for (const route of routes) {
         const label = `${status}: ${key(route)}`;
         const res = await send(agent, route, urlFor(route, p.a.workspace.id, LOCAL_PARAMS, p));
         expect(res.status, describeRes(label, res)).toBe(403);
-        expect(res.body.code, label).toBe('MEMBERSHIP_INACTIVE');
+        expect(res.body.code, label).toBe(code);
         expect(res.body.details?.status, label).toBe(status);
       }
     }

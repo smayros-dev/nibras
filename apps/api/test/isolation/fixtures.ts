@@ -1,13 +1,26 @@
 import {
   systemPrisma,
   type AbuseReport,
+  type GuardianLink,
+  type Invitation,
+  type InvitationImport,
+  type InviteLink,
   type TeacherStudentAssignment,
   type User,
   type Workspace,
 } from '@nibras/db';
 import { expect } from 'vitest';
 import type { RouteInfo } from '../../src/openapi/export';
-import { assign, createAbuseReport, createOrganization, createUser } from '../helpers/factories';
+import {
+  assign,
+  createAbuseReport,
+  createImport,
+  createInvitation,
+  createInviteLink,
+  createOrganization,
+  createStudent,
+  createUser,
+} from '../helpers/factories';
 
 /**
  * Fixtures of the generic isolation suite (`tenant-routes.e2e-spec.ts`, SP1.6 F8). Two
@@ -24,7 +37,10 @@ export const TOTP_SEED = 'JBSWY3DPEHPK3PXP';
 
 export interface Tenant {
   workspace: Workspace;
-  /** ACTIVE OWNER, 2FA on. */
+  /**
+   * ACTIVE OWNER, 2FA on, verified teacher (phone + CODE_OF_CONDUCT, SP2): the
+   * `@RequireVerifiedTeacher()` routes reach their service, so the path / body is what is probed.
+   */
   owner: User;
   /** ACTIVE ADMIN, 2FA on. */
   admin: User;
@@ -36,6 +52,17 @@ export interface Tenant {
   assignment: TeacherStudentAssignment;
   /** One `audit_log` row of this workspace (a cursor of its audit log). */
   auditEntryId: string;
+  /** SP2: a PENDING email invitation of this workspace, sent by the OWNER. */
+  invitation: Invitation;
+  /** SP2: an ACTIVE group invite link of this workspace. */
+  inviteLink: InviteLink;
+  /** SP2: an adult STUDENT in `PENDING_APPROVAL` (joined by a code with approval). */
+  pendingStudent: User;
+  /** SP2: a minor STUDENT in `PENDING_GUARDIAN_CONSENT`, his guardian link sent (`PENDING`). */
+  consentStudent: User;
+  consentLink: GuardianLink;
+  /** SP2 T10: a QUEUED CSV import of this workspace, started by the OWNER. */
+  import: InvitationImport;
 }
 
 export interface TenantPair {
@@ -44,7 +71,12 @@ export interface TenantPair {
 }
 
 async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
-  const owner = await createUser({ totpSecret: TOTP_SEED, firstName: `Owner${tag}` });
+  const owner = await createUser({
+    totpSecret: TOTP_SEED,
+    firstName: `Owner${tag}`,
+    phoneVerified: true,
+    consents: ['TERMS', 'PRIVACY', 'CODE_OF_CONDUCT'],
+  });
   const admin = await createUser({ totpSecret: TOTP_SEED, firstName: `Admin${tag}` });
   const teacher = await createUser({ firstName: `Teacher${tag}` });
   // The reporter: distinctive names so a response leaking them is caught by `expectNoReporter`.
@@ -62,7 +94,41 @@ async function createTenant(tag: 'A' | 'B'): Promise<Tenant> {
   const assignment = await assign(workspace, teacher, student, owner);
   const report = await createAbuseReport(workspace, student, teacher);
   const audit = await systemAudit(workspace, owner);
-  return { workspace, owner, admin, teacher, student, report, assignment, auditEntryId: audit };
+  const { invitation } = await createInvitation({ workspace, invitedBy: owner });
+  const { link: inviteLink } = await createInviteLink({ workspace, createdBy: owner });
+  const { user: pendingStudent } = await createStudent({
+    workspace,
+    status: 'PENDING_APPROVAL',
+    user: { firstName: `Pending${tag}` },
+  });
+  const csvImport = await createImport({
+    workspace,
+    createdBy: owner,
+    rows: [{ line: 2, email: `import-${tag.toLowerCase()}@example.com` }],
+  });
+  const consent = await createStudent({
+    workspace,
+    status: 'PENDING_GUARDIAN_CONSENT',
+    minor: true,
+    invitedBy: owner,
+    user: { firstName: `Minor${tag}` },
+  });
+  return {
+    workspace,
+    owner,
+    admin,
+    teacher,
+    student,
+    report,
+    assignment,
+    auditEntryId: audit,
+    invitation,
+    inviteLink,
+    pendingStudent,
+    consentStudent: consent.user,
+    consentLink: consent.guardianLink!,
+    import: csvImport,
+  };
 }
 
 async function systemAudit(workspace: Workspace, actor: User): Promise<string> {
@@ -99,20 +165,40 @@ export function foreignIds(p: TenantPair): string[] {
     b.report.id,
     b.assignment.id,
     b.auditEntryId,
+    b.invitation.id,
+    b.inviteLink.id,
+    b.pendingStudent.id,
+    b.consentStudent.id,
+    b.consentLink.id,
+    b.import.id,
   ];
 }
 
 /**
  * Path param → the row of a tenant it names. Keyed by the param as it appears in
  * `RouteInfo.path` (`':uid'`), or by `'<resource>/:param'` when the bare param is ambiguous
- * (`':id'`); the longest key matching the end of the path up to the param wins. `:wid` is the
- * route's workspace and never looked up here.
+ * (`':id'`); the longest key matching the end of the path up to the param wins. A key may also
+ * name the segments after the param (`'members/:uid/approve'`) when one action needs another row
+ * than its siblings. `:wid` is the route's workspace and never looked up here.
  */
 const PARAMS: Record<string, (t: Tenant) => string> = {
   // A member that is neither the OWNER nor the caller: GET/PATCH/DELETE reach a real row of A.
   ':uid': (t) => t.student.id,
   'abuse-reports/:id': (t) => t.report.id,
   'assignments/:id': (t) => t.assignment.id,
+  // SP2.
+  'invitations/:id': (t) => t.invitation.id,
+  'invite-links/:id': (t) => t.inviteLink.id,
+  // The approval queue decides a PENDING_APPROVAL STUDENT: B's one is decidable inside B.
+  'members/:uid/approve': (t) => t.pendingStudent.id,
+  'members/:uid/reject': (t) => t.pendingStudent.id,
+  // A consent-waiting minor whose guardian link was sent: B's one could be re-sent inside B.
+  'students/:uid/guardian': (t) => t.consentStudent.id,
+  // SP2 T8: the same minor for the profile and the guardian email change (B's one could have
+  // its guardian email replaced inside B, the most sensitive write of the students routes).
+  'students/:uid': (t) => t.consentStudent.id,
+  // SP2 T10: a CSV import (status and report).
+  'invitations/import/:importId': (t) => t.import.id,
 };
 
 /** B's id for each path param: an ACTIVE OWNER of A calling with it gets `404 NOT_FOUND`. */
@@ -125,15 +211,21 @@ export const LOCAL_PARAMS: Record<string, (p: TenantPair) => string> = Object.fr
   Object.entries(PARAMS).map(([key, get]) => [key, (p: TenantPair) => get(p.a)]),
 );
 
-/** The table key for the param at `index` of `segments` (longest match), or `undefined`. */
+/**
+ * The table key for the param at `index` of `segments` (longest match), or `undefined`: a key
+ * matches when its segments line up with the route's, its own param at `index`.
+ */
 function paramKey(
   table: Record<string, unknown>,
   segments: string[],
   index: number,
 ): string | undefined {
-  const upTo = segments.slice(0, index + 1).join('/');
   return Object.keys(table)
-    .filter((key) => upTo === key || upTo.endsWith(`/${key}`))
+    .filter((key) => {
+      const ks = key.split('/');
+      const start = index - ks.indexOf(segments[index]!);
+      return start >= 0 && start <= index && ks.every((k, j) => segments[start + j] === k);
+    })
     .sort((x, y) => y.length - x.length)[0];
 }
 
@@ -188,6 +280,10 @@ export const FOREIGN_QUERIES: Record<string, (p: TenantPair) => Record<string, s
   'GET /api/v1/workspaces/:wid/audit-log': (p) => ({ cursor: p.b.auditEntryId }),
   'GET /api/v1/workspaces/:wid/abuse-reports': (p) => ({ cursor: p.b.report.id }),
   'GET /api/v1/workspaces/:wid/members': (p) => ({ cursor: membersCursor(p.b.student) }),
+  // SP2: an invitation id of this workspace (`invitations.service.ts`).
+  'GET /api/v1/workspaces/:wid/invitations': (p) => ({ cursor: p.b.invitation.id }),
+  // SP2 T8: the members cursor naming a STUDENT of this workspace (`students.service.ts`).
+  'GET /api/v1/workspaces/:wid/students': (p) => ({ cursor: membersCursor(p.b.consentStudent) }),
   // Not here: `GET …/assignments` pages with `id > cursor` inside `tenantDb(wid)`; a foreign id
   // only positions the scan over A's rows (nothing of B is read or revealed), so it stays `200`.
 };
@@ -236,6 +332,33 @@ export const FOREIGN_BODIES: Record<
     params: 'foreign',
     body: () => ({ role: 'ADMIN' }),
   },
+  // SP2: an invitation of A whose student would be assigned to B's teacher at acceptance.
+  'POST /api/v1/workspaces/:wid/invitations': {
+    params: 'local',
+    body: (p) => ({ email: 'probe@example.com', teacherUserId: p.b.teacher.id }),
+  },
+  // No id in the body (names, guardian email, message): the id is the path's (B's invitation).
+  'PATCH /api/v1/workspaces/:wid/invitations/:id': {
+    params: 'foreign',
+    body: () => ({ firstName: 'X' }),
+  },
+  // A group code of A whose students would be assigned to B's teacher.
+  'POST /api/v1/workspaces/:wid/invite-links': {
+    params: 'local',
+    body: (p) => ({ teacherUserId: p.b.teacher.id }),
+  },
+  // No id in the body (label, status, limits); a non-empty body passes validation, so the path
+  // (B's link) is what refuses the call.
+  'PATCH /api/v1/workspaces/:wid/invite-links/:id': {
+    params: 'foreign',
+    body: () => ({ label: 'X' }),
+  },
+  // SP2 T8: no id in the body (a guardian email); the path is B's consent-waiting minor, whose
+  // guardian link must keep its address and tokens.
+  'PATCH /api/v1/workspaces/:wid/students/:uid': {
+    params: 'foreign',
+    body: () => ({ guardianEmail: 'probe-guardian@example.com' }),
+  },
 };
 
 /**
@@ -253,6 +376,18 @@ export const BODYLESS_WRITE_ROUTES: Set<string> = new Set<string>([
   'DELETE /api/v1/workspaces/:wid/members/:uid',
   // No body; the assignment is the path's `:id`.
   'DELETE /api/v1/workspaces/:wid/assignments/:id',
+  // SP2. No body; the invitation is the path's `:id` (resend rotates its token, DELETE revokes).
+  'POST /api/v1/workspaces/:wid/invitations/:id/resend',
+  'DELETE /api/v1/workspaces/:wid/invitations/:id',
+  // No body; disables the path's invite link.
+  'DELETE /api/v1/workspaces/:wid/invite-links/:id',
+  // No body; the PENDING_APPROVAL student is the path's `:uid`.
+  'POST /api/v1/workspaces/:wid/members/:uid/approve',
+  'POST /api/v1/workspaces/:wid/members/:uid/reject',
+  // No body; the consent-waiting minor is the path's `:uid` (his guardian gets a new link).
+  'POST /api/v1/workspaces/:wid/students/:uid/guardian/resend-consent',
+  // SP2 T10: the CSV body carries emails only, no ids.
+  'POST /api/v1/workspaces/:wid/invitations/import',
 ]);
 
 /** A key that never appears, at any depth, in an organisation-facing abuse-report response. */

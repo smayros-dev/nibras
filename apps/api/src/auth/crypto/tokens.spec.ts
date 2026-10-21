@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { generateOpaqueToken, hashOpaqueToken } from '@nibras/contracts';
 import { describe, expect, it } from 'vitest';
 import { generateToken, hashToken, safeEqual } from './tokens';
 
@@ -16,5 +17,10 @@ describe('opaque tokens', () => {
     expect(safeEqual('abc', 'abcd')).toBe(false);
     expect(safeEqual('', '')).toBe(true);
     expect(safeEqual('é', 'e')).toBe(false);
+  });
+
+  it('is the shared @nibras/contracts implementation (one token format for api and worker)', () => {
+    expect(generateToken).toBe(generateOpaqueToken);
+    expect(hashToken).toBe(hashOpaqueToken);
   });
 });

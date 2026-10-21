@@ -1,7 +1,15 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CONSENT_VERSIONS, REQUIRED_CONSENTS, type RegisterTeacherInput } from '@nibras/contracts';
-import { uuidv7, withTenantTx, type GuardedClient, type User, type Workspace } from '@nibras/db';
+import {
+  uuidv7,
+  withTenantTx,
+  type GuardedClient,
+  type Locale,
+  type TenantTx,
+  type User,
+  type Workspace,
+} from '@nibras/db';
 import { PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
@@ -22,8 +30,62 @@ export interface RegistrationMeta {
 /** `inet` rejects ''; `0.0.0.0` marks an unknown address (Express always knows the socket's). */
 const UNKNOWN_IP = '0.0.0.0';
 
-const emailTaken = () =>
+export const emailTaken = () =>
   new ApiError(HttpStatus.CONFLICT, 'EMAIL_TAKEN', 'An account already exists with this email');
+
+/** The account fields both sign-up paths (teacher registration, invitation acceptance) write. */
+export interface NewAccount {
+  /** Trimmed and lower-cased by the caller's schema (the column is citext as well). */
+  email: string;
+  passwordHash: string;
+  firstName: string;
+  lastName: string;
+  locale: Locale;
+  timezone: string;
+  /** `YYYY-MM-DD`. */
+  birthDate?: string;
+  /** Set when the address is already proven (an emailed invitation link, design D2). */
+  emailVerifiedAt?: Date;
+}
+
+/**
+ * Creates an ACTIVE user and its TERMS + PRIVACY consents at their current versions (with the
+ * request's ip / user-agent) in the caller's transaction. Shared by `registerTeacher` and the
+ * public invitation acceptance (SP2), which add their own rows around it. A duplicate address
+ * surfaces as the `P2002` on `email` (the caller maps it to `409 EMAIL_TAKEN`).
+ */
+export async function createAccountInTx(
+  tx: TenantTx,
+  account: NewAccount,
+  meta: RegistrationMeta,
+): Promise<User> {
+  const now = new Date();
+  const user = await tx.user.create({
+    data: {
+      email: account.email,
+      passwordHash: account.passwordHash,
+      firstName: account.firstName,
+      lastName: account.lastName,
+      locale: account.locale,
+      timezone: account.timezone,
+      status: 'ACTIVE',
+      ...(account.birthDate && { birthDate: new Date(`${account.birthDate}T00:00:00.000Z`) }),
+      ...(account.emailVerifiedAt && { emailVerifiedAt: account.emailVerifiedAt }),
+    },
+  });
+  await tx.consent.createMany({
+    data: REQUIRED_CONSENTS.map((type) => ({
+      userId: user.id,
+      type,
+      version: CONSENT_VERSIONS[type],
+      granted: true,
+      grantedAt: now,
+      ip: meta.ip || UNKNOWN_IP,
+      userAgent: meta.userAgent,
+    })),
+  });
+  return user;
+}
 
 /**
  * "Je suis professeur" sign-up (PRD §8.1.1, AC-AUTH-01). Registration may reveal that an email is
@@ -67,36 +129,25 @@ export class RegisterService {
     if (existing) throw emailTaken();
     const passwordHash = await hashPassword(input.password);
     const now = new Date();
-    const ip = meta.ip || UNKNOWN_IP;
 
     let created: { user: User; workspace: Workspace; rawToken: string } | undefined;
     for (let attempt = 1; !created; attempt += 1) {
       const workspaceId = uuidv7();
       try {
         created = await withTenantTx(workspaceId, async (tx) => {
-          const user = await tx.user.create({
-            data: {
+          const user = await createAccountInTx(
+            tx,
+            {
               email: input.email,
               passwordHash,
               firstName: input.firstName,
               lastName: input.lastName,
               locale: input.locale,
               timezone: input.timezone,
-              status: 'ACTIVE',
             },
-          });
+            meta,
+          );
           const workspace = await this.workspaces.createPersonal(user, { tx, workspaceId });
-          await tx.consent.createMany({
-            data: REQUIRED_CONSENTS.map((type) => ({
-              userId: user.id,
-              type,
-              version: CONSENT_VERSIONS[type],
-              granted: true,
-              grantedAt: now,
-              ip,
-              userAgent: meta.userAgent,
-            })),
-          });
           const token = this.verification.newToken(user.id);
           await tx.verificationToken.create({ data: token.data });
           return { user, workspace, rawToken: token.raw };

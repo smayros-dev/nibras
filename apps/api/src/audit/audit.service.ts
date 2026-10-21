@@ -50,6 +50,27 @@ export type AuditAction =
   | 'assignment.deleted'
   | 'abuse_report.created'
   | 'abuse_report.updated'
+  // SP2 (students and invitations, design §5).
+  | 'invitation.created'
+  | 'invitation.updated'
+  | 'invitation.resent'
+  | 'invitation.revoked'
+  | 'invitation.accepted'
+  | 'invitation.expired'
+  | 'invite_link.created'
+  | 'invite_link.updated'
+  | 'invite_link.used'
+  | 'member.approved'
+  | 'member.rejected'
+  | 'student.updated'
+  | 'guardian.consent_requested'
+  | 'guardian.consent_granted'
+  | 'guardian.consent_refused'
+  | 'guardian.consent_revoked'
+  | 'guardian.consent_expired'
+  | 'guardian.email_changed'
+  | 'invitations.import_started'
+  | 'invitations.import_completed'
   | typeof CROSS_TENANT_AUDIT_ACTION;
 
 export interface AuditEntry {

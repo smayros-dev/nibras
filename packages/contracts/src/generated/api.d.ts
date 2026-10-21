@@ -404,6 +404,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/guardian-consent/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GuardianController_preview"];
+        put?: never;
+        post: operations["GuardianController_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/guardian/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GuardianController_view"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/guardian/{token}/grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["GuardianController_regrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/guardian/{token}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["GuardianController_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -430,6 +494,70 @@ export interface paths {
         get: operations["HealthController_ready"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PublicInvitationsController_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PublicInvitationsController_acceptInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/join/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["JoinController_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/join/{code}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["JoinController_accept"];
         delete?: never;
         options?: never;
         head?: never;
@@ -628,6 +756,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/workspaces/{wid}/guardian/resend-consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["MeGuardianController_resend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces": {
         parameters: {
             query?: never;
@@ -740,6 +884,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{wid}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InvitationsController_list"];
+        put?: never;
+        post: operations["InvitationsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/invitations/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ImportsController_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/invitations/import/{importId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ImportsController_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/invitations/import/{importId}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ImportsController_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/invitations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InvitationsController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["InvitationsController_revoke"];
+        options?: never;
+        head?: never;
+        patch: operations["InvitationsController_update"];
+        trace?: never;
+    };
+    "/workspaces/{wid}/invitations/{id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InvitationsController_resend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/invite-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InviteLinksController_list"];
+        put?: never;
+        post: operations["InviteLinksController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/invite-links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["InviteLinksController_disable"];
+        options?: never;
+        head?: never;
+        patch: operations["InviteLinksController_update"];
+        trace?: never;
+    };
     "/workspaces/{wid}/members": {
         parameters: {
             query?: never;
@@ -770,6 +1042,38 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["MembersController_update"];
+        trace?: never;
+    };
+    "/workspaces/{wid}/members/{uid}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ApprovalController_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/members/{uid}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ApprovalController_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/workspaces/{wid}/settings": {
@@ -804,6 +1108,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{wid}/students": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["StudentsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/students/{uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["StudentsController_update"];
+        trace?: never;
+    };
+    "/workspaces/{wid}/students/{uid}/guardian/resend-consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["StudentGuardianController_resend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{wid}/students/{uid}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["StudentsController_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{wid}/transfer-ownership": {
         parameters: {
             query?: never;
@@ -824,6 +1192,54 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AcceptInvitationDto: {
+            /** @enum {boolean} */
+            acceptPrivacy: true;
+            /** @enum {boolean} */
+            acceptTerms: true;
+            birthDate?: string;
+            firstName: string;
+            /** Format: email */
+            guardianEmail?: string;
+            lastName: string;
+            /** @enum {string} */
+            locale: "fr" | "ar" | "en";
+            /** @enum {string} */
+            mode: "REGISTER";
+            password: string;
+            timezone: string;
+        } | {
+            birthDate?: string;
+            /** Format: email */
+            guardianEmail?: string;
+            /** @enum {string} */
+            mode: "JOIN";
+        };
+        AcceptJoinDto: {
+            /** @enum {boolean} */
+            acceptPrivacy: true;
+            /** @enum {boolean} */
+            acceptTerms: true;
+            birthDate?: string;
+            /** Format: email */
+            email: string;
+            firstName: string;
+            /** Format: email */
+            guardianEmail?: string;
+            lastName: string;
+            /** @enum {string} */
+            locale: "fr" | "ar" | "en";
+            /** @enum {string} */
+            mode: "REGISTER";
+            password: string;
+            timezone: string;
+        } | {
+            birthDate?: string;
+            /** Format: email */
+            guardianEmail?: string;
+            /** @enum {string} */
+            mode: "JOIN";
+        };
         ChangePasswordDto: {
             currentPassword: string;
             newPassword: string;
@@ -844,6 +1260,36 @@ export interface components {
             /** Format: uuid */
             teacherUserId: string;
         };
+        CreateInvitationDto: {
+            birthDate?: string;
+            /** @default [] */
+            courseIds: string[];
+            /** Format: email */
+            email: string;
+            firstName?: string;
+            /** Format: email */
+            guardianEmail?: string;
+            lastName?: string;
+            message?: string;
+            /**
+             * @default STUDENT
+             * @enum {string}
+             */
+            role: "STUDENT" | "TEACHER" | "ADMIN";
+            /** Format: uuid */
+            teacherUserId?: string;
+        };
+        CreateInviteLinkDto: {
+            /** @default [] */
+            courseIds: string[];
+            /** Format: date-time */
+            expiresAt?: string;
+            label?: string;
+            maxUses?: number;
+            requiresApproval?: boolean;
+            /** Format: uuid */
+            teacherUserId?: string;
+        };
         CreateOrganizationDto: {
             country?: string;
             name: string;
@@ -863,6 +1309,26 @@ export interface components {
         };
         GrantConsentDto: {
             version: string;
+        };
+        GuardianDecisionDto: {
+            acceptNotice?: boolean;
+            /** @enum {string} */
+            decision: "GRANT" | "REFUSE";
+            guardianFirstName: string;
+            guardianLastName: string;
+            /** @enum {string} */
+            relationship: "PARENT" | "LEGAL_GUARDIAN" | "OTHER";
+        };
+        GuardianRegrantDto: {
+            acceptNotice?: boolean;
+            guardianFirstName: string;
+            guardianLastName: string;
+            /** @enum {string} */
+            relationship: "PARENT" | "LEGAL_GUARDIAN" | "OTHER";
+        };
+        ImportRequestDto: {
+            content: string;
+            fileName: string;
         };
         LoginDto: {
             /** Format: email */
@@ -934,6 +1400,22 @@ export interface components {
             /** @enum {string} */
             status?: "OPEN" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
         };
+        UpdateInvitationDto: {
+            firstName?: string;
+            /** Format: email */
+            guardianEmail?: string | null;
+            lastName?: string;
+            message?: string | null;
+        };
+        UpdateInviteLinkDto: {
+            /** Format: date-time */
+            expiresAt?: string | null;
+            label?: string;
+            maxUses?: number;
+            requiresApproval?: boolean;
+            /** @enum {string} */
+            status?: "ACTIVE" | "DISABLED";
+        };
         UpdateMeDto: {
             birthDate?: string;
             firstName?: string;
@@ -946,6 +1428,10 @@ export interface components {
             canTeach?: boolean;
             /** @enum {string} */
             role?: "OWNER" | "ADMIN" | "TEACHER" | "ASSISTANT" | "STUDENT" | "GUARDIAN";
+        };
+        UpdateStudentDto: {
+            /** Format: email */
+            guardianEmail?: string;
         };
         UpdateWorkspaceDto: {
             allowPersonalWorkspaces?: boolean;
@@ -1529,6 +2015,109 @@ export interface operations {
             };
         };
     };
+    GuardianController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GuardianController_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuardianDecisionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GuardianController_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GuardianController_regrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuardianRegrantDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GuardianController_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     HealthController_live: {
         parameters: {
             query?: never;
@@ -1661,6 +2250,90 @@ export interface operations {
                         status?: string;
                     };
                 };
+            };
+        };
+    };
+    PublicInvitationsController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PublicInvitationsController_acceptInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInvitationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    JoinController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    JoinController_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptJoinDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -1904,6 +2577,25 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MeGuardianController_resend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2182,6 +2874,289 @@ export interface operations {
             };
         };
     };
+    InvitationsController_list: {
+        parameters: {
+            query?: {
+                status?: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+                role?: "STUDENT" | "TEACHER" | "ADMIN";
+                q?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInvitationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportsController_import: {
+        parameters: {
+            query?: {
+                dryRun?: "true" | "false";
+            };
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportsController_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportsController_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInvitationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvitationsController_resend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InviteLinksController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InviteLinksController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInviteLinkDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InviteLinksController_disable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InviteLinksController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInviteLinkDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     MembersController_list: {
         parameters: {
             query?: {
@@ -2275,6 +3250,46 @@ export interface operations {
             };
         };
     };
+    ApprovalController_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ApprovalController_reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     WorkspacesController_getSettings: {
         parameters: {
             query?: never;
@@ -2323,6 +3338,94 @@ export interface operations {
             header?: never;
             path: {
                 wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentsController_list: {
+        parameters: {
+            query?: {
+                status?: "ACTIVE" | "PENDING_APPROVAL" | "PENDING_GUARDIAN_CONSENT" | "SUSPENDED_NO_CONSENT" | "SUSPENDED_CONSENT_REVOKED" | "REMOVED" | "REJECTED";
+                q?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStudentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentGuardianController_resend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentsController_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wid: string;
+                uid: string;
             };
             cookie?: never;
         };

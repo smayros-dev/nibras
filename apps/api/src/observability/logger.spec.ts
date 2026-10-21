@@ -128,6 +128,89 @@ describe('buildPinoOptions', () => {
     expect(JSON.stringify(out)).not.toMatch(/a@b\.c|s3cret/);
   });
 
+  it('masks opaque link tokens carried in the path (SP2 public token routes)', () => {
+    const opts = httpOptions(buildPinoOptions(env));
+    const serialize = (opts.serializers as { req: (req: unknown) => Record<string, unknown> }).req;
+    const raw = 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde';
+    const id = '0192a6b4-1234-7abc-8def-0123456789ab';
+    const out = serialize({
+      id: 'r1',
+      method: 'POST',
+      url: `/api/v1/invitations/${raw}/accept?x=1`,
+      params: { splat: ['invitations', raw, 'accept'] },
+      headers: { host: 'x' },
+    });
+    expect(out.url).toBe('/api/v1/invitations/[REDACTED]/accept');
+    expect(out.params).toEqual({ splat: ['invitations', '[REDACTED]', 'accept'] });
+    expect(JSON.stringify(out)).not.toContain(raw);
+    expect(
+      serialize({ id: 'r2', method: 'GET', url: `/api/v1/workspaces/${id}`, headers: {} }).url,
+    ).toBe(`/api/v1/workspaces/${id}`);
+  });
+
+  it('masks guardian consent and guardian page tokens (SP2 T7 public routes)', () => {
+    const opts = httpOptions(buildPinoOptions(env));
+    const serialize = (opts.serializers as { req: (req: unknown) => Record<string, unknown> }).req;
+    const raw = 'ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543210-_abcde';
+    for (const [url, splat, masked] of [
+      [
+        `/api/v1/guardian-consent/${raw}`,
+        ['guardian-consent', raw],
+        '/api/v1/guardian-consent/[REDACTED]',
+      ],
+      [`/api/v1/guardian/${raw}`, ['guardian', raw], '/api/v1/guardian/[REDACTED]'],
+      [
+        `/api/v1/guardian/${raw}/revoke`,
+        ['guardian', raw, 'revoke'],
+        '/api/v1/guardian/[REDACTED]/revoke',
+      ],
+      [
+        `/api/v1/guardian/${raw}/grant?a=b`,
+        ['guardian', raw, 'grant'],
+        '/api/v1/guardian/[REDACTED]/grant',
+      ],
+    ] as const) {
+      const out = serialize({
+        id: 'r',
+        method: 'POST',
+        url,
+        params: { token: raw, splat },
+        headers: {},
+      });
+      expect(out.url).toBe(masked);
+      expect(JSON.stringify(out)).not.toContain(raw);
+    }
+  });
+
+  it('masks group invite codes carried in the /join/{code} path (SP2 group links)', () => {
+    const opts = httpOptions(buildPinoOptions(env));
+    const serialize = (opts.serializers as { req: (req: unknown) => Record<string, unknown> }).req;
+    const accept = serialize({
+      id: 'r1',
+      method: 'POST',
+      url: '/api/v1/join/abcd2345/accept?x=1',
+      params: { code: 'abcd2345' },
+      headers: { host: 'x' },
+    });
+    expect(accept.url).toBe('/api/v1/join/[REDACTED]/accept');
+    expect(accept.params).toEqual({ code: '[REDACTED]' });
+    const preview = serialize({
+      id: 'r2',
+      method: 'GET',
+      url: '/api/v1/join/ABCD2345',
+      params: { splat: ['join', 'ABCD2345'] },
+      headers: {},
+    });
+    expect(preview.url).toBe('/api/v1/join/[REDACTED]');
+    expect(preview.params).toEqual({ splat: ['join', '[REDACTED]'] });
+    expect(JSON.stringify([accept, preview])).not.toMatch(/abcd2345/i);
+    // Other routes keep their params.
+    expect(
+      serialize({ id: 'r3', method: 'GET', url: '/api/v1/me', params: { code: 'x' }, headers: {} })
+        .params,
+    ).toEqual({ code: 'x' });
+  });
+
   it('reuses the request id and binds it as request_id', () => {
     const opts = httpOptions(buildPinoOptions(env));
     const req = fakeReq({ 'x-request-id': 'req-42' });

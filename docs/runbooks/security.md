@@ -63,9 +63,9 @@ conditional on the role they read. Details: [auth-and-tenancy.md](auth-and-tenan
 
 `apps/api/test/isolation/` enumerates every `/workspaces/{wid}` and `/admin/**` route from the
 router and probes: non-members (`404`), an ACTIVE member of A with B's real ids in path params,
-cursors and bodies (`404` / `422`, never `2xx`), inactive memberships (`403 MEMBERSHIP_INACTIVE`),
-`SUSPENDED`/`DELETING` workspaces (`423` on every write) and the platform console (`403` for an
-org OWNER). The fixture tables (`FOREIGN_PARAMS`, `FOREIGN_QUERIES`, `FOREIGN_BODIES`,
+cursors and bodies (`404` / `422`, never `2xx`), inactive memberships (`403 MEMBERSHIP_INACTIVE`,
+or `403 GUARDIAN_CONSENT_REQUIRED` for a minor without parental consent), `SUSPENDED`/`DELETING`
+workspaces (`423` on every write) and the platform console (`403` for an org OWNER). The fixture tables (`FOREIGN_PARAMS`, `FOREIGN_QUERIES`, `FOREIGN_BODIES`,
 `BODYLESS_WRITE_ROUTES`) are the review surface: a new route without an entry fails the suite.
 Details: [auth-and-tenancy.md](auth-and-tenancy.md#tenant-isolation-suite).
 

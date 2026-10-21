@@ -1,6 +1,207 @@
 {
   "components": {
     "schemas": {
+      "AcceptInvitationDto": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "acceptPrivacy": {
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
+              },
+              "acceptTerms": {
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
+              },
+              "birthDate": {
+                "type": "string"
+              },
+              "firstName": {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              "guardianEmail": {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              "lastName": {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              "locale": {
+                "enum": [
+                  "fr",
+                  "ar",
+                  "en"
+                ],
+                "type": "string"
+              },
+              "mode": {
+                "enum": [
+                  "REGISTER"
+                ],
+                "type": "string"
+              },
+              "password": {
+                "maxLength": 256,
+                "minLength": 12,
+                "type": "string"
+              },
+              "timezone": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "firstName",
+              "lastName",
+              "password",
+              "locale",
+              "timezone",
+              "acceptTerms",
+              "acceptPrivacy"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "birthDate": {
+                "type": "string"
+              },
+              "guardianEmail": {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              "mode": {
+                "enum": [
+                  "JOIN"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "AcceptJoinDto": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "acceptPrivacy": {
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
+              },
+              "acceptTerms": {
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
+              },
+              "birthDate": {
+                "type": "string"
+              },
+              "email": {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              "firstName": {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              "guardianEmail": {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              "lastName": {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              "locale": {
+                "enum": [
+                  "fr",
+                  "ar",
+                  "en"
+                ],
+                "type": "string"
+              },
+              "mode": {
+                "enum": [
+                  "REGISTER"
+                ],
+                "type": "string"
+              },
+              "password": {
+                "maxLength": 256,
+                "minLength": 12,
+                "type": "string"
+              },
+              "timezone": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode",
+              "firstName",
+              "lastName",
+              "password",
+              "locale",
+              "timezone",
+              "acceptTerms",
+              "acceptPrivacy",
+              "email"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "birthDate": {
+                "type": "string"
+              },
+              "guardianEmail": {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              "mode": {
+                "enum": [
+                  "JOIN"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "mode"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "ChangePasswordDto": {
         "properties": {
           "currentPassword": {
@@ -88,6 +289,106 @@
         ],
         "type": "object"
       },
+      "CreateInvitationDto": {
+        "additionalProperties": false,
+        "properties": {
+          "birthDate": {
+            "type": "string"
+          },
+          "courseIds": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "type": "array"
+          },
+          "email": {
+            "format": "email",
+            "maxLength": 254,
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "guardianEmail": {
+            "format": "email",
+            "maxLength": 254,
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "role": {
+            "default": "STUDENT",
+            "enum": [
+              "STUDENT",
+              "TEACHER",
+              "ADMIN"
+            ],
+            "type": "string"
+          },
+          "teacherUserId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      },
+      "CreateInviteLinkDto": {
+        "additionalProperties": false,
+        "properties": {
+          "courseIds": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "type": "array"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "maxUses": {
+            "maximum": 1000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "requiresApproval": {
+            "type": "boolean"
+          },
+          "teacherUserId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "CreateOrganizationDto": {
         "additionalProperties": false,
         "properties": {
@@ -166,6 +467,97 @@
         },
         "required": [
           "version"
+        ],
+        "type": "object"
+      },
+      "GuardianDecisionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptNotice": {
+            "type": "boolean"
+          },
+          "decision": {
+            "enum": [
+              "GRANT",
+              "REFUSE"
+            ],
+            "type": "string"
+          },
+          "guardianFirstName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "guardianLastName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "relationship": {
+            "enum": [
+              "PARENT",
+              "LEGAL_GUARDIAN",
+              "OTHER"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "guardianFirstName",
+          "guardianLastName",
+          "relationship"
+        ],
+        "type": "object"
+      },
+      "GuardianRegrantDto": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptNotice": {
+            "type": "boolean"
+          },
+          "guardianFirstName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "guardianLastName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "relationship": {
+            "enum": [
+              "PARENT",
+              "LEGAL_GUARDIAN",
+              "OTHER"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "guardianFirstName",
+          "guardianLastName",
+          "relationship"
+        ],
+        "type": "object"
+      },
+      "ImportRequestDto": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 1048576,
+            "type": "string"
+          },
+          "fileName": {
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "content"
         ],
         "type": "object"
       },
@@ -439,6 +831,65 @@
         },
         "type": "object"
       },
+      "UpdateInvitationDto": {
+        "additionalProperties": false,
+        "properties": {
+          "firstName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "guardianEmail": {
+            "format": "email",
+            "maxLength": 254,
+            "nullable": true,
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateInviteLinkDto": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "format": "date-time",
+            "nullable": true,
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "maxUses": {
+            "maximum": 1000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "requiresApproval": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "UpdateMeDto": {
         "additionalProperties": false,
         "properties": {
@@ -484,6 +935,18 @@
               "STUDENT",
               "GUARDIAN"
             ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateStudentDto": {
+        "additionalProperties": false,
+        "properties": {
+          "guardianEmail": {
+            "format": "email",
+            "maxLength": 254,
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
             "type": "string"
           }
         },
@@ -1332,6 +1795,139 @@
         ]
       }
     },
+    "/guardian-consent/{token}": {
+      "get": {
+        "operationId": "GuardianController_preview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Guardian"
+        ]
+      },
+      "post": {
+        "operationId": "GuardianController_decide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuardianDecisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Guardian"
+        ]
+      }
+    },
+    "/guardian/{token}": {
+      "get": {
+        "operationId": "GuardianController_view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Guardian"
+        ]
+      }
+    },
+    "/guardian/{token}/grant": {
+      "post": {
+        "operationId": "GuardianController_regrant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuardianRegrantDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Guardian"
+        ]
+      }
+    },
+    "/guardian/{token}/revoke": {
+      "post": {
+        "operationId": "GuardianController_revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Guardian"
+        ]
+      }
+    },
     "/health/live": {
       "get": {
         "operationId": "HealthController_live",
@@ -1523,6 +2119,118 @@
           "url": "/"
         }
       ]
+    },
+    "/invitations/{token}": {
+      "get": {
+        "operationId": "PublicInvitationsController_preview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicInvitations"
+        ]
+      }
+    },
+    "/invitations/{token}/accept": {
+      "post": {
+        "operationId": "PublicInvitationsController_acceptInvitation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicInvitations"
+        ]
+      }
+    },
+    "/join/{code}": {
+      "get": {
+        "operationId": "JoinController_preview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Join"
+        ]
+      }
+    },
+    "/join/{code}/accept": {
+      "post": {
+        "operationId": "JoinController_accept",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptJoinDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Join"
+        ]
+      }
     },
     "/me": {
       "get": {
@@ -1813,6 +2521,29 @@
         },
         "tags": [
           "Me"
+        ]
+      }
+    },
+    "/me/workspaces/{wid}/guardian/resend-consent": {
+      "post": {
+        "operationId": "MeGuardianController_resend",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MeGuardian"
         ]
       }
     },
@@ -2299,6 +3030,480 @@
         ]
       }
     },
+    "/workspaces/{wid}/invitations": {
+      "get": {
+        "operationId": "InvitationsController_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "PENDING",
+                "ACCEPTED",
+                "EXPIRED",
+                "REVOKED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "required": false,
+            "schema": {
+              "enum": [
+                "STUDENT",
+                "TEACHER",
+                "ADMIN"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      },
+      "post": {
+        "operationId": "InvitationsController_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      }
+    },
+    "/workspaces/{wid}/invitations/import": {
+      "post": {
+        "operationId": "ImportsController_import",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "dryRun",
+            "required": false,
+            "schema": {
+              "default": "false",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Imports"
+        ]
+      }
+    },
+    "/workspaces/{wid}/invitations/import/{importId}": {
+      "get": {
+        "operationId": "ImportsController_status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "importId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Imports"
+        ]
+      }
+    },
+    "/workspaces/{wid}/invitations/import/{importId}/report": {
+      "get": {
+        "operationId": "ImportsController_report",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "importId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Imports"
+        ]
+      }
+    },
+    "/workspaces/{wid}/invitations/{id}": {
+      "delete": {
+        "operationId": "InvitationsController_revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      },
+      "get": {
+        "operationId": "InvitationsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      },
+      "patch": {
+        "operationId": "InvitationsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInvitationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      }
+    },
+    "/workspaces/{wid}/invitations/{id}/resend": {
+      "post": {
+        "operationId": "InvitationsController_resend",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Invitations"
+        ]
+      }
+    },
+    "/workspaces/{wid}/invite-links": {
+      "get": {
+        "operationId": "InviteLinksController_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "InviteLinks"
+        ]
+      },
+      "post": {
+        "operationId": "InviteLinksController_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInviteLinkDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "InviteLinks"
+        ]
+      }
+    },
+    "/workspaces/{wid}/invite-links/{id}": {
+      "delete": {
+        "operationId": "InviteLinksController_disable",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "InviteLinks"
+        ]
+      },
+      "patch": {
+        "operationId": "InviteLinksController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInviteLinkDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "InviteLinks"
+        ]
+      }
+    },
     "/workspaces/{wid}/members": {
       "get": {
         "operationId": "MembersController_list",
@@ -2495,6 +3700,68 @@
         ]
       }
     },
+    "/workspaces/{wid}/members/{uid}/approve": {
+      "post": {
+        "operationId": "ApprovalController_approve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Approval"
+        ]
+      }
+    },
+    "/workspaces/{wid}/members/{uid}/reject": {
+      "post": {
+        "operationId": "ApprovalController_reject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Approval"
+        ]
+      }
+    },
     "/workspaces/{wid}/settings": {
       "get": {
         "operationId": "WorkspacesController_getSettings",
@@ -2569,6 +3836,180 @@
         },
         "tags": [
           "Workspaces"
+        ]
+      }
+    },
+    "/workspaces/{wid}/students": {
+      "get": {
+        "operationId": "StudentsController_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "ACTIVE",
+                "PENDING_APPROVAL",
+                "PENDING_GUARDIAN_CONSENT",
+                "SUSPENDED_NO_CONSENT",
+                "SUSPENDED_CONSENT_REVOKED",
+                "REMOVED",
+                "REJECTED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Students"
+        ]
+      }
+    },
+    "/workspaces/{wid}/students/{uid}": {
+      "patch": {
+        "operationId": "StudentsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStudentDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Students"
+        ]
+      }
+    },
+    "/workspaces/{wid}/students/{uid}/guardian/resend-consent": {
+      "post": {
+        "operationId": "StudentGuardianController_resend",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StudentGuardian"
+        ]
+      }
+    },
+    "/workspaces/{wid}/students/{uid}/profile": {
+      "get": {
+        "operationId": "StudentsController_profile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Students"
         ]
       }
     },

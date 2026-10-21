@@ -97,7 +97,8 @@ Every email lands in Mailpit (http://localhost:8025):
 ## Audit actions
 
 Every mutation writes an `AuditLog` row (`action`, actor, entity, before/after JSON) through
-`AuditService.log`. Actions (SP1, `apps/api/src/audit/audit.service.ts`):
+`AuditService.log` (the worker writes its own `SYSTEM` rows through `writeSystemAudit`). Actions
+(SP1 + SP2, `apps/api/src/audit/audit.service.ts`):
 
 | Prefix           | Meaning                                                                                                                                                                                                                |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -106,9 +107,14 @@ Every mutation writes an `AuditLog` row (`action`, actor, entity, before/after J
 | `phone.*`        | phone verified (OTP)                                                                                                                                                                                                   |
 | `consent.*`      | TERMS/PRIVACY/CODE_OF_CONDUCT granted or revoked                                                                                                                                                                       |
 | `workspace.*`    | created, updated, settings updated, ownership transferred, suspended/unsuspended, deleted, quota changed                                                                                                               |
-| `member.*`       | added, removed, role changed                                                                                                                                                                                           |
+| `member.*`       | added, removed, role changed, approved / rejected (group-code approval queue, SP2)                                                                                                                                     |
 | `assignment.*`   | course/session assignment created or deleted                                                                                                                                                                           |
 | `abuse_report.*` | report created or updated (status/resolution)                                                                                                                                                                          |
+| `invitation.*`   | created, updated, resent, revoked, accepted, expired (`SYSTEM`, daily job) — rows carry the invitee email, never the token (SP2)                                                                                       |
+| `invite_link.*`  | created, updated (incl. disabled), used (one row per accepted code) (SP2)                                                                                                                                              |
+| `student.*`      | updated (guardian email changed by a teacher) (SP2)                                                                                                                                                                    |
+| `guardian.*`     | consent requested, granted, refused, revoked, expired (`SYSTEM`), email changed — per workspace (SP2)                                                                                                                  |
+| `invitations.*`  | import started / completed (`SYSTEM`, `requestId = job:<id>`) (SP2)                                                                                                                                                    |
 
 Writes are fire-and-forget: a failed audit write increments `audit_write_failures_total` and
 never blocks the business operation.
@@ -127,32 +133,55 @@ logged (`abuse report notifications not enqueued`, with the report id) and the r
 succeeds: the report is in the super-admin queue. A job that exhausted its attempts stays in
 BullMQ's failed set (`removeOnFail: 5000`) with the worker's `job failed` log lines.
 
+## Scheduled jobs
+
+The worker registers BullMQ job schedulers on boot (`apps/worker/src/schedulers.ts`,
+`queue.upsertJobScheduler`): idempotent by id, so a restart or a second replica never adds a
+second occurrence (boot log `job scheduler upserted <id>`). Each occurrence runs with the default
+job options (3 attempts, exponential backoff). Their audit rows have `actorRole = 'SYSTEM'` and
+`requestId = job:<job id>`, and every processed row logs its `workspace_id` (PRD §13.3).
+
+| Scheduler id              | Queue        | Job                       | Pattern (UTC) | Effect                                                                                                                                                                                                                                                                                                |
+| ------------------------- | ------------ | ------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guardian-consent-expire` | `compliance` | `guardian_consent.expire` | `0 3 * * *`   | `PENDING` guardian links whose 14-day consent link ran out: token cleared (status stays `PENDING`, a resend re-arms it), a `PENDING_GUARDIAN_CONSENT` membership of that workspace → `SUSPENDED_NO_CONSENT`, audit `guardian.consent_expired`, email to the student and the teacher. No purge (D-O5). |
+| `invitation-expire`       | `compliance` | `invitation.expire`       | `0 3 * * *`   | stored `PENDING` invitations past `expiresAt` → `EXPIRED` (releases the one-pending-invitation-per-address index), audit `invitation.expired`; no email.                                                                                                                                              |
+
+A failed expiry email does not stop the run: the other links are processed, the failed recipients
+are kept in the job progress (`unsent`) and the job fails so BullMQ retries it; the retry only
+re-sends those (unless the link was re-armed or decided meanwhile) and resumes after `lastId`. If
+the worker dies between a link's suspension and its emails, that notice is not re-sent (the link
+is no longer selected); the student's waiting panel and the students page still show the state.
+To run a job immediately, add `guardian_consent.expire` or `invitation.expire` (empty payload) to
+the `compliance` queue, or wait for 03:00 UTC.
+
 ## Tenant isolation suite
 
 `apps/api/test/isolation/tenant-routes.e2e-spec.ts` enumerates **every** `/workspaces/{wid}`
 route from the app's router (`listRoutes`), so a new tenant route is covered automatically. Each
 scenario loops over that list:
 
-| Scenario                        | Caller                                                               | Expected                                                                                                                                             |
-| ------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Non-member (SP1)                | a TEACHER of another organisation; a user with no membership         | `404 NOT_FOUND` on every route (+ `auth.forbidden_workspace` audit)                                                                                  |
-| Foreign path params and cursors | ACTIVE OWNER of A, with B's real ids                                 | `404 NOT_FOUND` for every route with a param other than `:wid`; `422 VALIDATION_FAILED` on `cursor` for the cursor listings; no B id in any response |
-| Foreign bodies                  | ACTIVE OWNER of A, bodies naming B's users/rows                      | never `2xx` (and never `5xx`); no new assignment, report or membership; no row of A references a B id                                                |
-| Inactive membership             | `PENDING_APPROVAL` TEACHER, `SUSPENDED_CONSENT_REVOKED` STUDENT of A | `403 MEMBERSHIP_INACTIVE` on every route                                                                                                             |
-| Read-only states                | ACTIVE OWNER of a `SUSPENDED` / `DELETING` A                         | `423 WORKSPACE_SUSPENDED` on every write route; `200` on every read, abuse-report responses without any reporter (owner Q1)                          |
+| Scenario                        | Caller                                                       | Expected                                                                                                                                             |
+| ------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Non-member (SP1)                | a TEACHER of another organisation; a user with no membership | `404 NOT_FOUND` on every route (+ `auth.forbidden_workspace` audit)                                                                                  |
+| Foreign path params and cursors | ACTIVE OWNER of A, with B's real ids                         | `404 NOT_FOUND` for every route with a param other than `:wid`; `422 VALIDATION_FAILED` on `cursor` for the cursor listings; no B id in any response |
+| Foreign bodies                  | ACTIVE OWNER of A, bodies naming B's users/rows              | never `2xx` (and never `5xx`); no new assignment, report, membership, invitation or invite link; no row of A references a B id                       |
+| Inactive membership (consent)   | `SUSPENDED_CONSENT_REVOKED` STUDENT (minor) of A             | `403 GUARDIAN_CONSENT_REQUIRED` with `details.status` on every route                                                                                 |
+| Inactive membership (other)     | `PENDING_APPROVAL` TEACHER of A                              | `403 MEMBERSHIP_INACTIVE` with `details.status` on every route                                                                                       |
+| Read-only states                | ACTIVE OWNER of a `SUSPENDED` / `DELETING` A                 | `423 WORKSPACE_SUSPENDED` on every write route; `200` on every read, abuse-report responses without any reporter (owner Q1)                          |
 
 `apps/api/test/isolation/admin-routes.e2e-spec.ts` enumerates every `/admin/**` route: an ACTIVE
 organisation OWNER (2FA on) gets `403 PERMISSION_DENIED` (no 404 masking: the console's existence
 is public), a super-admin never gets `403` nor a `5xx`.
 
 The ids come from `apps/api/test/isolation/fixtures.ts`: `createTenantPair()` builds two
-organisations A and B with **disjoint** users and one report, assignment and audit row each, so
-an id of B exists only in B. Its tables are the review surface:
+organisations A and B with **disjoint** users and one report, assignment and audit row each (SP2:
+also a PENDING invitation, an invite link, a `PENDING_APPROVAL` student and a minor waiting for his
+guardian consent), so an id of B exists only in B. Its tables are the review surface:
 
 - `PARAMS` → `FOREIGN_PARAMS` / `LOCAL_PARAMS`: path param (`':uid'`, or `'<resource>/:id'` when
-  ambiguous; longest match wins) → the tenant's row.
-- `FOREIGN_QUERIES`: `GET` listings whose `cursor` names a row (audit log, abuse reports,
-  members). `GET …/assignments` is deliberately absent: its keyset `id > cursor` inside the
+  ambiguous, `'members/:uid/approve'` for one action; longest match wins) → the tenant's row.
+- `FOREIGN_QUERIES`: `GET` listings whose `cursor` names a row (audit log, abuse reports, members,
+  invitations). `GET …/assignments` is deliberately absent: its keyset `id > cursor` inside the
   workspace only positions the scan over A's rows.
 - `FOREIGN_BODIES`: write routes with id-bearing bodies, the body naming B's ids and whether the
   path takes A's own ids (`local`, so the body is what is probed) or B's (`foreign`).
@@ -160,6 +189,11 @@ an id of B exists only in B. Its tables are the review surface:
 
 A new route whose param, cursor or id-bearing body has no entry fails the suite with "add a …
 fixture"; add the fixture, never skip the route.
+
+The 403 code of an inactive membership depends on its status (SP2): `GUARDIAN_CONSENT_REQUIRED`
+for a minor waiting for or deprived of parental consent (`PENDING_GUARDIAN_CONSENT`,
+`SUSPENDED_NO_CONSENT`, `SUSPENDED_CONSENT_REVOKED`), and `MEMBERSHIP_INACTIVE` otherwise
+(`PENDING_APPROVAL`), both with `details.status`.
 
 `apps/api/test/isolation/exemptions.ts` lists the rare routes the suite must NOT probe (e.g. ones
 that intentionally answer for non-members). An exemption hides a route from **every** scenario

@@ -23,9 +23,18 @@ import { bindTenancy } from './tenant';
 // DB-backed seed (through the BYPASSRLS system role): ORGANIZATION workspaces A and B; user `u` is
 // a STUDENT member of both; each workspace has one teacher profile and one teacher↔student
 // assignment; `u` has an account-level TERMS consent and one RECORDING consent per workspace;
-// `admin` is a SUPER_ADMIN.
+// `admin` is a SUPER_ADMIN. SP2: each workspace also has one invitation, invite link, guardian
+// link (student `u`) and invitation import, whose secret columns end in the workspace slug.
 const url = process.env.DATABASE_URL_TEST;
-const TENANT_TABLES = ['membership', 'teacher_profile', 'teacher_student_assignment'] as const;
+const TENANT_TABLES = [
+  'membership',
+  'teacher_profile',
+  'teacher_student_assignment',
+  'invitation',
+  'invite_link',
+  'guardian_link',
+  'invitation_import',
+] as const;
 
 let A: string;
 let B: string;
@@ -37,6 +46,7 @@ let memberB: string;
 let consentTerms: string;
 let consentA: string;
 let consentB: string;
+const invitationOf: Record<string, string> = {};
 const clients: PrismaClient[] = [];
 
 function rawAppUser(query = ''): PrismaClient {
@@ -78,6 +88,57 @@ async function seed() {
     });
   A = (await ws('ws-a')).id;
   B = (await ws('ws-b')).id;
+  for (const [workspaceId, slug] of [
+    [A, 'ws-a'],
+    [B, 'ws-b'],
+  ] as const) {
+    const inv = await sys.invitation.create({
+      data: {
+        workspaceId,
+        email: 'invitee@example.com',
+        role: 'STUDENT',
+        tokenHash: `token-${slug}`,
+        expiresAt: new Date(Date.now() + 86_400_000),
+        status: 'PENDING',
+        invitedByUserId: other.id,
+        lastSentAt: new Date(),
+      },
+    });
+    invitationOf[workspaceId] = inv.id;
+    await sys.inviteLink.create({
+      data: {
+        workspaceId,
+        code: slug === 'ws-a' ? 'CODEAAAA' : 'CODEBBBB',
+        role: 'STUDENT',
+        createdByUserId: other.id,
+        requiresApproval: false,
+        maxUses: 50,
+        status: 'ACTIVE',
+      },
+    });
+    await sys.guardianLink.create({
+      data: {
+        workspaceId,
+        studentUserId: u.id,
+        guardianEmail: 'parent@example.com',
+        status: 'PENDING',
+        consentTokenHash: `consent-${slug}`,
+        sessionsViewTokenHash: `view-${slug}`,
+      },
+    });
+    await sys.invitationImport.create({
+      data: {
+        workspaceId,
+        createdByUserId: other.id,
+        fileName: 'eleves.csv',
+        status: 'QUEUED',
+        rows: [],
+        report: [],
+        totalRows: 0,
+        validRows: 0,
+      },
+    });
+  }
   for (const workspaceId of [A, B]) {
     const m = await sys.membership.create({
       data: { workspaceId, userId: u.id, role: 'STUDENT', status: 'ACTIVE' },
@@ -530,6 +591,144 @@ describe.skipIf(!url)('tenant isolation', () => {
       expect(await crossTenantDb().consent.findMany({ where: { userId: u.id } })).toHaveLength(3);
     });
 
+    it('tenantDb(A) refuses to create an invitation for B; guarded db throws TENANT_CONTEXT_MISSING on invitation.findFirst', async () => {
+      const { db, tenantDb } = t();
+      await expect(db.invitation.findFirst()).rejects.toBeInstanceOf(TenantContextMissingError);
+      await expect(db.inviteLink.count()).rejects.toMatchObject({ code: 'TENANT_CONTEXT_MISSING' });
+      await expect(db.guardianLink.findMany()).rejects.toBeInstanceOf(TenantContextMissingError);
+      await expect(db.invitationImport.findMany()).rejects.toBeInstanceOf(
+        TenantContextMissingError,
+      );
+      await expect(
+        tenantDb(A).invitation.create({
+          data: {
+            workspaceId: B,
+            email: 'x@example.com',
+            role: 'STUDENT',
+            tokenHash: 'evil',
+            expiresAt: new Date(),
+            status: 'PENDING',
+            invitedByUserId: other.id,
+            lastSentAt: new Date(),
+          },
+        }),
+      ).rejects.toBeInstanceOf(TenantMismatchError);
+      await expect(
+        tenantDb(A).invitation.update({
+          where: { id: invitationOf[A] },
+          data: { workspaceId: B },
+        }),
+      ).rejects.toBeInstanceOf(TenantMismatchError);
+      // An explicit where on B's row finds nothing from A.
+      expect(
+        await tenantDb(A).invitation.findFirst({ where: { tokenHash: 'token-ws-b' } }),
+      ).toBeNull();
+      for (const rows of [
+        await tenantDb(A).invitation.findMany(),
+        await tenantDb(A).inviteLink.findMany(),
+        await tenantDb(A).guardianLink.findMany(),
+        await tenantDb(A).invitationImport.findMany(),
+      ])
+        expect(rows.map((r) => r.workspaceId)).toEqual([A]);
+      expect(await systemPrisma().invitation.count({ where: { tokenHash: 'evil' } })).toBe(0);
+    });
+
+    it('crossTenantDb accepts a tokenHash / code / consentTokenHash lookup and refuses email or status', async () => {
+      const { crossTenantDb } = t();
+      await expect(
+        crossTenantDb().invitation.findFirst({ where: { tokenHash: 'h' } }),
+      ).resolves.toBeNull();
+      await expect(
+        crossTenantDb().inviteLink.findFirst({ where: { code: 'ABCD2345' } }),
+      ).resolves.toBeNull();
+      // A secret column resolves the row of any workspace (the public route then writes under
+      // withTenantTx(row.workspaceId)).
+      expect(
+        await crossTenantDb().invitation.findUnique({ where: { tokenHash: 'token-ws-b' } }),
+      ).toMatchObject({ workspaceId: B, id: invitationOf[B] });
+      expect(
+        await crossTenantDb().inviteLink.findUnique({ where: { code: 'CODEAAAA' } }),
+      ).toMatchObject({ workspaceId: A });
+      expect(
+        await crossTenantDb().guardianLink.findFirst({
+          where: { consentTokenHash: 'consent-ws-b' },
+        }),
+      ).toMatchObject({ workspaceId: B, studentUserId: u.id });
+      expect(
+        await crossTenantDb().guardianLink.findUnique({
+          where: { sessionsViewTokenHash: 'view-ws-a' },
+        }),
+      ).toMatchObject({ workspaceId: A });
+      // userId / id keep working on the new models.
+      expect(
+        await crossTenantDb().invitation.findUnique({ where: { id: invitationOf[A] } }),
+      ).toMatchObject({ workspaceId: A });
+
+      await expect(
+        crossTenantDb().invitation.findFirst({ where: { email: 'a@b.c' } }),
+      ).rejects.toThrow(/tokenHash/);
+      await expect(
+        crossTenantDb().invitation.findFirst({ where: { email: 'invitee@example.com' } }),
+      ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
+      await expect(
+        crossTenantDb().guardianLink.findMany({ where: { status: 'PENDING' } }),
+      ).rejects.toThrow(/consentTokenHash/);
+      await expect(
+        crossTenantDb().guardianLink.findMany({ where: { guardianEmail: 'parent@example.com' } }),
+      ).rejects.toThrow(/sessionsViewTokenHash/);
+      await expect(
+        crossTenantDb().inviteLink.findMany({ where: { status: 'ACTIVE' } }),
+      ).rejects.toThrow(/code/);
+      // Only a plain string equality on a secret column counts: no object filters, no empty value.
+      for (const where of [
+        { tokenHash: { contains: 'token' } },
+        { tokenHash: { startsWith: 'token-' } },
+        { tokenHash: { in: ['token-ws-a', 'token-ws-b'] } },
+        { tokenHash: { not: 'x' } },
+        { tokenHash: '' },
+        { OR: [{ tokenHash: 'token-ws-a' }, { email: 'invitee@example.com' }] },
+      ]) {
+        await expect(crossTenantDb().invitation.findMany({ where })).rejects.toBeInstanceOf(
+          CrossTenantFilterMissingError,
+        );
+      }
+      await expect(
+        crossTenantDb().inviteLink.findMany({ where: { code: { contains: 'CODE' } } }),
+      ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
+      // GuardianLink.studentUserId is the data subject's id: a user-scoped filter like userId
+      // (string, equals, non-empty in), on GuardianLink only.
+      expect(
+        (await crossTenantDb().guardianLink.findMany({ where: { studentUserId: u.id } }))
+          .map((l) => l.workspaceId)
+          .sort(),
+      ).toEqual([A, B].sort());
+      expect(
+        await crossTenantDb().guardianLink.count({ where: { studentUserId: { equals: u.id } } }),
+      ).toBe(2);
+      expect(
+        await crossTenantDb().guardianLink.count({ where: { studentUserId: { in: [u.id] } } }),
+      ).toBe(2);
+      for (const studentUserId of [{ not: u.id }, { in: [] }, { contains: 'x' }]) {
+        await expect(
+          crossTenantDb().guardianLink.findMany({ where: { studentUserId } as never }),
+        ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
+      }
+      await expect(
+        crossTenantDb().guardianLink.findMany({ where: { status: 'ACTIVE' } }),
+      ).rejects.toThrow(/studentUserId/);
+      await expect(
+        crossTenantDb().membership.findMany({ where: { studentUserId: u.id } as never }),
+      ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
+      // A model without lookup keys accepts only userId / id, and the message says so.
+      await expect(
+        crossTenantDb().invitationImport.findMany({ where: { workspaceId: B } }),
+      ).rejects.toThrow(/userId, id\b/);
+      // A lookup key of another model is not a lookup key here.
+      await expect(
+        crossTenantDb().membership.findMany({ where: { workspaceId: A } }),
+      ).rejects.toBeInstanceOf(CrossTenantFilterMissingError);
+    });
+
     it('crossTenantDb({ super_admin }) checks the actor, audits, and allows unfiltered reads only', async () => {
       const { crossTenantDb } = t();
       expect(() =>
@@ -693,6 +892,18 @@ describe.skipIf(!url)('tenant isolation', () => {
       await refused(c.workspace.findMany({ include: { _count: true } }));
       await refused(c.user.findUnique({ where: { id: u.id }, include: { memberships: true } }));
       await refused(c.user.findUnique({ where: { id: u.id }, select: { consents: true } }));
+      await refused(
+        c.user.findUnique({ where: { id: u.id }, include: { studentGuardianLinks: true } }),
+      );
+      await refused(
+        c.guardianLink.findFirst({
+          where: { consentTokenHash: 'consent-ws-a' },
+          include: { consent: true },
+        }),
+      );
+      await refused(
+        c.invitation.update({ where: { tokenHash: 'x' }, data: { status: 'REVOKED' } }),
+      );
     });
   });
 

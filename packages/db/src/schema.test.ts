@@ -27,8 +27,16 @@ function newWorkspace(
 }
 
 describe('TENANT_MODELS', () => {
-  it("lists SP1's tenant tables", () => {
-    expect(TENANT_MODELS).toEqual(['Membership', 'TeacherStudentAssignment', 'TeacherProfile']);
+  it("lists SP1's and SP2's tenant tables", () => {
+    expect(TENANT_MODELS).toEqual([
+      'Membership',
+      'TeacherStudentAssignment',
+      'TeacherProfile',
+      'Invitation',
+      'InviteLink',
+      'GuardianLink',
+      'InvitationImport',
+    ]);
   });
 });
 
@@ -117,6 +125,16 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('identity schema', () => {
       expect.objectContaining({
         table_name: 'abuse_report',
         column_name: 'attachments',
+        is_nullable: 'NO',
+      }),
+      expect.objectContaining({
+        table_name: 'invitation',
+        column_name: 'course_ids',
+        is_nullable: 'NO',
+      }),
+      expect.objectContaining({
+        table_name: 'invite_link',
+        column_name: 'course_ids',
         is_nullable: 'NO',
       }),
       expect.objectContaining({
@@ -253,6 +271,241 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('identity schema', () => {
     const profile = await db.teacherProfile.create({ data: p });
     expect(profile.subjects).toEqual([]);
     await expect(db.teacherProfile.create({ data: p })).rejects.toMatchObject(P2002);
+  });
+
+  it('one PENDING invitation per (workspace, email); ACCEPTED/REVOKED rows do not collide', async () => {
+    const db = systemPrisma();
+    const owner = await newUser('inv-owner@example.com');
+    const w = await newWorkspace(owner.id, 'ws-inv1');
+    const w2 = await newWorkspace(owner.id, 'org-inv2', 'ORGANIZATION');
+    let n = 0;
+    const invite = (
+      workspaceId: string,
+      email: string,
+      status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED' = 'PENDING',
+    ) =>
+      db.invitation.create({
+        data: {
+          workspaceId,
+          email,
+          role: 'STUDENT',
+          tokenHash: `hash-${++n}`,
+          expiresAt: new Date(Date.now() + 7 * 86_400_000),
+          status,
+          invitedByUserId: owner.id,
+          lastSentAt: new Date(),
+        },
+      });
+
+    const first = await invite(w.id, 'eleve@example.com');
+    expect(first).toMatchObject({
+      courseIds: [],
+      resentCount: 0,
+      teacherUserId: null,
+      acceptedByUserId: null,
+      birthDate: null,
+    });
+    await expect(invite(w.id, 'eleve@example.com')).rejects.toMatchObject({
+      ...P2002,
+      meta: { target: ['workspace_id', 'email'] },
+    });
+    // citext: case variants of the same address collide.
+    await expect(invite(w.id, 'Eleve@Example.COM')).rejects.toMatchObject(P2002);
+    // Non-PENDING rows of the same address do not.
+    for (const status of ['ACCEPTED', 'REVOKED', 'EXPIRED'] as const)
+      await expect(invite(w.id, 'eleve@example.com', status)).resolves.toBeDefined();
+    // Another workspace has its own PENDING invitation.
+    await expect(invite(w2.id, 'eleve@example.com')).resolves.toBeDefined();
+    // Once the first is revoked, a new PENDING one may be created.
+    await db.invitation.update({ where: { id: first.id }, data: { status: 'REVOKED' } });
+    await expect(invite(w.id, 'ELEVE@example.com')).resolves.toBeDefined();
+    // tokenHash is unique on its own.
+    await expect(
+      db.invitation.create({
+        data: {
+          workspaceId: w.id,
+          email: 'other@example.com',
+          role: 'STUDENT',
+          tokenHash: 'hash-1',
+          expiresAt: new Date(),
+          status: 'REVOKED',
+          invitedByUserId: owner.id,
+          lastSentAt: new Date(),
+        },
+      }),
+    ).rejects.toMatchObject({ ...P2002, meta: { target: ['token_hash'] } });
+    const index = await db.$queryRaw<{ indexdef: string }[]>`
+      SELECT indexdef FROM pg_indexes WHERE indexname = 'invitation_pending_per_email_key'`;
+    expect(index).toHaveLength(1);
+    expect(index[0]?.indexdef).toMatch(/WHERE \(status = 'PENDING'/);
+  });
+
+  it('GuardianLink is unique per (student, workspace) and GuardianLinkStatus has REFUSED', async () => {
+    const db = systemPrisma();
+    const owner = await newUser('gl-owner@example.com');
+    const student = await newUser('gl-student@example.com');
+    const w = await newWorkspace(owner.id, 'ws-gl1');
+    const w2 = await newWorkspace(owner.id, 'org-gl2', 'ORGANIZATION');
+    const link = (workspaceId: string, status: 'PENDING' | 'REFUSED' = 'PENDING') =>
+      db.guardianLink.create({
+        data: {
+          workspaceId,
+          studentUserId: student.id,
+          guardianEmail: 'Parent@Example.com',
+          status,
+        },
+      });
+    const first = await link(w.id);
+    expect(first).toMatchObject({
+      guardianUserId: null,
+      consentId: null,
+      consentTokenHash: null,
+      sessionsViewTokenHash: null,
+      consentResentCount: 0,
+      relationship: null,
+    });
+    await expect(link(w.id, 'REFUSED')).rejects.toMatchObject(P2002);
+    const refused = await link(w2.id, 'REFUSED');
+    expect(refused.status).toBe('REFUSED');
+    // Secret columns are unique.
+    await db.guardianLink.update({
+      where: { id: first.id },
+      data: { consentTokenHash: 'c1', sessionsViewTokenHash: 's1', relationship: 'PARENT' },
+    });
+    await expect(
+      db.guardianLink.update({ where: { id: refused.id }, data: { consentTokenHash: 'c1' } }),
+    ).rejects.toMatchObject(P2002);
+    await expect(
+      db.guardianLink.update({ where: { id: refused.id }, data: { sessionsViewTokenHash: 's1' } }),
+    ).rejects.toMatchObject(P2002);
+    // The link points at the guardian's Consent row once granted.
+    const consent = await db.consent.create({
+      data: {
+        userId: student.id,
+        workspaceId: w.id,
+        type: 'GUARDIAN_PARENTAL',
+        version: 'guardian-2026-10',
+        granted: true,
+        grantedAt: new Date(),
+        grantedByEmail: 'parent@example.com',
+        ip: '127.0.0.1',
+        userAgent: 'vitest',
+      },
+    });
+    const linked = await db.guardianLink.update({
+      where: { id: first.id },
+      data: { consentId: consent.id, status: 'ACTIVE' },
+      include: { consent: true },
+    });
+    expect(linked.consent?.id).toBe(consent.id);
+  });
+
+  it('InviteLink.code is unique; InvitationImport defaults (processedRows 0, status QUEUED)', async () => {
+    const db = systemPrisma();
+    const owner = await newUser('il-owner@example.com');
+    const w = await newWorkspace(owner.id, 'ws-il1');
+    const code = {
+      workspaceId: w.id,
+      code: 'ABCD2345',
+      role: 'STUDENT',
+      createdByUserId: owner.id,
+      requiresApproval: false,
+      maxUses: 50,
+      status: 'ACTIVE',
+    } as const;
+    const created = await db.inviteLink.create({ data: code });
+    expect(created).toMatchObject({
+      usesCount: 0,
+      courseIds: [],
+      expiresAt: null,
+      label: null,
+      teacherUserId: null,
+    });
+    await expect(db.inviteLink.create({ data: code })).rejects.toMatchObject({
+      ...P2002,
+      meta: { target: ['code'] },
+    });
+
+    const imp = await db.invitationImport.create({
+      data: {
+        workspaceId: w.id,
+        createdByUserId: owner.id,
+        fileName: 'eleves.csv',
+        status: 'QUEUED',
+        rows: [{ line: 2, email: 'a@example.com', courseCodes: [] }],
+        report: [],
+        totalRows: 1,
+        validRows: 1,
+      },
+    });
+    expect(imp).toMatchObject({
+      status: 'QUEUED',
+      processedRows: 0,
+      createdCount: 0,
+      failedCount: 0,
+      error: null,
+      startedAt: null,
+      finishedAt: null,
+    });
+  });
+
+  it('deleting a workspace cascades to its invitations, invite links, guardian links and imports', async () => {
+    const db = systemPrisma();
+    const owner = await newUser('cascade@example.com');
+    const student = await newUser('cascade-s@example.com');
+    const w = await newWorkspace(owner.id, 'ws-cascade');
+    await db.invitation.create({
+      data: {
+        workspaceId: w.id,
+        email: 'x@example.com',
+        role: 'STUDENT',
+        tokenHash: 'cascade',
+        expiresAt: new Date(),
+        status: 'PENDING',
+        invitedByUserId: owner.id,
+        lastSentAt: new Date(),
+      },
+    });
+    await db.inviteLink.create({
+      data: {
+        workspaceId: w.id,
+        code: 'CASCADE2',
+        role: 'STUDENT',
+        createdByUserId: owner.id,
+        requiresApproval: true,
+        maxUses: 1,
+        status: 'ACTIVE',
+      },
+    });
+    await db.guardianLink.create({
+      data: {
+        workspaceId: w.id,
+        studentUserId: student.id,
+        guardianEmail: 'p@example.com',
+        status: 'PENDING',
+      },
+    });
+    await db.invitationImport.create({
+      data: {
+        workspaceId: w.id,
+        createdByUserId: owner.id,
+        fileName: 'f.csv',
+        status: 'QUEUED',
+        rows: [],
+        report: [],
+        totalRows: 0,
+        validRows: 0,
+      },
+    });
+    await db.workspace.delete({ where: { id: w.id } });
+    expect(
+      await Promise.all([
+        db.invitation.count(),
+        db.inviteLink.count(),
+        db.guardianLink.count(),
+        db.invitationImport.count(),
+      ]),
+    ).toEqual([0, 0, 0, 0]);
   });
 
   it('workspace defaults: ACTIVE, allowPersonalWorkspaces true, storageUsedBytes 0', async () => {
