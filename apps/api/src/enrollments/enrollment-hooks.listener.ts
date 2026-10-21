@@ -7,9 +7,11 @@ import {
   INVITATION_ACCEPTED,
   INVITE_LINK_JOINED,
   MEMBERSHIP_DEACTIVATED,
+  MEMBERSHIP_REMOVED,
   type InvitationAcceptedEvent,
   type InviteLinkJoinedEvent,
   type MembershipDeactivatedEvent,
+  type MembershipRemovedEvent,
 } from '../members/events';
 import { EnrollmentsService } from './enrollments.service';
 
@@ -17,6 +19,9 @@ const errType = (err: unknown) => ({ type: err instanceof Error ? err.name : typ
 
 /** Revocation reason of the enrollments of a membership rejected in the approval queue. */
 export const MEMBERSHIP_REJECTED_REASON = 'MEMBERSHIP_REJECTED';
+
+/** Revocation reason of the enrollments of a member removed from the workspace (PRD §8.3.6). */
+export const MEMBERSHIP_REMOVED_REASON = 'MEMBERSHIP_REMOVED';
 
 /**
  * SP2 → SP3 hooks (spec §4.5): an accepted email invitation and a join through a group invite
@@ -98,6 +103,28 @@ export class EnrollmentHooksListener {
       this.logger.error(
         { workspace_id: event.workspaceId, userId: event.userId, err: errType(err) },
         'rejection enrollment hook failed',
+      );
+    }
+  }
+
+  /**
+   * A member removed from the workspace (PRD §8.3.6: « l'étudiant ne voit plus l'espace ») loses
+   * his ACTIVE enrollments there (`REVOKED`, reason `MEMBERSHIP_REMOVED`, progress kept, audited
+   * as `SYSTEM`), so they no longer block the course's deletion (AC-CRS-05). A re-invitation
+   * with `courseIds`, or a manual re-assignment, makes them ACTIVE again.
+   */
+  @OnEvent(MEMBERSHIP_REMOVED, { async: true })
+  async onMembershipRemoved(event: MembershipRemovedEvent): Promise<void> {
+    try {
+      await this.enrollments.revokeAllOf(
+        event.workspaceId,
+        event.userId,
+        MEMBERSHIP_REMOVED_REASON,
+      );
+    } catch (err) {
+      this.logger.error(
+        { workspace_id: event.workspaceId, userId: event.userId, err: errType(err) },
+        'removal enrollment hook failed',
       );
     }
   }

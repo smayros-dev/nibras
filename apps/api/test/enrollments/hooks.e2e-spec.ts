@@ -7,6 +7,7 @@ import { INVITE_LINK_JOINED, type InviteLinkJoinedEvent } from '../../src/member
 import { createTestApp, type TestAgent, type TestContext } from '../helpers/app';
 import { as, loginAs } from '../helpers/auth';
 import {
+  addMember,
   adultBirthDate,
   createCourse,
   createEnrollment,
@@ -249,6 +250,35 @@ describe('enrollment hooks: invitation and invite-link courseIds (SP3 T9)', () =
       'revocation audit',
     );
     expect(audit).toMatchObject({ workspaceId: workspace.id, actorRole: 'SYSTEM' });
+  });
+
+  it('a student removed from the workspace loses his ACTIVE enrollments (MEMBERSHIP_REMOVED, SYSTEM audit, progress kept), so the archived course can be deleted', async () => {
+    const { teacher, workspace } = await personal();
+    const archived = await createCourse(workspace, teacher, { status: 'ARCHIVED' });
+    const published = await createCourse(workspace, teacher, { status: 'PUBLISHED' });
+    const sara = await createUser({ birthDate: adultBirthDate() });
+    await addMember(workspace, sara, 'STUDENT');
+    const a = await createEnrollment(archived, sara, { progressPercent: 40 });
+    const p = await createEnrollment(published, sara);
+    const t = await agent(teacher);
+    const courseUrl = `/api/v1/workspaces/${workspace.id}/courses/${archived.id}`;
+    await t.delete(courseUrl).expect(409);
+
+    await t.delete(`/api/v1/workspaces/${workspace.id}/members/${sara.id}`).expect(204);
+    const rows = await eventually(async () => {
+      const r = await enrollmentsOf(sara.id);
+      return r.every((e) => e.status === 'REVOKED') ? r : null;
+    }, 'removal revokes');
+    expect(rows.map((r) => r.id).sort()).toEqual([a.id, p.id].sort());
+    for (const r of rows) expect(r.revokedReason).toBe('MEMBERSHIP_REMOVED');
+    expect(rows.find((r) => r.id === a.id)!.progressPercent).toBe(40);
+    const audit = await eventually(
+      () => db.auditLog.findFirst({ where: { action: 'enrollment.revoked', entityId: a.id } }),
+      'revocation audit',
+    );
+    expect(audit).toMatchObject({ workspaceId: workspace.id, actorRole: 'SYSTEM' });
+
+    await t.delete(courseUrl).expect(204);
   });
 
   it('a hook never touches an enrollment that is already ACTIVE and never fails the request', async () => {
