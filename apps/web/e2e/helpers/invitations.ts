@@ -1,6 +1,7 @@
+import { CONSENT_VERSIONS, type CurrentConsentType } from '@nibras/contracts';
 import { messages } from '@nibras/i18n';
 import { request as playwrightRequest, type APIRequestContext, type Page } from '@playwright/test';
-import { apiLogin, expect, t } from '../helpers';
+import { apiLogin, expect, t, TEST_CONSENT_TERMS_VERSION } from '../helpers';
 import { extractLink, waitForEmail } from './mailpit';
 import { seedUser, type SeededUser } from './seed';
 
@@ -76,4 +77,59 @@ export async function acceptConsentGate(page: Page, locale: string) {
   await expect(gate).toBeVisible({ timeout: 15_000 });
   await gate.getByRole('button', { name: t(locale, 'auth.consent.accept') }).click();
   await expect(gate).toBeHidden();
+}
+
+const MINOR_PASSWORD = 'un mot de passe assez long';
+
+/**
+ * The minor registers from the invitation through the API on `ctx` (a page's `request`: the
+ * browser is then signed in as him) and accepts the pending consents, so the app opens directly.
+ */
+export async function registerMinorByApi(
+  ctx: APIRequestContext,
+  token: string,
+  locale: string,
+  guardianEmail: string,
+): Promise<void> {
+  const res = await ctx.post(`/api/v1/invitations/${token}/accept`, {
+    data: {
+      mode: 'REGISTER',
+      firstName: 'Amina',
+      lastName: 'Trabelsi',
+      password: MINOR_PASSWORD,
+      locale,
+      timezone: 'Africa/Tunis',
+      birthDate: yearsAgo(15),
+      guardianEmail,
+      acceptTerms: true,
+      acceptPrivacy: true,
+    },
+  });
+  if (res.status() !== 201) throw new Error(`accept ${res.status()}: ${await res.text()}`);
+  const me = await ctx.get('/api/v1/me');
+  const { pendingConsents } = (await me.json()) as { pendingConsents: CurrentConsentType[] };
+  for (const type of pendingConsents) {
+    const consent = await ctx.post(`/api/v1/me/consents/${type}`, {
+      data: {
+        version: type === 'TERMS' ? TEST_CONSENT_TERMS_VERSION : CONSENT_VERSIONS[type],
+      },
+    });
+    if (consent.status() !== 201) throw new Error(`consent ${type} ${consent.status()}`);
+  }
+}
+
+/** Grants through the API as the guardian; returns the guardian-page token. */
+export async function grantByApi(ctx: APIRequestContext, consentToken: string): Promise<string> {
+  const res = await ctx.post(`/api/v1/guardian-consent/${consentToken}`, {
+    data: {
+      decision: 'GRANT',
+      guardianFirstName: 'Karim',
+      guardianLastName: 'Trabelsi',
+      relationship: 'PARENT',
+      acceptNotice: true,
+    },
+  });
+  if (res.status() !== 200) throw new Error(`grant ${res.status()}: ${await res.text()}`);
+  const { guardianPageUrl } = (await res.json()) as { guardianPageUrl: string };
+  return new URL(guardianPageUrl).pathname.split('/').pop()!;
 }

@@ -1,12 +1,13 @@
-import { CONSENT_VERSIONS, type CurrentConsentType } from '@nibras/contracts';
-import type { APIRequestContext, Browser, Page } from '@playwright/test';
-import { appUrl, expect, t, test, TEST_CONSENT_TERMS_VERSION, uniqueEmail } from './helpers';
+import type { Browser, Page } from '@playwright/test';
+import { appUrl, expect, t, test, uniqueEmail } from './helpers';
 import {
   acceptConsentGate,
   fill,
+  grantByApi,
   inviteStudent,
   masked,
   RAW_KEY,
+  registerMinorByApi,
   seedTeacher,
   tokenFromEmail,
   yearsAgo,
@@ -29,59 +30,6 @@ const STUDENT = 'Amina Trabelsi';
 async function guardianPage(browser: Browser): Promise<Page> {
   const context = await browser.newContext({ baseURL: BASE });
   return context.newPage();
-}
-
-/**
- * The minor registers from the invitation through the API on the page's own cookie jar (the
- * browser is then signed in as him) and accepts the pending consents, so the app opens directly.
- */
-async function registerMinorByApi(
-  page: Page,
-  token: string,
-  locale: string,
-  guardianEmail: string,
-): Promise<void> {
-  const res = await page.request.post(`/api/v1/invitations/${token}/accept`, {
-    data: {
-      mode: 'REGISTER',
-      firstName: 'Amina',
-      lastName: 'Trabelsi',
-      password: PASSWORD,
-      locale,
-      timezone: 'Africa/Tunis',
-      birthDate: yearsAgo(15),
-      guardianEmail,
-      acceptTerms: true,
-      acceptPrivacy: true,
-    },
-  });
-  if (res.status() !== 201) throw new Error(`accept ${res.status()}: ${await res.text()}`);
-  const me = await page.request.get('/api/v1/me');
-  const { pendingConsents } = (await me.json()) as { pendingConsents: CurrentConsentType[] };
-  for (const type of pendingConsents) {
-    const consent = await page.request.post(`/api/v1/me/consents/${type}`, {
-      data: {
-        version: type === 'TERMS' ? TEST_CONSENT_TERMS_VERSION : CONSENT_VERSIONS[type],
-      },
-    });
-    if (consent.status() !== 201) throw new Error(`consent ${type} ${consent.status()}`);
-  }
-}
-
-/** Grants through the API as the guardian; returns the guardian-page token. */
-async function grantByApi(ctx: APIRequestContext, consentToken: string): Promise<string> {
-  const res = await ctx.post(`/api/v1/guardian-consent/${consentToken}`, {
-    data: {
-      decision: 'GRANT',
-      guardianFirstName: 'Karim',
-      guardianLastName: 'Trabelsi',
-      relationship: 'PARENT',
-      acceptNotice: true,
-    },
-  });
-  if (res.status() !== 200) throw new Error(`grant ${res.status()}: ${await res.text()}`);
-  const { guardianPageUrl } = (await res.json()) as { guardianPageUrl: string };
-  return new URL(guardianPageUrl).pathname.split('/').pop()!;
 }
 
 /** Fills the guardian identity fields and checks « J'autorise … ». */
@@ -214,7 +162,7 @@ test.describe('guardian (SP2 plan Task 12)', () => {
     try {
       const guardianEmail = uniqueEmail();
       const token = await inviteStudent(teacher, uniqueEmail());
-      await registerMinorByApi(page, token, locale, guardianEmail);
+      await registerMinorByApi(page.request, token, locale, guardianEmail);
       const request = await waitForEmail(guardianEmail, '/guardian-consent/');
       const pageToken = await grantByApi(
         guardian.request,
@@ -281,7 +229,7 @@ test.describe('guardian (SP2 plan Task 12)', () => {
       expect(patched.status()).toBe(200);
       const guardianEmail = uniqueEmail();
       const token = await inviteStudent(teacher, uniqueEmail());
-      await registerMinorByApi(page, token, 'ar', guardianEmail);
+      await registerMinorByApi(page.request, token, 'ar', guardianEmail);
 
       const request = await waitForEmail(guardianEmail, '/guardian-consent/');
       expect(request.subject).toMatch(/[؀-ۿ]/);

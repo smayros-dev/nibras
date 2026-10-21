@@ -270,6 +270,9 @@ describe('StudentsPanel', () => {
     expect(
       screen.queryByRole('button', { name: tr('fr', 'students.invite') }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: tr('fr', 'students.importCsv') }),
+    ).not.toBeInTheDocument();
     const { menu } = await openRowMenu('Omar');
     expect(
       within(menu).queryByRole('menuitem', { name: tr('fr', 'students.approve') }),
@@ -287,5 +290,15 @@ describe('StudentsPanel', () => {
     expect(
       await screen.findByRole('heading', { name: tr('fr', 'inviteLinks.title') }),
     ).toBeVisible();
+  });
+
+  it('Importer CSV is enabled and opens the import dialog, loaded on demand', async () => {
+    renderPanel();
+    const ue = userEvent.setup();
+    const button = await screen.findByRole('button', { name: tr('fr', 'students.importCsv') });
+    expect(button).toBeEnabled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await ue.click(button);
+    expect(await screen.findByRole('dialog', { name: tr('fr', 'imports.title') })).toBeVisible();
   });
 });

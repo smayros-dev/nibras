@@ -40,7 +40,7 @@ import {
   X,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useRouter } from '../i18n/navigation';
 import { api, asApiResult } from '../lib/api';
 import { apiErrorMessage } from '../lib/api-error';
@@ -51,6 +51,14 @@ import { InvitationsList, retryAfterMinutes, useOpenInvitations } from './invita
 import { InviteLinkCard } from './invite-link-card';
 import { InviteStudentDialog } from './invite-student-dialog';
 import { ReportAbuseButton } from './report-abuse-button';
+
+/**
+ * Loaded on the first click of « Importer CSV »: the dialog (preview table, progress polling) is
+ * kept out of the route's first-load JS (PRD §14.1 budget).
+ */
+const CsvImportDialog = lazy(() =>
+  import('./csv-import-dialog').then((m) => ({ default: m.CsvImportDialog })),
+);
 
 export type StudentsTab = 'all' | 'pending';
 
@@ -79,7 +87,8 @@ const fullName = (s: Pick<StudentSummary, 'firstName' | 'lastName'>) =>
 
 /**
  * The students page (PRD §9.1, §8.3; AC-INV-01/04/05/08 UI): « Mes étudiants ({n}) » with
- * **+ Inviter** (`InviteStudentDialog`), **Importer CSV** (T15) and **Lien de groupe**
+ * **+ Inviter** (`InviteStudentDialog`), **Importer CSV** (`CsvImportDialog`, loaded on demand) and
+ * **Lien de groupe**
  * (`InviteLinkCard`); tabs **Tous** (the active students) and **En attente** (students waiting on
  * approval or on their guardian, then the open email invitations — `InvitationsList`); the tab is
  * kept in `?tab=`. Both lists load through `useAbortableQuery` with the debounced search. Row menus
@@ -117,6 +126,8 @@ export function StudentsPanel({
   const q = query.trim();
   const [showLinks, setShowLinks] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  /** `null` until first opened: the dialog's chunk is fetched then, not with the page. */
+  const [importOpen, setImportOpen] = useState<boolean | null>(null);
   const [removeTarget, setRemoveTarget] = useState<StudentSummary | null>(null);
   const [reportTarget, setReportTarget] = useState<StudentSummary | null>(null);
   const returnFocus = useReturnFocus();
@@ -386,8 +397,13 @@ export function StudentsPanel({
             <div className="flex flex-wrap gap-2">
               {canInvite ? inviteButton : null}
               {canInvite ? (
-                // CSV import arrives with T15.
-                <Button variant="secondary" disabled title={t('students.importSoon')}>
+                <Button
+                  variant="secondary"
+                  onClick={(event) => {
+                    returnFocus.remember(event.currentTarget);
+                    setImportOpen(true);
+                  }}
+                >
                   <Upload aria-hidden="true" className="size-4" />
                   {t('students.importCsv')}
                 </Button>
@@ -508,6 +524,18 @@ export function StudentsPanel({
           onInvited={reloadAll}
           onCloseAutoFocus={returnFocus.onCloseAutoFocus}
         />
+      ) : null}
+
+      {canInvite && importOpen !== null ? (
+        <Suspense fallback={null}>
+          <CsvImportDialog
+            wid={wid}
+            open={importOpen}
+            onOpenChange={setImportOpen}
+            onDone={reloadAll}
+            onCloseAutoFocus={returnFocus.onCloseAutoFocus}
+          />
+        </Suspense>
       ) : null}
 
       <AlertDialog.Root
