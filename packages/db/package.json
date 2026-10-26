@@ -44,7 +44,7 @@
     "@nibras/config": "workspace:*",
     "@nibras/contracts": "workspace:*",
     "@nibras/providers": "workspace:*",
-    "@types/node": "^24.19.2",
+    "@types/node": "^26.6.5",
     "argon2": "0.44.0",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.5",

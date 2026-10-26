@@ -30,7 +30,7 @@
     "@nestjs/testing": "^11.2.7",
     "@nibras/config": "workspace:*",
     "@swc/core": "^1.16.13",
-    "@types/node": "^24.19.2",
+    "@types/node": "^26.6.5",
     "eslint": "^9.39.5",
     "typescript": "~5.9.3",
     "unplugin-swc": "^1.6.0",
