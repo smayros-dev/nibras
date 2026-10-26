@@ -34,7 +34,7 @@
   "devDependencies": {
     "@nibras/config": "workspace:*",
     "eslint": "^9.39.5",
-    "tsup": "^8.5.1",
+    "tsup": "^9.0.0",
     "typescript": "~5.9.3",
     "vitest": "^3.2.7"
   }
